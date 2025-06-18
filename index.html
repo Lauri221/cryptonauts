@@ -1,0 +1,63 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cryptonauts Combat Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="combat-screen">
+    <div id="battle-header">
+      <h1>Crypt Combat Test</h1>
+    </div>
+
+    <div id="battle-area">
+      <div id="battle-scene">
+        <div id="backdrop" class="combat-bg"></div>
+        
+        <div id="character-portraits">
+          <!-- flex-column on left -->
+          <div id="player-portrait" class="portrait">
+            <img src="assets/img/ally_portrait/player.png" alt="Player">
+            <div class="stats">
+              <div>HP: <span id="player-hp"></span></div>
+              <div>Sanity: <span id="player-sanity"></span></div>
+            </div>
+          </div>
+          <div id="ally-portrait" class="portrait">
+            <img src="assets/img/ally_portrait/ally_1.png" alt="Ally">
+            <div class="stats">
+              <div>HP: <span id="ally-hp"></span></div>
+              <div>Sanity: <span id="ally-sanity"></span></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="enemy-area">
+          <!-- flex-column on right -->
+          <div id="enemy-portrait" class="portrait enemy">
+            <img src="assets/img/enemy_portrait/priestess.png" alt="Enemy">
+            <div class="stats">
+              <div>HP: <span id="enemy-hp"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action buttons -->
+      <div id="actions">
+        <button onclick="chooseAction('attack')">Attack</button>
+        <button onclick="chooseAction('defend')">Defend</button>
+        <button onclick="chooseAction('element')">Element</button>
+        <button onclick="chooseAction('item')">Item</button>
+      </div>
+      
+      <!-- Combat log -->
+      <div id="combat-log"></div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

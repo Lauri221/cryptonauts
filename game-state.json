@@ -1,0 +1,30 @@
+{
+  "player": {
+    "hp": 50,
+    "sanity": 40,
+    "alive": true
+  },
+  "ally": {
+    "hp": 30,
+    "sanity": 25,
+    "alive": true
+  },
+  "encounters": [
+    {
+      "id": "cultist_attack",
+      "backdrop": "combat",
+      "enemies": [
+        { "type": "cultist", "hp": 30, "alive": true }
+      ]
+    },
+    {
+      "id": "temple_entrance",
+      "backdrop": "forest",
+      "enemies": [
+        { "type": "priestess", "hp": 45, "alive": true },
+        { "type": "cultist", "hp": 30, "alive": true }
+      ]
+    }
+  ],
+  "currentEncounter": 0
+}
