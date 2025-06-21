@@ -1,0 +1,7 @@
+{
+  "name": "Cryptonaut",
+  "hp": 50,
+  "sanity": 40,
+  "moves": ["attack", "defend", "element", "item"],
+  "init": 12
+}

@@ -1,0 +1,36 @@
+{
+  "enemies": [
+    {
+      "id": "priestess",
+      "name": "Priestess",
+      "hp": 10,
+      "attackPower": 10,
+      "sanityDamage": 5,
+      "init": 8     
+    },
+    {
+      "id": "mossleech",
+      "name": "Moss Leech",
+      "hp": 40,
+      "attackPower": 6,
+      "sanityDamage": 8,
+      "init": 7
+    },
+    {
+      "id": "cultist",
+      "name": "Cultist",
+      "hp": 30,
+      "attackPower": 4,
+      "sanityDamage": 3,
+      "init": 6
+    },
+    {
+      "id": "shadow_wraith",
+      "name": "Shadow Wraith",
+      "hp": 50,
+      "attackPower": 12,
+      "sanityDamage": 10,
+      "init": 7
+    }
+  ]
+}

@@ -3,58 +3,68 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Cryptonauts Combat Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptonauts Combat</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="combat-screen">
+    <!-- Simplified title area -->
     <div id="battle-header">
-      <h1>Crypt Combat Test</h1>
+      <h1 id="encounter-title">Loading encounter...</h1>
     </div>
 
     <div id="battle-area">
+      <!-- Background image -->
+      <div id="backdrop" class="combat-bg"></div>
+      
       <div id="battle-scene">
-        <div id="backdrop" class="combat-bg"></div>
-        
+        <!-- Left side - Player and ally characters side by side -->
         <div id="character-portraits">
-          <!-- flex-column on left -->
           <div id="player-portrait" class="portrait">
             <img src="assets/img/ally_portrait/player.png" alt="Player">
             <div class="stats">
+              <div class="character-name"><span id="player-name"></span></div>
               <div>HP: <span id="player-hp"></span></div>
               <div>Sanity: <span id="player-sanity"></span></div>
             </div>
           </div>
+          
           <div id="ally-portrait" class="portrait">
             <img src="assets/img/ally_portrait/ally_1.png" alt="Ally">
             <div class="stats">
+              <div class="character-name"><span id="companion-name"></span></div>
               <div>HP: <span id="ally-hp"></span></div>
               <div>Sanity: <span id="ally-sanity"></span></div>
             </div>
           </div>
         </div>
         
+        <!-- Right side - Enemy characters side by side -->
         <div id="enemy-area">
-          <!-- flex-column on right -->
-          <div id="enemy-portrait" class="portrait enemy">
-            <img src="assets/img/enemy_portrait/priestess.png" alt="Enemy">
-            <div class="stats">
-              <div>HP: <span id="enemy-hp"></span></div>
-            </div>
-          </div>
+          <!-- Enemy portraits will be generated dynamically -->
         </div>
       </div>
       
-      <!-- Action buttons -->
-      <div id="actions">
-        <button onclick="chooseAction('attack')">Attack</button>
-        <button onclick="chooseAction('defend')">Defend</button>
-        <button onclick="chooseAction('element')">Element</button>
-        <button onclick="chooseAction('item')">Item</button>
+      <!-- Fixed bottom UI section -->
+      <div id="bottom-ui">
+        <div id="actions">
+          <button onclick="chooseAction('attack')">Attack</button>
+          <button onclick="chooseAction('defend')">Defend</button>
+          <button onclick="chooseAction('element')">Element</button>
+          <button onclick="chooseAction('item')">Item</button>
+        </div>
+        
+        <div id="combat-log"></div>
       </div>
-      
-      <!-- Combat log -->
-      <div id="combat-log"></div>
+    </div>
+
+    <div id="victory-screen" class="overlay-screen">
+      <div class="overlay-content">
+        <h2>Encounter Won!</h2>
+        <p>You've successfully defeated all enemies!</p>
+        <button id="continue-btn" onclick="exitCombat()">Continue</button>
+      </div>
     </div>
   </div>
 

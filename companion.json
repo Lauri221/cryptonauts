@@ -1,0 +1,8 @@
+{
+  "name": "Lydia",
+  "hp": 30,
+  "sanity": 50,
+  "support_power": 8,
+  "init": 10,
+  "ability": "Stunning Bash"
+}

@@ -1,0 +1,14 @@
+{
+  "encounter_id": "temple_entrance",
+  "encounter_name": "Temple Entrance Ambush",
+  "background": "./assets/img/environment/dungeon1.png",
+  "enemies": [
+    { "id": "priestess", "position": 1 },
+    { "id": "priestess", "position": 2 },
+    { "id": "cultist", "position": 3 }
+  ],
+  "loot": {
+    "gold": 50,
+    "items": ["healing_potion", "sanity_tonic"]
+  }
+}

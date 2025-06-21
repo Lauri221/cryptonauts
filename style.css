@@ -3,25 +3,44 @@ body {
   background-color: #111;
   color: #f0f0f0;
   text-align: center;
-}
-
-/* Main battle container */
-#battle-area {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin: 20px;
-}
-
-/* Background image layout */
-#battle-scene {
-  position: relative;
-  width: 100%;
-  height: 70vh;
   overflow: hidden;
-  margin-bottom: 20px;
 }
 
+/* Main layout containers */
+#combat-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+}
+
+/* Semi-transparent header */
+#battle-header {
+  padding: 5px 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+#encounter-title {
+  margin: 5px 0;
+  font-size: clamp(16px, 3vmin, 24px);
+}
+
+/* Main battle area with fixed proportions */
+#battle-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background image */
 #backdrop {
   position: absolute;
   width: 100%;
@@ -31,70 +50,105 @@ body {
   z-index: 1;
 }
 
-/* Background variants */
-.forest-bg {
-  background-image: url('assets\img\environment\dungeon1.png');
+/* Battle scene - top portion */
+#battle-scene {
+  height: 70vh; /* Fixed proportion of viewport */
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  z-index: 2;
 }
 
-.combat-bg {
-  background-image: url('assets\img\environment\dungeon2.png');
-}
-
-/* Character positioning */
+/* Character positioning - side by side */
 #character-portraits {
   display: flex;
-  flex-direction: column;   /* vertical */
-  position: absolute;
-  top: 20px;                /* pin to top-left */
-  left: 20px;
+  flex-direction: row; /* Changed to row for side-by-side */
+  justify-content: flex-start;
+  align-items: center;
+  padding: 2vmin;
+  gap: 1vw;
+  width: 40%;
   z-index: 2;
-  gap: 20px;
 }
 
 #enemy-area {
   display: flex;
-  flex-direction: column;   /* vertical */
-  position: absolute;
-  top: 20px;                /* pin to top-right */
-  right: 20px;
+  flex-direction: row; /* Changed to row for side-by-side */
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  width: 40%;
   z-index: 2;
 }
 
-/* Character card styling */
+/* Character card styling - smaller size */
 .portrait {
   background-color: rgba(0, 0, 0, 0.7);
   border-radius: 10px;
-  padding: 10px;
+  padding: 1vmin;
   color: white;
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1;
+  max-width: 150px; /* Smaller max width */
+  transition: all 0.3s ease;
 }
 
 .portrait img {
-  width: 120px;
-  height: 150px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1/1; /* More square ratio */
   object-fit: cover;
   border: 2px solid #ffcc00;
   border-radius: 5px;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
 
 .enemy {
   background-color: rgba(150, 0, 0, 0.7);
+  border: 2px solid #000000;
 }
 
-/* Stats display */
+.portrait.enemy {
+  flex: 1;
+  max-width: 120px;
+}
+
+/* Stats display - smaller font */
 .stats {
-  margin-top: 5px;
-  font-size: 14px;
+  width: 100%;
+  margin-top: 3px;
+  font-size: clamp(10px, 1.2vmin, 14px);
+}
+
+/* Bottom area for actions and log - fixed height */
+#bottom-ui {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 30vh; /* Fixed proportion of viewport */
+  padding: 5px 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 3;
 }
 
 /* Action buttons */
+#actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 5px 0;
+  width: 90%;
+}
+
 button {
-  margin: 5px;
-  padding: 10px;
-  font-size: 16px;
+  padding: 1vh 2vw;
+  font-size: clamp(12px, 1.8vmin, 16px);
   background-color: #333;
   color: #fff;
   border: 1px solid #555;
@@ -111,20 +165,79 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Combat log */
+/* Combat log - fills remaining space */
 #combat-log {
-  margin-top: 20px;
-  max-height: 150px;
-  width: 80%;
+  width: 90%;
+  flex: 1;
   overflow-y: auto;
   border: 1px solid #555;
   padding: 10px;
+  margin-bottom: 10px;
   background-color: #222;
   text-align: left;
+  font-size: clamp(11px, 1.3vmin, 14px);
 }
 
 #combat-log div {
   margin: 0;
-  padding: 3px 0;
+  padding: 2px 0;
   border-bottom: 1px solid #333;
+}
+
+.active-turn {
+  box-shadow: 0 0 10px 5px #f0f060;
+  transform: scale(1.05);
+  transition: all 0.3s ease;
+}
+
+/* Media queries for different screen sizes */
+@media (max-width: 768px) {
+  #battle-scene {
+    height: 65vh; /* Slightly smaller on mobile */
+  }
+  
+  #bottom-ui {
+    height: 35vh; /* Slightly larger on mobile */
+  }
+  
+  .portrait {
+    max-width: 100px;
+    padding: 0.5vmin;
+  }
+  
+  .stats {
+    font-size: clamp(8px, 1vmin, 12px);
+  }
+  
+  button {
+    padding: 0.8vh 1.5vw;
+    font-size: clamp(10px, 1.5vmin, 14px);
+  }
+}
+
+/* Very small screens */
+@media (max-height: 500px) {
+  #battle-scene {
+    height: 60vh;
+  }
+  
+  #bottom-ui {
+    height: 40vh;
+  }
+  
+  .portrait img {
+    aspect-ratio: 1/0.8; /* Even more compact */
+  }
+}
+
+/* Wide screens */
+@media (min-width: 1400px) {
+  .portrait {
+    max-width: 140px;
+  }
+  
+  #battle-scene, #bottom-ui {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
 }
