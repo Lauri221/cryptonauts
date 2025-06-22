@@ -1,8 +1,11 @@
 {
   "name": "Lydia",
+  "gender": "f",
   "hp": 30,
   "sanity": 50,
   "support_power": 8,
   "init": 10,
-  "ability": "Stunning Bash"
+  "ability": "Stunning Bash",
+  "companion_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
+  "company_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
 }

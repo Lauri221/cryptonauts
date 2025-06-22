@@ -3,14 +3,18 @@
     {
       "id": "priestess",
       "name": "Priestess",
+      "gender": "f",
       "hp": 10,
       "attackPower": 10,
       "sanityDamage": 5,
-      "init": 8     
+      "init": 8,
+      "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
+      "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
     },
     {
       "id": "mossleech",
       "name": "Moss Leech",
+      "gender": "o",
       "hp": 40,
       "attackPower": 6,
       "sanityDamage": 8,
@@ -19,10 +23,13 @@
     {
       "id": "cultist",
       "name": "Cultist",
+      "gender": "f",
       "hp": 30,
       "attackPower": 4,
       "sanityDamage": 3,
-      "init": 6
+      "init": 6,
+      "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
+      "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
     },
     {
       "id": "shadow_wraith",

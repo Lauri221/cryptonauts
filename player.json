@@ -1,7 +1,10 @@
 {
   "name": "Cryptonaut",
+  "gender": "m",
   "hp": 50,
   "sanity": 40,
   "moves": ["attack", "defend", "element", "item"],
-  "init": 12
+  "init": 12,
+  "player_hit_sound": ["./sound/hurt_m1.mp3", "./sound/hurt_m2.mp3", "./sound/hurt_m3.mp3"],
+  "player_death_sound": ["./sound/death_m1.mp3"]
 }

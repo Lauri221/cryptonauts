@@ -230,6 +230,17 @@ button:disabled {
   }
 }
 
+/* Damage flash animation */
+@keyframes damageFlash {
+  0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  50% { box-shadow: 0 0 20px 10px rgba(255, 0, 0, 0.7); background-color: rgba(255, 0, 0, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+.damage-flash {
+  animation: damageFlash 0.5s ease-out;
+}
+
 /* Wide screens */
 @media (min-width: 1400px) {
   .portrait {
