@@ -170,16 +170,24 @@ function setupTurnOrder() {
     ...enemies.map(e => ({ type: 'enemy', data: e }))
   ];
   
-  // Sort in descending order of initiative: higher initiative goes earlier in the turn order.
-  // If an enemy or player doesn't have 'init', we fallback to 0.
-  combatants.sort((a, b) => (b.data.init || 0) - (a.data.init || 0));
+  // For each combatant, add a random modifier (±3) to their base initiative
+  combatants.forEach(c => {
+    // Store the base initiative for reference
+    c.baseInit = c.data.init || 0;
+    // Calculate a new initiative roll with randomness
+    c.rollInit = c.baseInit + (Math.floor(Math.random() * 7) - 3); // -3 to +3 random modifier
+    console.log(`${c.type} ${c.data.name || ''}: Base init ${c.baseInit}, rolled ${c.rollInit}`);
+  });
+  
+  // Sort in descending order of rolled initiative: higher initiative goes earlier in the turn order
+  combatants.sort((a, b) => b.rollInit - a.rollInit);
   
   // Start at the first combatant (index 0) in the sorted array
   currentTurn = 0;
   
   // Log the turn order for debugging
   console.log("Combat turn order:", 
-    combatants.map(c => `${c.type}: ${c.data.name || 'unnamed'} (init: ${c.data.init || 0})`));
+    combatants.map(c => `${c.type}: ${c.data.name || 'unnamed'} (base init: ${c.baseInit}, roll: ${c.rollInit})`));
   
   // Begin the first round of combat
   startRound();
@@ -191,7 +199,27 @@ function setupTurnOrder() {
 // ========================
 // Logs the beginning of combat, then triggers 'nextTurn()' to handle the first turn.
 function startRound() {
-  log("Combat begins!");
+  log("--- New Round ---");
+  
+  // Re-roll initiative for a new round
+  combatants.forEach(c => {
+    c.baseInit = c.data.init || 0;
+    c.rollInit = c.baseInit + (Math.floor(Math.random() * 7) - 3); // -3 to +3 random modifier
+  });
+  
+  // Sort by the new initiative rolls
+  combatants.sort((a, b) => b.rollInit - a.rollInit);
+  
+  // Log the new turn order
+  const initiativeOrder = combatants.map(c => {
+    const name = c.data.name || (c.type === 'player' ? 'You' : c.type === 'companion' ? 'Ally' : 'Enemy');
+    return `${name} (${c.rollInit})`;
+  }).join(', ');
+  
+  log(`Initiative order: ${initiativeOrder}`);
+  
+  // Reset to the first combatant
+  currentTurn = -1; // Will be incremented to 0 in nextTurn()
   nextTurn();
 }
 
@@ -929,10 +957,18 @@ function rebuildCombatants() {
       .map(e => ({ type: 'enemy', data: e }))
   ];
   
-  // Re-sort the combatants by initiative
-  combatants.sort((a, b) => (b.data.init || 0) - (a.data.init || 0));
+  // For each combatant, add a random modifier (±3) to their base initiative
+  combatants.forEach(c => {
+    // Store the base initiative for reference
+    c.baseInit = c.data.init || 0;
+    // Calculate a new initiative roll with randomness
+    c.rollInit = c.baseInit + (Math.floor(Math.random() * 7) - 3); // -3 to +3 random modifier
+  });
+  
+  // Re-sort the combatants by rolled initiative
+  combatants.sort((a, b) => b.rollInit - a.rollInit);
   
   // Log the new turn order for debugging purposes
   console.log("Rebuilt combatants array:", 
-    combatants.map(c => `${c.type}: ${c.data.name || 'unnamed'} (init: ${c.data.init || 0})`));
+    combatants.map(c => `${c.type}: ${c.data.name || 'unnamed'} (base init: ${c.baseInit}, roll: ${c.rollInit})`));
 }
