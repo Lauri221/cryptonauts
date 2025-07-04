@@ -24,7 +24,7 @@ let gameState = {};
 let combatEnded = false;
 
 // Audio for victory jingle; loaded from relative path
-let victorySound = new Audio('./sound/win_m1.mp3');
+let victorySound = new Audio('./music/victory_music.mp3');
 
 //adding sound effects for combat
 let attackSound = new Audio('./sound/attack.mp3');
@@ -32,26 +32,138 @@ let defendSound = new Audio('./sound/defend.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
 
 // Character hurt sound effects (arrays for randomization)
-let hurtSoundsMale = [
-  new Audio('./sound/hurt_m1.mp3'),
-  new Audio('./sound/hurt_m2.mp3'),
-  new Audio('./sound/hurt_m3.mp3')
+
+let cryptonaut_male_hurt_sounds = [
+  new Audio('./sound/cryptonaut_male_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_08.mp3')
 ];
 
-let hurtSoundsFemale = [
-  new Audio('./sound/hurt_f1.mp3'),
-  new Audio('./sound/hurt_f2.mp3')
+let cryptonaut_female_hurt_sounds = [
+  new Audio('./sound/cryptonaut_female_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_08.mp3')
 ];
 
-// Character death sound effects
-let deathSoundsMale = [
-  new Audio('./sound/death_m1.mp3')
+let cryptonaut_monster_hurt_sounds = [
+  new Audio('./sound/cryptonaut_monster_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_08.mp3')
 ];
 
-let deathSoundsFemale = [
-  new Audio('./sound/death_f1.mp3'),
-  new Audio('./sound/death_f2.mp3')
+// character win soubnds, dialogue
+
+let cryptonaut_male_win_sounds = [
+  new Audio('./sound/cryptonaut_male_win_01.mp3'),
+  new Audio('./sound/cryptonaut_male_win_02.mp3')
 ];
+
+let cryptonaut_female_win_sounds = [
+  new Audio('./sound/cryptonaut_female_win_01.mp3'),
+  new Audio('./sound/cryptonaut_female_win_02.mp3'),
+  new Audio('./sound/cryptonaut_female_win_03.mp3')
+];
+
+let cryptonaut_monster_win_sounds = [
+  new Audio('./sound/cryptonaut_monster_win_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_win_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_win_03.mp3')
+];
+
+// Character sounds effects for start of combat:
+
+let cryptonaut_male_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_male_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_male_combat_start_02.mp3')
+];
+
+let cryptonaut_female_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_female_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_female_combat_start_02.mp3')
+];
+
+let cryptonaut_monster_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_monster_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_combat_start_02.mp3')
+];
+
+let enemy_male_combat_start_sounds = [
+  new Audio('./sound/enemy_male_combat_start_01.mp3'),
+  new Audio('./sound/enemy_male_combat_start_02.mp3')
+];
+
+//let hurtSoundsMale = [
+//  new Audio('./sound/hurt_m1.mp3'),
+//  new Audio('./sound/hurt_m2.mp3'),
+//  new Audio('./sound/hurt_m3.mp3')
+//];
+
+//let hurtSoundsFemale = [
+//  new Audio('./sound/hurt_f1.mp3'),
+//  new Audio('./sound/hurt_f2.mp3')
+//];
+
+// Character death sound effects for party characters
+//let deathSoundsMale = [
+//  new Audio('./sound/death_m1.mp3')
+//];
+let party_death_male_sound = [
+  new Audio('./sound/cryptonaut_male_death_01.mp3'),
+  new Audio('./sound/cryptonaut_male_death_02.mp3'),
+  new Audio('./sound/cryptonaut_male_death_03.mp3'),
+  new Audio('./sound/cryptonaut_male_death_04.mp3')
+];
+
+let party_death_female_sound = [
+  new Audio('./sound/cryptonaut_female_death_01.mp3'),
+  new Audio('./sound/cryptonaut_female_death_02.mp3'),
+  new Audio('./sound/cryptonaut_female_death_03.mp3')
+];
+
+let party_death_monster_sound = [
+  new Audio('./sound/cryptonaut_monster_death_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_death_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_death_03.mp3')
+];
+
+// Character death sound effects for enemies:
+
+let enemy_death_male_sound = [
+  new Audio('./sound/enemy_male_death_01.mp3'),
+  new Audio('./sound/enemy_male_death_02.mp3'),
+  new Audio('./sound/enemy_male_death_03.mp3'),
+  new Audio('./sound/enemy_male_death_04.mp3')
+];
+
+let enemy_death_female_sound = [
+  new Audio('./sound/enemy_female_death_01.mp3'),
+  new Audio('./sound/enemy_female_death_02.mp3'),
+  new Audio('./sound/enemy_female_death_03.mp3'),
+  new Audio('./sound/enemy_female_death_04.mp3')
+];
+
+let enemy_death_monster_sound = [
+  new Audio('./sound/enemy_monster_death_01.mp3'),
+  new Audio('./sound/enemy_monster_death_02.mp3')
+];
+
+// 
+
 
 // Helper function to play a random sound from an array
 function playRandomSound(soundArray) {
