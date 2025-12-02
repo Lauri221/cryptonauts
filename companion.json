@@ -6,6 +6,14 @@
   "support_power": 8,
   "init": 10,
   "ability": "Stunning Bash",
+  "ability_id": "attack",
+  "ability_desc": "Deals 8 damage and stuns the target for 1 turn.",
+  "ability_cooldown": 3,
+  "ability_sound": "./curse.mp3",
+  "ability_effect": "stun",
+  "ability_effect_desc": "The target cannot act on its next turn.",
+  "ability_effect_duration": 1,
+  "portrait": "./asset/img/ally_portrait/ally_5.png",
   "companion_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
   "company_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
 }

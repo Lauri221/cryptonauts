@@ -27,9 +27,21 @@ let combatEnded = false;
 let victorySound = new Audio('./music/victory_music.mp3');
 
 //adding sound effects for combat
-let attackSound = new Audio('./sound/attack.mp3');
-let defendSound = new Audio('./sound/defend.mp3');
+// Using sword sounds for attack (randomly pick one)
+let attackSounds = [
+  new Audio('./sound/sword_01.mp3'),
+  new Audio('./sound/sword_02.mp3'),
+  new Audio('./sound/sword_03.mp3'),
+  new Audio('./sound/sword_04.mp3')
+];
+let defendSound = new Audio('./sound/shield.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
+
+// Helper to play random attack sound
+function playAttackSound() {
+  const randomIndex = Math.floor(Math.random() * attackSounds.length);
+  attackSounds[randomIndex].play().catch(e => console.log("Sound error:", e));
+}
 
 // Character hurt sound effects (arrays for randomization)
 
@@ -69,8 +81,8 @@ let cryptonaut_monster_hurt_sounds = [
 // character win soubnds, dialogue
 
 let cryptonaut_male_win_sounds = [
-  new Audio('./sound/cryptonaut_male_win_01.mp3'),
-  new Audio('./sound/cryptonaut_male_win_02.mp3')
+  new Audio('./sound/cryptonauts_male_win_01.mp3'),
+  new Audio('./sound/cryptonauts_male_win_02.mp3')
 ];
 
 let cryptonaut_female_win_sounds = [
@@ -103,25 +115,10 @@ let cryptonaut_monster_combat_start_sounds = [
 ];
 
 let enemy_male_combat_start_sounds = [
-  new Audio('./sound/enemy_male_combat_start_01.mp3'),
-  new Audio('./sound/enemy_male_combat_start_02.mp3')
+  new Audio('./sound/enemy_male_combat_starts_01.mp3'),
+  new Audio('./sound/enemy_male_combat_starts_02.mp3')
 ];
 
-//let hurtSoundsMale = [
-//  new Audio('./sound/hurt_m1.mp3'),
-//  new Audio('./sound/hurt_m2.mp3'),
-//  new Audio('./sound/hurt_m3.mp3')
-//];
-
-//let hurtSoundsFemale = [
-//  new Audio('./sound/hurt_f1.mp3'),
-//  new Audio('./sound/hurt_f2.mp3')
-//];
-
-// Character death sound effects for party characters
-//let deathSoundsMale = [
-//  new Audio('./sound/death_m1.mp3')
-//];
 let party_death_male_sound = [
   new Audio('./sound/cryptonaut_male_death_01.mp3'),
   new Audio('./sound/cryptonaut_male_death_02.mp3'),
@@ -160,6 +157,43 @@ let enemy_death_female_sound = [
 let enemy_death_monster_sound = [
   new Audio('./sound/enemy_monster_death_01.mp3'),
   new Audio('./sound/enemy_monster_death_02.mp3')
+];
+
+// Character hurt sound effects for enemies:
+
+let enemy_hurt_male_sound = [
+  new Audio('./sound/enemy_male_hurt_01.mp3'),
+  new Audio('./sound/enemy_male_hurt_02.mp3'),
+  new Audio('./sound/enemy_male_hurt_03.mp3'),
+  new Audio('./sound/enemy_male_hurt_04.mp3'),
+  new Audio('./sound/enemy_male_hurt_05.mp3'),
+  new Audio('./sound/enemy_male_hurt_06.mp3'),
+  new Audio('./sound/enemy_male_hurt_07.mp3'),
+  new Audio('./sound/enemy_male_hurt_08.mp3')
+];
+
+let enemy_hurt_female_sound = [
+  new Audio('./sound/enemy_female_hurt_01.mp3'),
+  new Audio('./sound/enemy_female_hurt_02.mp3'),
+  new Audio('./sound/enemy_female_hurt_03.mp3'),
+  new Audio('./sound/enemy_female_hurt_04.mp3'),
+  new Audio('./sound/enemy_female_hurt_05.mp3'),
+  new Audio('./sound/enemy_female_hurt_06.mp3'),
+  new Audio('./sound/enemy_female_hurt_07.mp3'),
+  new Audio('./sound/enemy_female_hurt_08.mp3'),
+  new Audio('./sound/enemy_female_hurt_09.mp3'),
+  new Audio('./sound/enemy_female_hurt_10.mp3')
+];
+
+let enemy_hurt_monster_sound = [
+  new Audio('./sound/enemy_monster_hurt_01.mp3'),
+  new Audio('./sound/enemy_monster_hurt_02.mp3'),
+  new Audio('./sound/enemy_monster_hurt_03.mp3'),
+  new Audio('./sound/enemy_monster_hurt_04.mp3'),
+  new Audio('./sound/enemy_monster_hurt_05.mp3'),
+  new Audio('./sound/enemy_monster_hurt_06.mp3'),
+  new Audio('./sound/enemy_monster_hurt_07.mp3'),
+  new Audio('./sound/enemy_monster_hurt_08.mp3')
 ];
 
 // 
@@ -552,7 +586,7 @@ function chooseAction(action) {
       targetEnemy.hp -= dmg;
       log(`You attack the ${targetEnemy.name} for ${dmg} damage.`);
       // Play attack sound
-      attackSound.play().catch(e => console.log("Sound error:", e));
+      playAttackSound();
       break;
     case "defend":
       // Simple defend: regains sanity
@@ -568,7 +602,7 @@ function chooseAction(action) {
       player.sanity -= 5;
       log(`Elemental strike! ${dmg} damage dealt, sanity -5.`);
       // Play attack sound for elemental attack too
-      attackSound.play().catch(e => console.log("Sound error:", e));
+      playAttackSound();
       break;
     case "item":
       // Using an item: raises HP & sanity
@@ -603,13 +637,15 @@ function chooseAction(action) {
       console.log(`Enemy defeated: ${targetEnemy.name}, setting alive to false`);
       // Play death sound for the enemy with a delay
       setTimeout(() => {
-        const deathSoundArray = targetEnemy.gender === 'f' ? deathSoundsFemale : deathSoundsMale;
+        const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
+                               targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
         playRandomSound(deathSoundArray);
       }, 1000);
     } else {
       // Play hurt sound if the enemy was damaged but not defeated (with delay)
       setTimeout(() => {
-        const hurtSoundArray = targetEnemy.gender === 'f' ? hurtSoundsFemale : hurtSoundsMale;
+        const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
+                              targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
         playRandomSound(hurtSoundArray);
       }, 1000);
     }
@@ -689,7 +725,7 @@ function companionTurn() {
     console.log(`After companion attack: ${targetEnemy.name}, HP: ${targetEnemy.hp}`);
     
     // Play attack sound
-    attackSound.play().catch(e => console.log("Sound error:", e));
+    playAttackSound();
       // Check if damage was done and flash enemy portrait
     const enemyIndex = enemies.indexOf(targetEnemy);
     if (enemyIndex >= 0) {
@@ -717,13 +753,15 @@ function companionTurn() {
       
       // Play death sound for the enemy with delay
       setTimeout(() => {
-        const deathSoundArray = targetEnemy.gender === 'f' ? deathSoundsFemale : deathSoundsMale;
+        const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
+                               targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
         playRandomSound(deathSoundArray);
       }, 1000);
     } else {
       // Play hurt sound if the enemy was damaged but not defeated (with delay)
       setTimeout(() => {
-        const hurtSoundArray = targetEnemy.gender === 'f' ? hurtSoundsFemale : hurtSoundsMale;
+        const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
+                              targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
         playRandomSound(hurtSoundArray);
       }, 1000);
     }
@@ -787,7 +825,7 @@ function enemyTurn(enemy) {
     targetIsPlayer = (Math.random() < 0.6);
   }
     // Play attack sound for enemy
-  attackSound.play().catch(e => console.log("Sound error:", e));
+  playAttackSound();
   
   // Calculate damage for the attack
   const dmg = Math.floor(Math.random() * (enemy.attackPower || 5) + 1);
@@ -804,14 +842,16 @@ function enemyTurn(enemy) {
     // Play hurt sound for player with delay
     setTimeout(() => {
       // Get player gender from player data or default to male
-      const playerSounds = player.gender === 'f' ? hurtSoundsFemale : hurtSoundsMale;
+      const playerSounds = player.gender === 'f' ? cryptonaut_female_hurt_sounds : 
+                          player.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
       playRandomSound(playerSounds);
       
       // Check if player is defeated (only play death sound if actually dying)
       if (player.hp <= 0 && player.alive) {
         player.alive = false; // Mark as dead
         // Play death sound for player
-        const playerDeathSounds = player.gender === 'f' ? deathSoundsFemale : deathSoundsMale;
+        const playerDeathSounds = player.gender === 'f' ? party_death_female_sound : 
+                                 player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
         playRandomSound(playerDeathSounds);
       }
     }, 1000);
@@ -826,13 +866,15 @@ function enemyTurn(enemy) {
     // Play hurt sound for companion with delay
     setTimeout(() => {
       // Get companion gender from data
-      const companionSounds = companion.gender === 'f' ? hurtSoundsFemale : hurtSoundsMale;
+      const companionSounds = companion.gender === 'f' ? cryptonaut_female_hurt_sounds : 
+                             companion.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
       playRandomSound(companionSounds);
       
       // Check if companion is defeated (only play death sound if actually dying)
       if (companion.hp <= 0 && companion.alive) {
         // Play death sound for companion
-        const companionDeathSounds = companion.gender === 'f' ? deathSoundsFemale : deathSoundsMale;
+        const companionDeathSounds = companion.gender === 'f' ? party_death_female_sound : 
+                                    companion.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
         playRandomSound(companionDeathSounds);
       }
     }, 1000);
