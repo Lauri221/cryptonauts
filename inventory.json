@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "herbal_tonic",
+      "name": "Herbal Tonic",
+      "description": "Restore 15 HP and 10 Sanity to a friendly target.",
+      "type": "heal",
+      "effects": {
+        "hp": 15,
+        "sanity": 10
+      },
+      "quantity": 1,
+      "sound": "./sound/potion.mp3"
+    }
+  ]
+}

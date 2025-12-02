@@ -23,8 +23,167 @@ let gameState = {};
 // Flag to indicate whether the combat is over (victory or loss)
 let combatEnded = false;
 
+// Default action set in case a character JSON omits custom moves
+const DEFAULT_ACTIONS = ['attack', 'defend', 'element', 'item'];
+
+// Tracks whether the player has already clicked to begin combat/audio
+let combatInitialized = false;
+
+// Catalog of all available inventory items loaded from inventory.json
+let inventoryCatalog = {};
+
+// Tracks whether the item selection panel is currently visible
+let itemSelectionOpen = false;
+
+// Cache for loaded character specification files so we only fetch them once per session
+const characterSpecCache = {};
+
+async function getCharacterSpec(characterFile, characterId) {
+  if (!characterFile) {
+    throw new Error('Missing character_file in party configuration');
+  }
+
+  if (!characterSpecCache[characterFile]) {
+    const response = await fetch(characterFile);
+    if (!response.ok) {
+      throw new Error(`Unable to load character data from ${characterFile}`);
+    }
+    characterSpecCache[characterFile] = await response.json();
+  }
+
+  const specFile = characterSpecCache[characterFile];
+  const spec = specFile.characters?.find(c => c.id === characterId);
+
+  if (!spec) {
+    throw new Error(`Character id "${characterId}" not found inside ${characterFile}`);
+  }
+
+  return spec;
+}
+
+function resolvePortraitPath(portraitId) {
+  if (!portraitId) {
+    return null;
+  }
+
+  // If the portrait already points to a file path (contains slash or extension) use it as-is
+  if (portraitId.includes('/') || portraitId.includes('.')) {
+    return portraitId;
+  }
+
+  return `assets/img/ally_portrait/${portraitId}.png`;
+}
+
+function normalizeInventoryCatalog(rawInventory) {
+  if (!rawInventory) return {};
+  if (Array.isArray(rawInventory.items)) {
+    return rawInventory.items.reduce((map, item) => {
+      if (item?.id) {
+        map[item.id] = item;
+      }
+      return map;
+    }, {});
+  }
+  return rawInventory;
+}
+
+function buildInventoryFromIds(idList = []) {
+  if (!Array.isArray(idList) || idList.length === 0) return [];
+  return idList
+    .map(id => {
+      const def = inventoryCatalog[id];
+      if (!def) {
+        console.warn(`Inventory definition not found for id: ${id}`);
+        return null;
+      }
+      return {
+        ...def,
+        id,
+        quantity: def.quantity ?? 1
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildCharacterActions(baseStats = {}) {
+  const ability1 = baseStats.ability1 || null;
+  const ability2 = baseStats.ability2 || null;
+  return [
+    {
+      id: 'attack',
+      label: 'Attack',
+      description: 'Perform a basic attack based on your weapon training.'
+    },
+    {
+      id: 'ability1',
+      label: ability1?.name || 'Ability 1',
+      description: ability1?.description || 'Class ability slot one.'
+    },
+    {
+      id: 'ability2',
+      label: ability2?.name || 'Ability 2',
+      description: ability2?.description || 'Class ability slot two.'
+    },
+    {
+      id: 'item',
+      label: 'Use Item',
+      description: 'Use an item from your inventory.'
+    }
+  ];
+}
+
+async function hydratePartyMember(rawConfig = {}) {
+  // If no character reference is provided, fall back to whatever is already defined
+  if (!rawConfig.character_file || !rawConfig.character_id) {
+    return {
+      ...rawConfig,
+      maxHp: rawConfig.maxHp || rawConfig.hp || 0,
+      maxSanity: rawConfig.maxSanity || rawConfig.sanity || 0
+    };
+  }
+
+  const spec = await getCharacterSpec(rawConfig.character_file, rawConfig.character_id);
+  const baseStats = spec.base_stats || {};
+  const genderKey = rawConfig.gender || 'm';
+  const genderVariants = spec.gender_variants || {};
+  const genderData = genderVariants[genderKey] || Object.values(genderVariants)[0] || {};
+
+  const portrait = resolvePortraitPath(genderData.portrait) || rawConfig.portrait;
+  const inventoryIds = rawConfig.inventory || spec.starting_inventory || [];
+  const inventory = buildInventoryFromIds(inventoryIds);
+  const actions = buildCharacterActions(baseStats);
+
+  const hydrated = {
+    ...rawConfig,
+    character_id: spec.id,
+    class: spec.class,
+    base_stats: baseStats,
+    hp: baseStats.hp ?? rawConfig.hp ?? 0,
+    maxHp: baseStats.hp ?? rawConfig.hp ?? 0,
+    sanity: baseStats.sanity ?? rawConfig.sanity ?? 0,
+    maxSanity: baseStats.sanity ?? rawConfig.sanity ?? 0,
+    defense: baseStats.defense ?? rawConfig.defense ?? 0,
+    speed: baseStats.speed ?? rawConfig.speed ?? 0,
+    basic_attack: baseStats.basic_attack ?? rawConfig.basic_attack,
+    resistance: baseStats.resistance ?? rawConfig.resistance,
+    weakness: baseStats.weakness ?? rawConfig.weakness,
+    ability1: baseStats.ability1 || null,
+    ability2: baseStats.ability2 || null,
+    inventory,
+    actions,
+    portrait,
+    audioProfile: genderData.audio ? { ...genderData.audio } : rawConfig.audioProfile || null
+  };
+
+  return hydrated;
+}
+
 // Audio for victory jingle; loaded from relative path
 let victorySound = new Audio('./music/victory_music.mp3');
+
+// Looping combat underscore
+let combatMusic = new Audio('./music/combat.mp3');
+combatMusic.loop = true;
 
 //adding sound effects for combat
 // Using sword sounds for attack (randomly pick one)
@@ -37,107 +196,110 @@ let attackSounds = [
 let defendSound = new Audio('./sound/shield.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
 
-// Helper to play random attack sound
-function playAttackSound() {
-  const randomIndex = Math.floor(Math.random() * attackSounds.length);
-  attackSounds[randomIndex].play().catch(e => console.log("Sound error:", e));
+// ========================
+// Player Action Handler
+// ========================
+// Called by the UI buttons (Attack, Ability 1, Ability 2, Item).
+function chooseAction(actionId) {
+  if (combatants[currentTurn]?.type !== 'player') return;
+
+  if (actionId !== 'item' && itemSelectionOpen) {
+    hideItemSelection();
+  }
+
+  if (actionId === 'item') {
+    showItemSelection();
+    return;
+  }
+
+  const result = executePlayerAction(actionId);
+  if (!result) return;
+  completePlayerAction(result);
 }
 
-// Character hurt sound effects (arrays for randomization)
+function executePlayerAction(actionId) {
+  const livingEnemies = getLivingEnemies();
+  const targetEnemy = livingEnemies[0] || null;
+  const abilityName = actionId === 'ability1' ? (player.ability1?.name || 'Ability 1')
+                      : actionId === 'ability2' ? (player.ability2?.name || 'Ability 2')
+                      : null;
 
-let cryptonaut_male_hurt_sounds = [
-  new Audio('./sound/cryptonaut_male_hurt_01.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_02.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_03.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_04.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_05.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_06.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_07.mp3'),
-  new Audio('./sound/cryptonaut_male_hurt_08.mp3')
-];
+  switch (actionId) {
+    case 'attack': {
+      if (!targetEnemy) {
+        handleVictory();
+        return null;
+      }
+      const damage = rollFromDiceSpec(player.basic_attack);
+      targetEnemy.hp -= damage;
+      log(`You attack ${targetEnemy.name} for ${damage} damage.`);
+      playAttackSound();
+      return { enemy: targetEnemy, damage };
+    }
+    case 'ability1': {
+      if (!player.ability1) {
+        log('This class does not have a first ability.');
+        return null;
+      }
+      const sanityBefore = player.sanity;
+      const hpBefore = player.hp;
+      const sanityCap = player.maxSanity ?? (player.sanity + 10);
+      const hpCap = player.maxHp ?? (player.hp + 5);
+      player.sanity = Math.min(sanityCap, player.sanity + 10);
+      player.hp = Math.min(hpCap, player.hp + 5);
+      const sanityGain = player.sanity - sanityBefore;
+      const hpGain = player.hp - hpBefore;
+      const gains = [];
+      if (hpGain > 0) gains.push(`HP +${hpGain}`);
+      if (sanityGain > 0) gains.push(`Sanity +${sanityGain}`);
+      log(`${abilityName || 'Ability 1'} activated. ${gains.join(', ') || 'Focus restored.'}`);
+      return {};
+    }
+    case 'ability2': {
+      if (!player.ability2) {
+        log('This class does not have a second ability.');
+        return null;
+      }
+      if (!targetEnemy) {
+        handleVictory();
+        return null;
+      }
+      const damage = Math.floor(Math.random() * 5) + 8;
+      targetEnemy.hp -= damage;
+      player.sanity = Math.max(0, player.sanity - 2);
+      log(`${abilityName || 'Ability 2'} unsettles ${targetEnemy.name}, dealing ${damage} damage (Sanity -2).`);
+      return { enemy: targetEnemy, damage };
+    }
+    default:
+      log('Unknown action.');
+      return null;
+  }
+}
 
-let cryptonaut_female_hurt_sounds = [
-  new Audio('./sound/cryptonaut_female_hurt_01.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_02.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_03.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_04.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_05.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_06.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_07.mp3'),
-  new Audio('./sound/cryptonaut_female_hurt_08.mp3')
-];
-
-let cryptonaut_monster_hurt_sounds = [
-  new Audio('./sound/cryptonaut_monster_hurt_01.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_02.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_03.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_04.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_05.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_06.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_07.mp3'),
-  new Audio('./sound/cryptonaut_monster_hurt_08.mp3')
-];
-
-// character win soubnds, dialogue
-
-let cryptonaut_male_win_sounds = [
-  new Audio('./sound/cryptonauts_male_win_01.mp3'),
-  new Audio('./sound/cryptonauts_male_win_02.mp3')
-];
-
-let cryptonaut_female_win_sounds = [
-  new Audio('./sound/cryptonaut_female_win_01.mp3'),
-  new Audio('./sound/cryptonaut_female_win_02.mp3'),
-  new Audio('./sound/cryptonaut_female_win_03.mp3')
-];
-
-let cryptonaut_monster_win_sounds = [
-  new Audio('./sound/cryptonaut_monster_win_01.mp3'),
-  new Audio('./sound/cryptonaut_monster_win_02.mp3'),
-  new Audio('./sound/cryptonaut_monster_win_03.mp3')
-];
-
-// Character sounds effects for start of combat:
-
-let cryptonaut_male_combat_start_sounds = [
-  new Audio('./sound/cryptonaut_male_combat_start_01.mp3'),
-  new Audio('./sound/cryptonaut_male_combat_start_02.mp3')
-];
-
-let cryptonaut_female_combat_start_sounds = [
-  new Audio('./sound/cryptonaut_female_combat_start_01.mp3'),
-  new Audio('./sound/cryptonaut_female_combat_start_02.mp3')
-];
-
-let cryptonaut_monster_combat_start_sounds = [
-  new Audio('./sound/cryptonaut_monster_combat_start_01.mp3'),
-  new Audio('./sound/cryptonaut_monster_combat_start_02.mp3')
-];
-
-let enemy_male_combat_start_sounds = [
-  new Audio('./sound/enemy_male_combat_starts_01.mp3'),
-  new Audio('./sound/enemy_male_combat_starts_02.mp3')
-];
-
-let party_death_male_sound = [
-  new Audio('./sound/cryptonaut_male_death_01.mp3'),
-  new Audio('./sound/cryptonaut_male_death_02.mp3'),
-  new Audio('./sound/cryptonaut_male_death_03.mp3'),
-  new Audio('./sound/cryptonaut_male_death_04.mp3')
-];
-
-let party_death_female_sound = [
-  new Audio('./sound/cryptonaut_female_death_01.mp3'),
-  new Audio('./sound/cryptonaut_female_death_02.mp3'),
-  new Audio('./sound/cryptonaut_female_death_03.mp3')
-];
-
-let party_death_monster_sound = [
-  new Audio('./sound/cryptonaut_monster_death_01.mp3'),
-  new Audio('./sound/cryptonaut_monster_death_02.mp3'),
-  new Audio('./sound/cryptonaut_monster_death_03.mp3')
-];
-
+function completePlayerAction(result = {}) {
+  if (itemSelectionOpen) {
+    hideItemSelection();
+  }
+  const { enemy } = result;
+  if (enemy) {
+    const enemyIndex = enemies.indexOf(enemy);
+    if (enemyIndex >= 0) {
+      updateEnemyHP(enemyIndex);
+      flashDamage(`enemy-portrait-${enemyIndex}`);
+    }
+    if (enemy.hp <= 0) {
+      enemy.alive = false;
+    }
+  }
+  updateUI();
+  if (checkEnemyStatus()) {
+    return;
+  }
+  saveGameState();
+  if (!combatEnded) {
+    setTimeout(nextTurn, 1500);
+  }
+}
 // Character death sound effects for enemies:
 
 let enemy_death_male_sound = [
@@ -196,9 +358,285 @@ let enemy_hurt_monster_sound = [
   new Audio('./sound/enemy_monster_hurt_08.mp3')
 ];
 
+// Character hurt sound effects (player/companion)
+
+let cryptonaut_male_hurt_sounds = [
+  new Audio('./sound/cryptonaut_male_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_male_hurt_08.mp3')
+];
+
+let cryptonaut_female_hurt_sounds = [
+  new Audio('./sound/cryptonaut_female_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_female_hurt_08.mp3')
+];
+
+let cryptonaut_monster_hurt_sounds = [
+  new Audio('./sound/cryptonaut_monster_hurt_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_03.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_04.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_05.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_06.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_07.mp3'),
+  new Audio('./sound/cryptonaut_monster_hurt_08.mp3')
+];
+
+// Character win sounds
+
+let cryptonaut_male_win_sounds = [
+  new Audio('./sound/cryptonauts_male_win_01.mp3'),
+  new Audio('./sound/cryptonauts_male_win_02.mp3')
+];
+
+let cryptonaut_female_win_sounds = [
+  new Audio('./sound/cryptonaut_female_win_01.mp3'),
+  new Audio('./sound/cryptonaut_female_win_02.mp3'),
+  new Audio('./sound/cryptonaut_female_win_03.mp3')
+];
+
+let cryptonaut_monster_win_sounds = [
+  new Audio('./sound/cryptonaut_monster_win_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_win_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_win_03.mp3')
+];
+
+// Combat start sounds
+
+let cryptonaut_male_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_male_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_male_combat_start_02.mp3')
+];
+
+let cryptonaut_female_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_female_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_female_combat_start_02.mp3')
+];
+
+let cryptonaut_monster_combat_start_sounds = [
+  new Audio('./sound/cryptonaut_monster_combat_start_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_combat_start_02.mp3')
+];
+
+let enemy_male_combat_start_sounds = [
+  new Audio('./sound/enemy_male_combat_starts_01.mp3'),
+  new Audio('./sound/enemy_male_combat_starts_02.mp3')
+];
+
+// Party defeat sounds
+
+let party_death_male_sound = [
+  new Audio('./sound/cryptonaut_male_death_01.mp3'),
+  new Audio('./sound/cryptonaut_male_death_02.mp3'),
+  new Audio('./sound/cryptonaut_male_death_03.mp3'),
+  new Audio('./sound/cryptonaut_male_death_04.mp3')
+];
+
+let party_death_female_sound = [
+  new Audio('./sound/cryptonaut_female_death_01.mp3'),
+  new Audio('./sound/cryptonaut_female_death_02.mp3'),
+  new Audio('./sound/cryptonaut_female_death_03.mp3')
+];
+
+let party_death_monster_sound = [
+  new Audio('./sound/cryptonaut_monster_death_01.mp3'),
+  new Audio('./sound/cryptonaut_monster_death_02.mp3'),
+  new Audio('./sound/cryptonaut_monster_death_03.mp3')
+];
+
+// Consolidated list of every audio buffer we need to unlock via user interaction
+const audioCollections = [
+  [victorySound],
+  [combatMusic],
+  attackSounds,
+  [defendSound],
+  [potion_sound],
+  cryptonaut_male_hurt_sounds,
+  cryptonaut_female_hurt_sounds,
+  cryptonaut_monster_hurt_sounds,
+  cryptonaut_male_win_sounds,
+  cryptonaut_female_win_sounds,
+  cryptonaut_monster_win_sounds,
+  cryptonaut_male_combat_start_sounds,
+  cryptonaut_female_combat_start_sounds,
+  cryptonaut_monster_combat_start_sounds,
+  enemy_male_combat_start_sounds,
+  party_death_male_sound,
+  party_death_female_sound,
+  party_death_monster_sound,
+  enemy_death_male_sound,
+  enemy_death_female_sound,
+  enemy_death_monster_sound,
+  enemy_hurt_male_sound,
+  enemy_hurt_female_sound,
+  enemy_hurt_monster_sound
+];
+
+function getAllAudioNodes() {
+  return audioCollections.flat().filter(Boolean);
+}
+
+async function unlockAudioPlayback() {
+  const nodes = getAllAudioNodes();
+  const unlockPromises = nodes.map(audio => {
+    if (!audio) return Promise.resolve();
+    audio.muted = true;
+    audio.currentTime = 0;
+    try {
+      return audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = false;
+        })
+        .catch(() => {
+          audio.muted = false;
+        });
+    } catch (err) {
+      audio.muted = false;
+      return Promise.resolve();
+    }
+  });
+  return Promise.all(unlockPromises);
+}
+
+function startCombatMusic() {
+  if (!combatMusic) return;
+  combatMusic.currentTime = 0;
+  combatMusic.play().catch(err => console.log('Combat music error:', err));
+}
+
+function stopCombatMusic() {
+  if (!combatMusic) return;
+  combatMusic.pause();
+  combatMusic.currentTime = 0;
+}
+
+function formatActionLabel(action = '') {
+  if (!action) return '';
+  return action.replace(/_/g, ' ').replace(/(^|\s)\w/g, (m) => m.toUpperCase());
+}
+
+function renderActionButtons(actionList = []) {
+  const container = document.getElementById('actions');
+  if (!container) return;
+  const list = (Array.isArray(actionList) && actionList.length)
+    ? actionList
+    : buildCharacterActions();
+  container.innerHTML = '';
+  list.forEach(action => {
+    if (!action?.id) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.action = action.id;
+    button.textContent = action.label || formatActionLabel(action.id);
+    if (action.description) {
+      button.title = action.description;
+    }
+    button.addEventListener('click', () => chooseAction(action.id));
+    container.appendChild(button);
+  });
+}
+
+function getLivingEnemies() {
+  return enemies.filter(e => e.alive !== false && e.hp > 0);
+}
+
+function rollFromDiceSpec(spec) {
+  if (!spec || typeof spec !== 'object') {
+    return Math.floor(Math.random() * 6) + 4;
+  }
+  const dice = Number(spec.dice) || 1;
+  const sides = Number(spec.sides) || 6;
+  let total = 0;
+  for (let i = 0; i < dice; i++) {
+    total += Math.floor(Math.random() * sides) + 1;
+  }
+  return total;
+}
+
+function showItemSelection() {
+  const panel = document.getElementById('item-selection');
+  const list = document.getElementById('item-list');
+  if (!panel || !list) return;
+  if (!player.inventory || !player.inventory.some(item => item.quantity > 0)) {
+    log('No usable items in your inventory.');
+    return;
+  }
+  list.innerHTML = '';
+  player.inventory.forEach(item => {
+    if (!item || item.quantity <= 0) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.itemId = item.id;
+    button.textContent = `${item.name} (${item.quantity})`;
+    if (item.description) {
+      button.title = item.description;
+    }
+    button.addEventListener('click', () => handleItemSelection(item.id));
+    list.appendChild(button);
+  });
+  panel.classList.add('visible');
+  itemSelectionOpen = true;
+}
+
+function hideItemSelection() {
+  const panel = document.getElementById('item-selection');
+  if (!panel) return;
+  panel.classList.remove('visible');
+  itemSelectionOpen = false;
+}
+
+function handleItemSelection(itemId) {
+  if (!itemId) return;
+  const item = player.inventory?.find(it => it.id === itemId);
+  if (!item || item.quantity <= 0) {
+    log('That item is not available.');
+    return;
+  }
+  applyItemEffects(item, player);
+  item.quantity -= 1;
+  if (item.quantity <= 0) {
+    player.inventory = player.inventory.filter(it => it.quantity > 0);
+  }
+  hideItemSelection();
+  completePlayerAction();
+}
+
+function applyItemEffects(item, target = player) {
+  const effects = item.effects || {};
+  const hpBefore = target.hp;
+  const sanityBefore = target.sanity;
+  if (effects.hp) {
+    const maxHp = target.maxHp ?? (target.hp + effects.hp);
+    target.hp = Math.min(maxHp, target.hp + effects.hp);
+  }
+  if (effects.sanity) {
+    const maxSanity = target.maxSanity ?? (target.sanity + effects.sanity);
+    target.sanity = Math.min(maxSanity, target.sanity + effects.sanity);
+  }
+  const hpGain = target.hp - hpBefore;
+  const sanityGain = target.sanity - sanityBefore;
+  const gains = [];
+  if (hpGain > 0) gains.push(`HP +${hpGain}`);
+  if (sanityGain > 0) gains.push(`Sanity +${sanityGain}`);
+  const effectText = gains.length ? gains.join(', ') : (item.description || '');
+  log(`You use ${item.name}. ${effectText}`);
+  potion_sound?.play().catch(() => {});
+}
+
 // 
-
-
 // Helper function to play a random sound from an array
 function playRandomSound(soundArray) {
   if (!soundArray || soundArray.length === 0) return;
@@ -209,11 +647,42 @@ function playRandomSound(soundArray) {
 // ========================
 // Initial Setup
 // ========================
-// We add a single event listener for when the HTML document finishes loading.
-// It calls 'loadCombatData()' to begin loading all necessary JSON data and start the game.
+// Wait for the DOM to load, then wire up the combat start overlay/button.
 document.addEventListener("DOMContentLoaded", () => {
-  loadCombatData();
+  setupCombatStartOverlay();
+  setupItemSelectionUI();
 });
+
+function setupCombatStartOverlay() {
+  const startButton = document.getElementById('start-combat-button');
+  const overlay = document.getElementById('combat-start-overlay');
+  if (!startButton) {
+    loadCombatData();
+    return;
+  }
+  startButton.addEventListener('click', async () => {
+    if (combatInitialized) return;
+    combatInitialized = true;
+    startButton.disabled = true;
+    await unlockAudioPlayback();
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+      setTimeout(() => overlay.remove(), 400);
+    }
+    loadCombatData();
+  });
+}
+
+function setupItemSelectionUI() {
+  const cancelButton = document.getElementById('cancel-item-selection');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => {
+      hideItemSelection();
+    });
+  }
+}
 
 
 // ========================
@@ -227,14 +696,22 @@ document.addEventListener("DOMContentLoaded", () => {
 // After fetching all data, it sets up the user interface and starts combat.
 async function loadCombatData() {
   try {
+    // Load inventory definitions used to hydrate party inventories
+    const inventoryRes = await fetch('inventory.json');
+    const inventoryRaw = await inventoryRes.json();
+    inventoryCatalog = normalizeInventoryCatalog(inventoryRaw);
+
     // 1) Load player data
     const playerRes = await fetch('player.json'); // Fetch local file
-    player = await playerRes.json();              // Convert the response to JS object
+    const playerConfig = await playerRes.json();  // Convert the response to JS object
+    player = await hydratePartyMember(playerConfig);
     player.alive = player.hp > 0;                 // Mark player as alive if HP > 0
+    renderActionButtons(player.actions);
     
     // 2) Load companion data
     const companionRes = await fetch('companion.json');
-    companion = await companionRes.json();
+    const companionConfig = await companionRes.json();
+    companion = await hydratePartyMember(companionConfig);
     companion.alive = companion.hp > 0;           // Mark companion as alive if HP > 0
     
     // 3) Load the enemy templates file
@@ -291,6 +768,7 @@ async function loadCombatData() {
     generateEnemyCards();
     setupTurnOrder();
     updateUI();
+    startCombatMusic();
   } catch (err) {
     console.error("Error loading data:", err);
   }
@@ -457,6 +935,11 @@ function updateUI() {  // Change the background image based on 'battleBackground
   document.getElementById('player-name').textContent = player.name || "Cryptonaut";
   document.getElementById('player-hp').textContent = player.hp;
   document.getElementById('player-sanity').textContent = player.sanity;
+  const playerImg = document.querySelector('#player-portrait img');
+  if (playerImg && player.portrait) {
+    playerImg.src = player.portrait;
+    playerImg.alt = player.name || 'Player';
+  }
   
   // Show or hide the ally portrait depending on whether they're alive
   document.getElementById('ally-portrait').style.display = companion.alive ? 'block' : 'none';
@@ -465,6 +948,11 @@ function updateUI() {  // Change the background image based on 'battleBackground
   document.getElementById('companion-name').textContent = companion.name || "Companion";
   document.getElementById('ally-hp').textContent = companion.hp;
   document.getElementById('ally-sanity').textContent = companion.sanity;
+  const companionImg = document.querySelector('#ally-portrait img');
+  if (companionImg && companion.portrait) {
+    companionImg.src = companion.portrait;
+    companionImg.alt = companion.name || 'Ally';
+  }
   
   // Get all enemy portrait elements
   const enemyPortraits = document.querySelectorAll('.portrait.enemy');
@@ -884,6 +1372,8 @@ function enemyTurn(enemy) {
   
   // Check if the player or companion got defeated here
   if (player.hp <= 0 || player.sanity <= 0) {
+    stopCombatMusic();
+    combatEnded = true;
     log("💀 You collapse from injuries or madness. Game over.");
     disableActions(); // Player can no longer act
     return;
@@ -909,6 +1399,14 @@ function enemyTurn(enemy) {
   if (!combatEnded) {
     setTimeout(nextTurn, 2000); // Move to the next turn after 2 seconds
   }
+}
+
+function playAttackSound() {
+  if (!attackSounds.length) return;
+  const idx = Math.floor(Math.random() * attackSounds.length);
+  const sound = attackSounds[idx];
+  sound.currentTime = 0;
+  sound.play().catch(err => console.log('Sound error:', err));
 }
 
 
@@ -988,6 +1486,8 @@ function handleVictory() {
   // Make sure we only do this once
   if (combatEnded) return;
   combatEnded = true;
+
+  stopCombatMusic();
   
   // Log victory message
   log("🏆 Victory! All enemies have been defeated!");

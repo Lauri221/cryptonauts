@@ -8,6 +8,14 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="combat-start-overlay" class="combat-start-overlay" aria-hidden="false">
+    <div class="combat-start-message">
+      <h2>Prepare For Battle</h2>
+      <p>Click the button below to begin combat and enable audio.</p>
+      <button id="start-combat-button" type="button">Begin Combat</button>
+    </div>
+  </div>
+
   <div id="combat-screen">
     <!-- Simplified title area -->
     <div id="battle-header">
@@ -22,7 +30,7 @@
         <!-- Left side - Player and ally characters side by side -->
         <div id="character-portraits">
           <div id="player-portrait" class="portrait">
-            <img src="assets/img/ally_portrait/player.png" alt="Player">
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Player" loading="lazy">
             <div class="stats">
               <div class="character-name"><span id="player-name"></span></div>
               <div>HP: <span id="player-hp"></span></div>
@@ -31,7 +39,7 @@
           </div>
           
           <div id="ally-portrait" class="portrait">
-            <img src="assets/img/ally_portrait/ally_5.png" alt="Ally">
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Ally" loading="lazy">
             <div class="stats">
               <div class="character-name"><span id="companion-name"></span></div>
               <div>HP: <span id="ally-hp"></span></div>
@@ -48,11 +56,14 @@
       
       <!-- Fixed bottom UI section -->
       <div id="bottom-ui">
-        <div id="actions">
-          <button onclick="chooseAction('attack')">Attack</button>
-          <button onclick="chooseAction('defend')">Defend</button>
-          <button onclick="chooseAction('element')">Element</button>
-          <button onclick="chooseAction('item')">Item</button>
+        <div id="actions" aria-live="polite">
+          <!-- Action buttons will be populated dynamically from player data -->
+        </div>
+
+        <div id="item-selection" class="selection-panel" aria-live="polite">
+          <p>Select an item to use:</p>
+          <div id="item-list" class="selection-list"></div>
+          <button id="cancel-item-selection" type="button">Cancel</button>
         </div>
         
         <div id="combat-log"></div>
