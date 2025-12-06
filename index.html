@@ -61,16 +61,32 @@
         </div>
 
         <div id="item-selection" class="selection-panel" aria-live="polite">
-          <p>Select an item to use:</p>
+          <p id="item-selection-prompt">Select an item to use:</p>
           <div id="item-list" class="selection-list"></div>
-          <button id="cancel-item-selection" type="button">Cancel</button>
+        </div>
+        
+        <!-- Target selection prompt (shown after item is selected) -->
+        <div id="target-selection" class="selection-panel" aria-live="polite">
+          <p id="target-selection-prompt">Select a target:</p>
         </div>
         
         <div id="combat-log"></div>
       </div>
     </div>
+    
+    <!-- Item tooltip (positioned absolutely, follows mouse) -->
+    <div id="item-tooltip" class="item-tooltip" aria-hidden="true">
+      <img id="tooltip-image" src="" alt="Item">
+      <div class="tooltip-content">
+        <h4 id="tooltip-name"></h4>
+        <p id="tooltip-description"></p>
+        <div id="tooltip-effects" class="tooltip-effects"></div>
+      </div>
+    </div>
     </div>
 
+  <script src="inventory_state.js"></script>
+  <script src="item_system.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

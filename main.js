@@ -20,6 +20,29 @@ let currentTurn = 0;
 // Tracks the overall game state (optional, only used if saving/loading multi data)
 let gameState = {};
 
+function cloneData(data) {
+  if (data == null) return null;
+  if (typeof structuredClone === 'function') {
+    return structuredClone(data);
+  }
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch (err) {
+    console.warn('Failed to deep-clone data:', err);
+    return data;
+  }
+}
+
+const initialGameStateFromFile = (typeof window !== 'undefined' && window.initialGameState)
+  ? window.initialGameState
+  : null;
+if (initialGameStateFromFile) {
+  const clonedState = cloneData(initialGameStateFromFile);
+  if (clonedState) {
+    gameState = clonedState;
+  }
+}
+
 // Flag to indicate whether the combat is over (victory or loss)
 let combatEnded = false;
 
@@ -76,14 +99,30 @@ function resolvePortraitPath(portraitId) {
 
 function normalizeInventoryCatalog(rawInventory) {
   if (!rawInventory) return {};
-  if (Array.isArray(rawInventory.items)) {
-    return rawInventory.items.reduce((map, item) => {
-      if (item?.id) {
-        map[item.id] = item;
+
+  // Handle new canonical array format from inventory.json
+  if (Array.isArray(rawInventory)) {
+    return rawInventory.reduce((map, item) => {
+      const key = item?.item_id || item?.id;
+      if (key) {
+        map[key] = item;
       }
       return map;
     }, {});
   }
+
+  // Handle legacy object with `items` array
+  if (Array.isArray(rawInventory.items)) {
+    return rawInventory.items.reduce((map, item) => {
+      const key = item?.item_id || item?.id;
+      if (key) {
+        map[key] = item;
+      }
+      return map;
+    }, {});
+  }
+
+  // Already keyed object, return as-is for backward compatibility
   return rawInventory;
 }
 
@@ -196,117 +235,13 @@ let attackSounds = [
 let defendSound = new Audio('./sound/shield.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
 
-// ========================
-// Player Action Handler
-// ========================
-// Called by the UI buttons (Attack, Ability 1, Ability 2, Item).
-function chooseAction(actionId) {
-  if (combatants[currentTurn]?.type !== 'player') return;
-
-  if (actionId !== 'item' && itemSelectionOpen) {
-    hideItemSelection();
-  }
-
-  if (actionId === 'item') {
-    showItemSelection();
-    return;
-  }
-
-  const result = executePlayerAction(actionId);
-  if (!result) return;
-  completePlayerAction(result);
-}
-
-function executePlayerAction(actionId) {
-  const livingEnemies = getLivingEnemies();
-  const targetEnemy = livingEnemies[0] || null;
-  const abilityName = actionId === 'ability1' ? (player.ability1?.name || 'Ability 1')
-                      : actionId === 'ability2' ? (player.ability2?.name || 'Ability 2')
-                      : null;
-
-  switch (actionId) {
-    case 'attack': {
-      if (!targetEnemy) {
-        handleVictory();
-        return null;
-      }
-      const damage = rollFromDiceSpec(player.basic_attack);
-      targetEnemy.hp -= damage;
-      log(`You attack ${targetEnemy.name} for ${damage} damage.`);
-      playAttackSound();
-      return { enemy: targetEnemy, damage };
-    }
-    case 'ability1': {
-      if (!player.ability1) {
-        log('This class does not have a first ability.');
-        return null;
-      }
-      const sanityBefore = player.sanity;
-      const hpBefore = player.hp;
-      const sanityCap = player.maxSanity ?? (player.sanity + 10);
-      const hpCap = player.maxHp ?? (player.hp + 5);
-      player.sanity = Math.min(sanityCap, player.sanity + 10);
-      player.hp = Math.min(hpCap, player.hp + 5);
-      const sanityGain = player.sanity - sanityBefore;
-      const hpGain = player.hp - hpBefore;
-      const gains = [];
-      if (hpGain > 0) gains.push(`HP +${hpGain}`);
-      if (sanityGain > 0) gains.push(`Sanity +${sanityGain}`);
-      log(`${abilityName || 'Ability 1'} activated. ${gains.join(', ') || 'Focus restored.'}`);
-      return {};
-    }
-    case 'ability2': {
-      if (!player.ability2) {
-        log('This class does not have a second ability.');
-        return null;
-      }
-      if (!targetEnemy) {
-        handleVictory();
-        return null;
-      }
-      const damage = Math.floor(Math.random() * 5) + 8;
-      targetEnemy.hp -= damage;
-      player.sanity = Math.max(0, player.sanity - 2);
-      log(`${abilityName || 'Ability 2'} unsettles ${targetEnemy.name}, dealing ${damage} damage (Sanity -2).`);
-      return { enemy: targetEnemy, damage };
-    }
-    default:
-      log('Unknown action.');
-      return null;
-  }
-}
-
-function completePlayerAction(result = {}) {
-  if (itemSelectionOpen) {
-    hideItemSelection();
-  }
-  const { enemy } = result;
-  if (enemy) {
-    const enemyIndex = enemies.indexOf(enemy);
-    if (enemyIndex >= 0) {
-      updateEnemyHP(enemyIndex);
-      flashDamage(`enemy-portrait-${enemyIndex}`);
-    }
-    if (enemy.hp <= 0) {
-      enemy.alive = false;
-    }
-  }
-  updateUI();
-  if (checkEnemyStatus()) {
-    return;
-  }
-  saveGameState();
-  if (!combatEnded) {
-    setTimeout(nextTurn, 1500);
-  }
-}
-// Character death sound effects for enemies:
-
+// Enemy death sound effects
 let enemy_death_male_sound = [
   new Audio('./sound/enemy_male_death_01.mp3'),
   new Audio('./sound/enemy_male_death_02.mp3'),
   new Audio('./sound/enemy_male_death_03.mp3'),
-  new Audio('./sound/enemy_male_death_04.mp3')
+  new Audio('./sound/enemy_male_death_04.mp3'),
+  new Audio('./sound/enemy_male_death_05.mp3')
 ];
 
 let enemy_death_female_sound = [
@@ -321,8 +256,7 @@ let enemy_death_monster_sound = [
   new Audio('./sound/enemy_monster_death_02.mp3')
 ];
 
-// Character hurt sound effects for enemies:
-
+// Enemy hurt sound effects
 let enemy_hurt_male_sound = [
   new Audio('./sound/enemy_male_hurt_01.mp3'),
   new Audio('./sound/enemy_male_hurt_02.mp3'),
@@ -357,6 +291,152 @@ let enemy_hurt_monster_sound = [
   new Audio('./sound/enemy_monster_hurt_07.mp3'),
   new Audio('./sound/enemy_monster_hurt_08.mp3')
 ];
+
+// ========================
+// Player Action Handler
+// ========================
+// Called by the UI buttons (Attack, Ability 1, Ability 2, Item).
+function chooseAction(actionId) {
+  if (combatants[currentTurn]?.type !== 'player') return;
+
+  if (actionId !== 'item' && itemSelectionOpen) {
+    hideItemSelection();
+  }
+
+  if (actionId === 'item') {
+    showItemSelection();
+    return;
+  }
+
+  const result = executePlayerAction(actionId);
+  if (!result) return;
+  completePlayerAction(result);
+}
+
+function executePlayerAction(actionId) {
+  const livingEnemies = getLivingEnemies();
+  const targetEnemy = livingEnemies[0] || null;
+  const abilityName = actionId === 'ability1' ? (player.ability1?.name || 'Ability 1')
+                      : actionId === 'ability2' ? (player.ability2?.name || 'Ability 2')
+                      : null;
+
+  switch (actionId) {
+    case 'attack': {
+      if (!targetEnemy) {
+        handleVictory();
+        return null;
+      }
+      const baseAttackSpec = player.basic_attack;
+      const damage = baseAttackSpec ? rollFromDiceSpec(baseAttackSpec) : Math.floor(Math.random() * 10 + 5);
+      targetEnemy.hp -= damage;
+      log(`You attack ${targetEnemy.name} for ${damage} damage.`);
+      playAttackSound();
+      return { enemy: targetEnemy, damage, action: 'attack' };
+    }
+    case 'defend': {
+      const sanityGainCap = player.maxSanity ?? (player.sanity + 5);
+      const sanityBefore = player.sanity;
+      player.sanity = Math.min(sanityGainCap, player.sanity + 5);
+      const sanityGain = player.sanity - sanityBefore;
+      log(`You brace yourself${sanityGain ? ` and regain ${sanityGain} sanity` : ''}.`);
+      defendSound.play().catch(err => console.log('Sound error:', err));
+      return { action: 'defend' };
+    }
+    case 'element': {
+      if (!targetEnemy) {
+        handleVictory();
+        return null;
+      }
+      const damage = Math.floor(Math.random() * 12) + 8;
+      targetEnemy.hp -= damage;
+      player.sanity = Math.max(0, player.sanity - 5);
+      log(`Elemental strike! ${damage} damage dealt, sanity -5.`);
+      playAttackSound();
+      return { enemy: targetEnemy, damage, action: 'element' };
+    }
+    case 'ability1': {
+      if (!player.ability1) {
+        log('This class does not have a first ability.');
+        return null;
+      }
+      const sanityBefore = player.sanity;
+      const hpBefore = player.hp;
+      const sanityCap = player.maxSanity ?? (player.sanity + 10);
+      const hpCap = player.maxHp ?? (player.hp + 5);
+      player.sanity = Math.min(sanityCap, player.sanity + 10);
+      player.hp = Math.min(hpCap, player.hp + 5);
+      const sanityGain = player.sanity - sanityBefore;
+      const hpGain = player.hp - hpBefore;
+      const pieces = [];
+      if (hpGain > 0) pieces.push(`restore ${hpGain} HP`);
+      if (sanityGain > 0) pieces.push(`regain ${sanityGain} sanity`);
+      const effectText = pieces.length ? `, ${pieces.join(' and ')}` : '';
+      log(`You use ${abilityName}${effectText}.`);
+      return { action: 'ability1' };
+    }
+    case 'ability2': {
+      if (!player.ability2) {
+        log('This class does not have a second ability.');
+        return null;
+      }
+      if (!targetEnemy) {
+        handleVictory();
+        return null;
+      }
+      const damage = Math.floor(Math.random() * 8) + 6;
+      targetEnemy.hp -= damage;
+      const sanityBefore = player.sanity;
+      const sanityCap = player.maxSanity ?? (player.sanity + 5);
+      player.sanity = Math.min(sanityCap, player.sanity + 5);
+      const sanityGain = player.sanity - sanityBefore;
+      const sanityText = sanityGain ? ` and steady your mind (+${sanityGain} sanity)` : '';
+      log(`You unleash ${abilityName}, unsettling ${targetEnemy.name} for ${damage} damage${sanityText}.`);
+      playAttackSound();
+      return { enemy: targetEnemy, damage, action: 'ability2' };
+    }
+    default:
+      log('Unknown action.');
+      return null;
+  }
+}
+
+function completePlayerAction(result = {}) {
+  const enemy = result.enemy;
+  const damage = result.damage || 0;
+
+  if (enemy) {
+    const enemyIndex = enemies.indexOf(enemy);
+    if (enemyIndex >= 0) {
+      updateEnemyHP(enemyIndex);
+      if (damage > 0) {
+        flashDamage(`enemy-portrait-${enemyIndex}`);
+      }
+    }
+
+    if (enemy.hp <= 0 && enemy.alive !== false) {
+      enemy.alive = false;
+      setTimeout(() => {
+        const deathSoundArray = enemy.gender === 'f' ? enemy_death_female_sound :
+                                enemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+        playRandomSound(deathSoundArray);
+      }, 1000);
+    } else if (damage > 0) {
+      setTimeout(() => {
+        const hurtSoundArray = enemy.gender === 'f' ? enemy_hurt_female_sound :
+                               enemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+        playRandomSound(hurtSoundArray);
+      }, 1000);
+    }
+  }
+
+  updateUI();
+  const victoryTriggered = checkEnemyStatus();
+  saveGameState();
+
+  if (!combatEnded && !victoryTriggered) {
+    setTimeout(nextTurn, 2000);
+  }
+}
 
 // Character hurt sound effects (player/companion)
 
@@ -566,75 +646,403 @@ function rollFromDiceSpec(spec) {
   return total;
 }
 
+// ========================
+// Item Selection & Targeting System
+// ========================
+
+// Track the currently selected item for target selection
+let selectedItemId = null;
+let selectedItemDef = null;
+let targetSelectionActive = false;
+
+/**
+ * Show the item selection panel with available combat items.
+ */
 function showItemSelection() {
   const panel = document.getElementById('item-selection');
   const list = document.getElementById('item-list');
   if (!panel || !list) return;
-  if (!player.inventory || !player.inventory.some(item => item.quantity > 0)) {
+  
+  // Get usable items from the unified item system
+  const usableItems = getUsableItemsForContext('combat');
+  
+  if (!usableItems || usableItems.length === 0) {
     log('No usable items in your inventory.');
     return;
   }
+  
   list.innerHTML = '';
-  player.inventory.forEach(item => {
-    if (!item || item.quantity <= 0) return;
+  usableItems.forEach(({ itemId, quantity, def }) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.dataset.itemId = item.id;
-    button.textContent = `${item.name} (${item.quantity})`;
-    if (item.description) {
-      button.title = item.description;
+    button.dataset.itemId = itemId;
+    button.textContent = `${def.name} (${quantity})`;
+    
+    // Add target type indicator class
+    if (def.targetType === 'enemy' || def.targetType === 'all_enemies') {
+      button.classList.add('target-enemy');
+    } else if (def.targetType === 'ally' || def.targetType === 'self' || def.targetType === 'party') {
+      button.classList.add('target-ally');
     }
-    button.addEventListener('click', () => handleItemSelection(item.id));
+    
+    // Add hover events for tooltip
+    button.addEventListener('mouseenter', (e) => showItemTooltip(def, e));
+    button.addEventListener('mousemove', (e) => moveItemTooltip(e));
+    button.addEventListener('mouseleave', hideItemTooltip);
+    
+    // Click to select item
+    button.addEventListener('click', () => handleItemSelection(itemId, def));
     list.appendChild(button);
   });
+  
   panel.classList.add('visible');
   itemSelectionOpen = true;
 }
 
+/**
+ * Hide the item selection panel.
+ */
 function hideItemSelection() {
   const panel = document.getElementById('item-selection');
   if (!panel) return;
   panel.classList.remove('visible');
   itemSelectionOpen = false;
+  hideItemTooltip();
 }
 
-function handleItemSelection(itemId) {
-  if (!itemId) return;
-  const item = player.inventory?.find(it => it.id === itemId);
-  if (!item || item.quantity <= 0) {
-    log('That item is not available.');
+/**
+ * Show tooltip with item details on hover.
+ */
+function showItemTooltip(itemDef, event) {
+  const tooltip = document.getElementById('item-tooltip');
+  if (!tooltip || !itemDef) return;
+  
+  // Set tooltip content
+  const imgEl = document.getElementById('tooltip-image');
+  const nameEl = document.getElementById('tooltip-name');
+  const descEl = document.getElementById('tooltip-description');
+  const effectsEl = document.getElementById('tooltip-effects');
+  
+  if (imgEl) {
+    imgEl.src = itemDef.image || './assets/img/item_portrait/place_holder.png';
+    imgEl.alt = itemDef.name;
+  }
+  if (nameEl) nameEl.textContent = itemDef.name;
+  if (descEl) descEl.textContent = itemDef.description || '';
+  
+  // Build effects text
+  if (effectsEl && itemDef.effects) {
+    const effectTexts = itemDef.effects.map(effect => {
+      switch (effect.kind) {
+        case 'hp':
+          return `${effect.mode === 'heal' ? '❤️ Heals' : '💔 Damages'}: ${effect.dice || effect.amount}`;
+        case 'sanity':
+          return `${effect.mode === 'heal' ? '🧠 Restores' : '😵 Drains'}: ${effect.dice || effect.amount} Sanity`;
+        case 'cure_status':
+          return `✨ Cures: ${effect.status}`;
+        case 'buff':
+          return `⬆️ +${effect.dice || effect.amount} ${effect.stat} (${effect.duration} turns)`;
+        case 'barrier':
+          return `🛡️ Barrier (${effect.duration} turns)`;
+        case 'weapon_coating':
+          return `🗡️ ${effect.coatingType} coating (${effect.duration} turns)`;
+        case 'immobilize':
+          return `⛓️ Immobilize (${effect.duration} turns)`;
+        case 'confusion':
+          return `🌀 Confuse (${effect.duration} turns)`;
+        case 'rest':
+          return `💤 Full party rest`;
+        default:
+          return '';
+      }
+    }).filter(Boolean);
+    effectsEl.innerHTML = effectTexts.join('<br>');
+  }
+  
+  // Position and show tooltip
+  tooltip.classList.add('visible');
+  moveItemTooltip(event);
+}
+
+/**
+ * Move tooltip to follow mouse cursor.
+ */
+function moveItemTooltip(event) {
+  const tooltip = document.getElementById('item-tooltip');
+  if (!tooltip) return;
+  
+  const offset = 15;
+  let x = event.clientX + offset;
+  let y = event.clientY + offset;
+  
+  // Keep tooltip on screen
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) {
+    x = event.clientX - rect.width - offset;
+  }
+  if (y + rect.height > window.innerHeight) {
+    y = event.clientY - rect.height - offset;
+  }
+  
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top = `${y}px`;
+}
+
+/**
+ * Hide the item tooltip.
+ */
+function hideItemTooltip() {
+  const tooltip = document.getElementById('item-tooltip');
+  if (tooltip) {
+    tooltip.classList.remove('visible');
+  }
+}
+
+/**
+ * Handle item selection - either apply immediately (self) or start target selection.
+ */
+function handleItemSelection(itemId, itemDef) {
+  if (!itemId || !itemDef) return;
+  
+  hideItemTooltip();
+  
+  const targetType = itemDef.targetType || 'self';
+  
+  // Self-targeting items apply immediately
+  if (targetType === 'self') {
+    applyItemToTarget(itemId, player);
     return;
   }
-  applyItemEffects(item, player);
-  item.quantity -= 1;
-  if (item.quantity <= 0) {
-    player.inventory = player.inventory.filter(it => it.quantity > 0);
+  
+  // Party-targeting items apply to all allies at once
+  if (targetType === 'party') {
+    // In combat, party items typically shouldn't be usable, but handle gracefully
+    applyItemToTarget(itemId, player); // Apply to player as fallback
+    return;
   }
+  
+  // Store selected item and start target selection
+  selectedItemId = itemId;
+  selectedItemDef = itemDef;
+  
+  // Hide item panel, show target selection prompt
   hideItemSelection();
+  startTargetSelection(targetType);
+}
+
+/**
+ * Start the target selection mode - highlight valid targets.
+ */
+function startTargetSelection(targetType) {
+  targetSelectionActive = true;
+  
+  // Show target selection prompt
+  const targetPanel = document.getElementById('target-selection');
+  const targetPrompt = document.getElementById('target-selection-prompt');
+  if (targetPanel) {
+    targetPanel.classList.add('visible');
+  }
+  if (targetPrompt) {
+    if (targetType === 'enemy' || targetType === 'all_enemies') {
+      targetPrompt.textContent = 'Select an enemy target:';
+    } else {
+      targetPrompt.textContent = 'Select an ally to target:';
+    }
+  }
+  
+  // Highlight valid targets based on target type
+  if (targetType === 'ally') {
+    highlightAllyTargets();
+  } else if (targetType === 'enemy') {
+    highlightEnemyTargets();
+  } else if (targetType === 'all_enemies') {
+    highlightAllEnemyTargets();
+  }
+  
+  // Add click listeners to targetable portraits
+  addTargetClickListeners();
+}
+
+/**
+ * Highlight ally portraits (player and companion) as targetable.
+ */
+function highlightAllyTargets() {
+  const playerPortrait = document.getElementById('player-portrait');
+  const allyPortrait = document.getElementById('ally-portrait');
+  
+  if (playerPortrait && player.alive) {
+    playerPortrait.classList.add('targetable', 'target-ally');
+    playerPortrait.dataset.targetType = 'player';
+  }
+  if (allyPortrait && companion.alive) {
+    allyPortrait.classList.add('targetable', 'target-ally');
+    allyPortrait.dataset.targetType = 'companion';
+  }
+}
+
+/**
+ * Highlight enemy portraits as targetable.
+ */
+function highlightEnemyTargets() {
+  const livingEnemies = getLivingEnemies();
+  livingEnemies.forEach((enemy, index) => {
+    const actualIndex = enemies.indexOf(enemy);
+    const portrait = document.getElementById(`enemy-portrait-${actualIndex}`);
+    if (portrait) {
+      portrait.classList.add('targetable', 'target-enemy');
+      portrait.dataset.targetType = 'enemy';
+      portrait.dataset.enemyIndex = actualIndex;
+    }
+  });
+}
+
+/**
+ * Highlight all enemy portraits for mass-targeting items.
+ */
+function highlightAllEnemyTargets() {
+  const livingEnemies = getLivingEnemies();
+  livingEnemies.forEach((enemy, index) => {
+    const actualIndex = enemies.indexOf(enemy);
+    const portrait = document.getElementById(`enemy-portrait-${actualIndex}`);
+    if (portrait) {
+      portrait.classList.add('targetable', 'target-party');
+      portrait.dataset.targetType = 'all_enemies';
+      portrait.dataset.enemyIndex = actualIndex;
+    }
+  });
+}
+
+/**
+ * Add click listeners to all targetable portraits.
+ */
+function addTargetClickListeners() {
+  document.querySelectorAll('.portrait.targetable').forEach(portrait => {
+    portrait.addEventListener('click', handleTargetClick);
+  });
+}
+
+/**
+ * Handle clicking on a target portrait.
+ */
+function handleTargetClick(event) {
+  if (!targetSelectionActive || !selectedItemId) return;
+  
+  const portrait = event.currentTarget;
+  const targetType = portrait.dataset.targetType;
+  
+  let target = null;
+  
+  if (targetType === 'player') {
+    target = player;
+  } else if (targetType === 'companion') {
+    target = companion;
+  } else if (targetType === 'enemy' || targetType === 'all_enemies') {
+    const enemyIndex = parseInt(portrait.dataset.enemyIndex, 10);
+    target = enemies[enemyIndex];
+  }
+  
+  if (target) {
+    // For all_enemies, we apply to all living enemies
+    if (targetType === 'all_enemies') {
+      const livingEnemies = getLivingEnemies();
+      livingEnemies.forEach(enemy => {
+        applyItemToTarget(selectedItemId, enemy, false); // Don't complete action yet
+      });
+      // Complete action after applying to all
+      finishItemUse();
+    } else {
+      applyItemToTarget(selectedItemId, target);
+    }
+  }
+}
+
+/**
+ * Apply the selected item to the chosen target.
+ */
+function applyItemToTarget(itemId, target, completeAction = true) {
+  // Build game state for the item system
+  const currentGameState = {
+    player: player,
+    companion: companion,
+    enemies: enemies
+  };
+  
+  // Use the unified item system
+  const result = handleCombatItemUse(itemId, target, currentGameState, log);
+  
+  if (result.success) {
+    // Play potion/item sound
+    potion_sound?.play().catch(() => {});
+    
+    if (completeAction) {
+      finishItemUse();
+    }
+  } else {
+    log('Cannot use that item right now.');
+    cancelTargetSelection();
+  }
+}
+
+/**
+ * Clean up after item use and proceed with combat.
+ */
+function finishItemUse() {
+  cancelTargetSelection();
+  hideItemSelection();
+  updateUI();
   completePlayerAction();
 }
 
-function applyItemEffects(item, target = player) {
-  const effects = item.effects || {};
-  const hpBefore = target.hp;
-  const sanityBefore = target.sanity;
-  if (effects.hp) {
-    const maxHp = target.maxHp ?? (target.hp + effects.hp);
-    target.hp = Math.min(maxHp, target.hp + effects.hp);
+/**
+ * Cancel target selection mode and clean up.
+ */
+function cancelTargetSelection() {
+  targetSelectionActive = false;
+  selectedItemId = null;
+  selectedItemDef = null;
+  
+  // Hide target selection prompt
+  const targetPanel = document.getElementById('target-selection');
+  if (targetPanel) {
+    targetPanel.classList.remove('visible');
   }
-  if (effects.sanity) {
-    const maxSanity = target.maxSanity ?? (target.sanity + effects.sanity);
-    target.sanity = Math.min(maxSanity, target.sanity + effects.sanity);
-  }
-  const hpGain = target.hp - hpBefore;
-  const sanityGain = target.sanity - sanityBefore;
-  const gains = [];
-  if (hpGain > 0) gains.push(`HP +${hpGain}`);
-  if (sanityGain > 0) gains.push(`Sanity +${sanityGain}`);
-  const effectText = gains.length ? gains.join(', ') : (item.description || '');
-  log(`You use ${item.name}. ${effectText}`);
-  potion_sound?.play().catch(() => {});
+  
+  // Remove targetable classes and listeners from all portraits
+  document.querySelectorAll('.portrait.targetable').forEach(portrait => {
+    portrait.classList.remove('targetable', 'target-ally', 'target-enemy', 'target-party');
+    portrait.removeEventListener('click', handleTargetClick);
+    delete portrait.dataset.targetType;
+    delete portrait.dataset.enemyIndex;
+  });
 }
+
+/**
+ * Cancel all item-related UI (called on right-click).
+ */
+function cancelItemAction() {
+  if (targetSelectionActive) {
+    cancelTargetSelection();
+    // Go back to item selection
+    showItemSelection();
+  } else if (itemSelectionOpen) {
+    hideItemSelection();
+  }
+}
+
+/**
+ * Set up right-click to cancel item/target selection.
+ */
+function setupRightClickCancel() {
+  document.addEventListener('contextmenu', (event) => {
+    if (targetSelectionActive || itemSelectionOpen) {
+      event.preventDefault();
+      cancelItemAction();
+    }
+  });
+}
+
+// Initialize right-click cancel on page load
+document.addEventListener('DOMContentLoaded', setupRightClickCancel);
 
 // 
 // Helper function to play a random sound from an array
@@ -696,7 +1104,20 @@ function setupItemSelectionUI() {
 // After fetching all data, it sets up the user interface and starts combat.
 async function loadCombatData() {
   try {
-    // Load inventory definitions used to hydrate party inventories
+    // Load item database for the unified item system
+    await loadItemDatabase('./inventory.json');
+    
+    // Initialize inventory state with starting items (can be loaded from save later)
+    const inventorySeed = (typeof window !== 'undefined' && window.initialInventoryState)
+      ? cloneData(window.initialInventoryState)
+      : {
+          vial_vital_humours: 2,
+          tincture_of_lucidity: 1,
+          herbal_tonic: 3
+        };
+    initInventoryState(inventorySeed || {});
+    
+    // Load inventory definitions used to hydrate party inventories (legacy support)
     const inventoryRes = await fetch('inventory.json');
     const inventoryRaw = await inventoryRes.json();
     inventoryCatalog = normalizeInventoryCatalog(inventoryRaw);
@@ -1038,117 +1459,6 @@ function generateEnemyCards() {
     
     console.log(`Generated card for ${enemy.name} (id: ${enemy.id}) with HP: ${enemy.hp}, alive: ${enemy.alive}`);
   });
-}
-
-
-// ========================
-// Player Action Handler
-// ========================
-// Called by the UI buttons (Attack, Defend, Element, Item).
-function chooseAction(action) {
-  // If it's not the player's turn, ignore any clicks
-  if (combatants[currentTurn]?.type !== 'player') return;
-  
-  // Filter enemies to get only those that are alive and have HP > 0
-  const validTargets = enemies.filter(e => e.alive !== false && e.hp > 0);
-  
-  // If no valid targets, check victory immediately
-  if (validTargets.length === 0) {
-    log("No valid targets remaining!");
-    handleVictory();
-    return;
-  }
-  
-  // Target the first valid enemy in the filtered array
-  const targetEnemy = validTargets[0];
-  let dmg = 0;
-  
-  // Log the current state of the target enemy before action
-  console.log(`Targeting enemy: ${targetEnemy.name}, current HP: ${targetEnemy.hp}, alive: ${targetEnemy.alive}`);
-  
-  // Switch on the action type
-  switch(action) {
-    case "attack":
-      // Basic attack: random damage from 5 to 14
-      dmg = Math.floor(Math.random() * 10 + 5);
-      targetEnemy.hp -= dmg;
-      log(`You attack the ${targetEnemy.name} for ${dmg} damage.`);
-      // Play attack sound
-      playAttackSound();
-      break;
-    case "defend":
-      // Simple defend: regains sanity
-      player.sanity += 5;
-      log("You defend and regain 5 sanity.");
-      // Play defend sound
-      defendSound.play().catch(e => console.log("Sound error:", e));
-      break;
-    case "element":
-      // Elemental ability: higher damage, cost some sanity
-      dmg = Math.floor(Math.random() * 12 + 8);
-      targetEnemy.hp -= dmg;
-      player.sanity -= 5;
-      log(`Elemental strike! ${dmg} damage dealt, sanity -5.`);
-      // Play attack sound for elemental attack too
-      playAttackSound();
-      break;
-    case "item":
-      // Using an item: raises HP & sanity
-      player.hp += 10;
-      player.sanity += 10;
-      log("You use a Tincture of Lucidity. HP +10, Sanity +10.");
-      // Play potion sound for healing item
-      potion_sound.play().catch(e => console.log("Sound error:", e));
-      break;
-    default:
-      // Unknown or unhandled action
-      log("Unknown action.");
-      return;
-  }
-  
-  // Log the new state of the target after action
-  console.log(`After attack: ${targetEnemy.name}, HP: ${targetEnemy.hp}`);
-  
-  // Check if enemy was damaged and flash their portrait
-  if (dmg > 0) {
-    // Find the enemy index for portrait flashing
-    const enemyIndex = enemies.indexOf(targetEnemy);
-    if (enemyIndex >= 0) {
-      // Update this specific enemy's HP in the UI immediately
-      updateEnemyHP(enemyIndex);
-      flashDamage(`enemy-portrait-${enemyIndex}`);
-    }
-    
-    // Check if enemy was defeated
-    if (targetEnemy.hp <= 0) {
-      targetEnemy.alive = false;
-      console.log(`Enemy defeated: ${targetEnemy.name}, setting alive to false`);
-      // Play death sound for the enemy with a delay
-      setTimeout(() => {
-        const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
-                               targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
-        playRandomSound(deathSoundArray);
-      }, 1000);
-    } else {
-      // Play hurt sound if the enemy was damaged but not defeated (with delay)
-      setTimeout(() => {
-        const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
-                              targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
-        playRandomSound(hurtSoundArray);
-      }, 1000);
-    }
-  }
-  
-  // Full UI update
-  updateUI();
-  
-  checkEnemyStatus(); // See if that action killed the enemy
-  saveGameState();    // Save the updated stats/HP
-  
-  // Only proceed to next turn if combat hasn't ended
-  if (!combatEnded) {
-    setTimeout(nextTurn, 2000); // Move on to the next turn after 2 seconds
-  }
 }
 
 
