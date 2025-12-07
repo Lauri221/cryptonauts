@@ -165,9 +165,11 @@ function useItem(itemId, context) {
   // Apply data-driven effects
   if (item.effects && Array.isArray(item.effects)) {
     item.effects.forEach(effect => {
-      const result = applyEffect(effect, context);
-      if (result.message) {
-        messages.push(result.message);
+      const outcome = applyItemEffect(effect, context);
+      if (outcome?.messages?.length) {
+        messages.push(...outcome.messages);
+      } else if (outcome?.message) {
+        messages.push(outcome.message);
       }
     });
   }
@@ -277,13 +279,130 @@ function getTargetCharacter(context) {
   return null;
 }
 
+function getSharedEffectEngine() {
+  return (typeof window !== 'undefined' ? window.sharedEffectEngine : globalThis.sharedEffectEngine) || null;
+}
+
+function resolveMagnitudeSpec(effect) {
+  if (effect.dice) return effect.dice;
+  if (typeof effect.amount === 'number') return `${effect.amount}`;
+  return '0';
+}
+
+function mapStatusIdFromItem(statusName) {
+  if (!statusName) return null;
+  const normalized = statusName.toLowerCase();
+  switch (normalized) {
+    case 'burning':
+      return 'fire';
+    case 'poisoned':
+      return 'poison';
+    case 'bleeding':
+      return 'bleeding';
+    default:
+      return normalized;
+  }
+}
+
+function convertItemEffectToAbilityEffect(effect) {
+  if (!effect) return null;
+  switch (effect.kind) {
+    case 'hp':
+      return {
+        type: effect.mode === 'damage' ? 'damage' : 'heal',
+        resource: 'hp',
+        magnitude: resolveMagnitudeSpec(effect),
+        damage_type: 'physical',
+        skipLevelBonus: true
+      };
+    case 'sanity':
+      return {
+        type: effect.mode === 'loss' ? 'damage' : 'heal',
+        resource: 'sanity',
+        magnitude: resolveMagnitudeSpec(effect),
+        damage_type: 'sanity',
+        skipLevelBonus: true
+      };
+    case 'cure_status':
+      return {
+        type: 'cleanse',
+        status_id: mapStatusIdFromItem(effect.status)
+      };
+    case 'cure_all':
+      return {
+        type: 'cure_all'
+      };
+    case 'buff': {
+      const statusMap = {
+        attackdamage: 'attack_up',
+        attack: 'attack_up',
+        defense: 'defense_up'
+      };
+      const statusId = statusMap[(effect.stat || '').toLowerCase()];
+      if (!statusId) return null;
+      return {
+        type: 'status',
+        status_id: statusId,
+        duration_turns: effect.duration || 2,
+        magnitude: resolveMagnitudeSpec(effect),
+        skipLevelBonus: true
+      };
+    }
+    case 'weapon_coating':
+      return {
+        type: 'weapon_coating',
+        coating_type: effect.coatingType,
+        duration_turns: effect.duration || 3,
+        magnitude: effect.damagePerTurn || '1d6',
+        skipLevelBonus: true
+      };
+    case 'barrier':
+      return {
+        type: 'barrier',
+        duration_turns: effect.duration || 2
+      };
+    case 'immobilize':
+      return {
+        type: 'immobilize',
+        duration_turns: effect.duration || 2
+      };
+    case 'confusion':
+      return {
+        type: 'confusion',
+        duration_turns: effect.duration || 2
+      };
+    case 'rest':
+      return {
+        type: 'meta',
+        meta_action: 'rest_party'
+      };
+    default:
+      return null;
+  }
+}
+
+function applyItemEffect(effect, context) {
+  const shared = getSharedEffectEngine();
+  const abilityEffect = convertItemEffectToAbilityEffect(effect);
+  if (shared?.applyEffect && abilityEffect) {
+    const caster = context.player || context.gameState?.player || context.target || null;
+    const target = context.target || caster;
+    const results = shared.applyEffect(abilityEffect, caster || target, target, null);
+    return {
+      messages: Array.isArray(results)
+        ? results
+            .filter(r => r?.success && r.amount)
+            .map(r => `${r.target?.name || 'Target'} ${r.type === 'heal' ? 'recovers' : 'takes'} ${r.amount}`)
+        : []
+    };
+  }
+  return applyLegacyItemEffect(effect, context);
+}
+
 /**
- * Apply a single effect from an item.
- * @param {Object} effect - Effect definition { kind, mode, amount/dice, ... }
- * @param {Object} context - Usage context
- * @returns {Object} - Result { message? }
+ * Apply a single effect using the legacy item resolver.
  */
-function applyEffect(effect, context) {
+function applyLegacyItemEffect(effect, context) {
   const result = {};
 
   switch (effect.kind) {
@@ -555,7 +674,8 @@ if (typeof module !== 'undefined' && module.exports) {
     useItem,
     getUsableItemsForContext,
     rollDice,
-    applyEffect,
+    applyItemEffect,
+    applyLegacyItemEffect,
     handleCombatItemUse,
     handleExplorationItemUse,
     effectHandlers,

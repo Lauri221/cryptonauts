@@ -1,0 +1,61 @@
+{
+  "status_effects": [
+    {
+      "id": "stun",
+      "name": "Stunned",
+      "description": "Skips next turn and moves to the back of the turn queue.",
+      "tags": ["no_action", "move_to_back"],
+      "stackable": false
+    },
+    {
+      "id": "poison",
+      "name": "Poisoned",
+      "description": "Takes poison damage at the start of each turn.",
+      "damage_type": "poison",
+      "stackable": false
+    },
+    {
+      "id": "fire",
+      "name": "Burning",
+      "description": "Takes fire damage at the start of each turn.",
+      "damage_type": "fire",
+      "stackable": false
+    },
+    {
+      "id": "bleeding",
+      "name": "Bleeding",
+      "description": "Loses HP at the start of each turn.",
+      "damage_type": "physical",
+      "stackable": true,
+      "max_stacks": 3
+    },
+    {
+      "id": "charmed",
+      "name": "Hypnotised",
+      "description": "Acts against allies or self for the duration.",
+      "tags": ["ai_override", "attack_allies"],
+      "stackable": false
+    },
+    {
+      "id": "attack_up",
+      "name": "Inspired",
+      "description": "Attack damage is increased.",
+      "buff_type": "attack",
+      "stackable": false
+    },
+    {
+      "id": "defense_up",
+      "name": "Protected",
+      "description": "Defense is increased, reducing incoming damage.",
+      "buff_type": "defense",
+      "stackable": false
+    },
+    {
+      "id": "sanity_regen",
+      "name": "Calm",
+      "description": "Restores sanity at the start of each turn.",
+      "resource": "sanity",
+      "stackable": false
+    }
+  ]
+}

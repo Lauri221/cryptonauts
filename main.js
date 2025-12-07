@@ -177,7 +177,10 @@ async function hydratePartyMember(rawConfig = {}) {
     return {
       ...rawConfig,
       maxHp: rawConfig.maxHp || rawConfig.hp || 0,
-      maxSanity: rawConfig.maxSanity || rawConfig.sanity || 0
+      maxSanity: rawConfig.maxSanity || rawConfig.sanity || 0,
+      level: rawConfig.level ?? 0,
+      xp: rawConfig.xp ?? 0,
+      xpToNextLevel: rawConfig.xpToNextLevel ?? 50
     };
   }
 
@@ -192,15 +195,31 @@ async function hydratePartyMember(rawConfig = {}) {
   const inventory = buildInventoryFromIds(inventoryIds);
   const actions = buildCharacterActions(baseStats);
 
+  // Level and XP - start at level 0 with 0 XP, 50 XP to reach level 1
+  const level = rawConfig.level ?? 0;
+  const xp = rawConfig.xp ?? 0;
+  const xpToNextLevel = rawConfig.xpToNextLevel ?? calculateXpToNextLevel(level);
+
+  // Calculate scaled stats based on level (+15% cumulative per level)
+  const baseHp = baseStats.hp ?? rawConfig.hp ?? 0;
+  const baseSanity = baseStats.sanity ?? rawConfig.sanity ?? 0;
+  const hpMultiplier = 1 + (0.15 * level);
+  const sanityMultiplier = 1 + (0.15 * level);
+  const scaledHp = Math.floor(baseHp * hpMultiplier);
+  const scaledSanity = Math.floor(baseSanity * sanityMultiplier);
+
   const hydrated = {
     ...rawConfig,
     character_id: spec.id,
     class: spec.class,
     base_stats: baseStats,
-    hp: baseStats.hp ?? rawConfig.hp ?? 0,
-    maxHp: baseStats.hp ?? rawConfig.hp ?? 0,
-    sanity: baseStats.sanity ?? rawConfig.sanity ?? 0,
-    maxSanity: baseStats.sanity ?? rawConfig.sanity ?? 0,
+    level,
+    xp,
+    xpToNextLevel,
+    hp: scaledHp,
+    maxHp: scaledHp,
+    sanity: scaledSanity,
+    maxSanity: scaledSanity,
     defense: baseStats.defense ?? rawConfig.defense ?? 0,
     speed: baseStats.speed ?? rawConfig.speed ?? 0,
     basic_attack: baseStats.basic_attack ?? rawConfig.basic_attack,
@@ -217,8 +236,145 @@ async function hydratePartyMember(rawConfig = {}) {
   return hydrated;
 }
 
+/**
+ * Calculate XP required to reach the next level.
+ * Base: 50 XP for level 1, then 1.2x multiplier each level.
+ * Max level is 10.
+ */
+function calculateXpToNextLevel(currentLevel) {
+  if (currentLevel >= 10) return Infinity; // Max level reached
+  const baseXp = 50;
+  return Math.floor(baseXp * Math.pow(1.2, currentLevel));
+}
+
+/**
+ * Award XP to a character and check for level up.
+ * Returns true if character leveled up.
+ */
+function awardXp(character, amount) {
+  if (!character || character.level >= 10) return false;
+  
+  character.xp = (character.xp || 0) + amount;
+  
+  let leveledUp = false;
+  while (character.xp >= character.xpToNextLevel && character.level < 10) {
+    leveledUp = true;
+    character.xp -= character.xpToNextLevel;
+    character.level++;
+    
+    // Apply level-up bonuses
+    applyLevelUpBonuses(character);
+    
+    // Calculate new XP threshold
+    character.xpToNextLevel = calculateXpToNextLevel(character.level);
+    
+    // Log and play effects
+    log(`🎉 ${character.name} reached Level ${character.level}!`);
+    playLevelUpSound();
+    flashLevelUp(character);
+  }
+  
+  return leveledUp;
+}
+
+/**
+ * Apply stat bonuses when leveling up.
+ * +15% HP and Sanity (cumulative from base), +2 attack power per level.
+ */
+function applyLevelUpBonuses(character) {
+  const baseStats = character.base_stats || {};
+  const baseHp = baseStats.hp || 30;
+  const baseSanity = baseStats.sanity || 20;
+  
+  // Calculate new max stats (+15% cumulative per level)
+  const hpMultiplier = 1 + (0.15 * character.level);
+  const sanityMultiplier = 1 + (0.15 * character.level);
+  const newMaxHp = Math.floor(baseHp * hpMultiplier);
+  const newMaxSanity = Math.floor(baseSanity * sanityMultiplier);
+  
+  // Increase current HP/Sanity by the difference (heal on level up)
+  const hpGain = newMaxHp - character.maxHp;
+  const sanityGain = newMaxSanity - character.maxSanity;
+  
+  character.maxHp = newMaxHp;
+  character.maxSanity = newMaxSanity;
+  character.hp = Math.min(character.hp + hpGain, newMaxHp);
+  character.sanity = Math.min(character.sanity + sanityGain, newMaxSanity);
+  
+  log(`  ➤ Max HP: ${newMaxHp} (+${hpGain}), Max Sanity: ${newMaxSanity} (+${sanityGain})`);
+}
+
+/**
+ * Calculate scaled basic attack damage based on level.
+ * +2 per level, extra die at levels 3 and 6.
+ */
+function getScaledBasicAttack(character) {
+  const baseAttack = character.basic_attack || character.base_stats?.basic_attack;
+  if (!baseAttack) return Math.floor(Math.random() * 6) + 4;
+  
+  const level = character.level || 0;
+  let dice = baseAttack.dice || 2;
+  const sides = baseAttack.sides || 4;
+  
+  // Add extra die at levels 3 and 6
+  if (level >= 3) dice++;
+  if (level >= 6) dice++;
+  
+  // Roll the dice
+  let total = 0;
+  for (let i = 0; i < dice; i++) {
+    total += Math.floor(Math.random() * sides) + 1;
+  }
+  
+  // Add +2 per level
+  total += level * 2;
+  
+  return total;
+}
+
+/**
+ * Get the ability magnitude bonus based on character level.
+ * +1 per level cumulative.
+ */
+function getAbilityLevelBonus(character) {
+  return character.level || 0;
+}
+
+/**
+ * Flash the character card white on level up.
+ */
+function flashLevelUp(character) {
+  let elementId = null;
+  if (character === player) {
+    elementId = 'player-portrait';
+  } else if (character === companion) {
+    elementId = 'ally-portrait';
+  }
+  
+  if (elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.classList.add('level-up-flash');
+      setTimeout(() => element.classList.remove('level-up-flash'), 1000);
+    }
+  }
+}
+
+/**
+ * Play level up sound effect.
+ */
+function playLevelUpSound() {
+  if (levelUpSound) {
+    levelUpSound.currentTime = 0;
+    levelUpSound.play().catch(err => console.log('Level up sound error:', err));
+  }
+}
+
 // Audio for victory jingle; loaded from relative path
 let victorySound = new Audio('./music/victory_music.mp3');
+
+// Level up sound effect
+let levelUpSound = new Audio('./sound/level_up.mp3');
 
 // Looping combat underscore
 let combatMusic = new Audio('./music/combat.mp3');
@@ -326,8 +482,7 @@ function executePlayerAction(actionId) {
         handleVictory();
         return null;
       }
-      const baseAttackSpec = player.basic_attack;
-      const damage = baseAttackSpec ? rollFromDiceSpec(baseAttackSpec) : Math.floor(Math.random() * 10 + 5);
+      const damage = getScaledBasicAttack(player);
       targetEnemy.hp -= damage;
       log(`You attack ${targetEnemy.name} for ${damage} damage.`);
       playAttackSound();
@@ -359,6 +514,14 @@ function executePlayerAction(actionId) {
         log('This class does not have a first ability.');
         return null;
       }
+      const abilityId = player.ability1.id;
+      if (abilityId && getAbilityById(abilityId)) {
+        // Use the new ability resolution system
+        const targets = getLivingEnemies()[0] || player; // Default to self if no target needed
+        const result = resolveAbilityUse(abilityId, player, targets);
+        return { action: 'ability1', abilityResult: result };
+      }
+      // Fallback for abilities without IDs (legacy)
       const sanityBefore = player.sanity;
       const hpBefore = player.hp;
       const sanityCap = player.maxSanity ?? (player.sanity + 10);
@@ -379,6 +542,19 @@ function executePlayerAction(actionId) {
         log('This class does not have a second ability.');
         return null;
       }
+      const abilityId2 = player.ability2.id;
+      if (abilityId2 && getAbilityById(abilityId2)) {
+        // Use the new ability resolution system
+        const targetForAbility = targetEnemy || getLivingEnemies()[0];
+        if (!targetForAbility) {
+          handleVictory();
+          return null;
+        }
+        const result = resolveAbilityUse(abilityId2, player, targetForAbility);
+        playAttackSound();
+        return { enemy: targetForAbility, action: 'ability2', abilityResult: result };
+      }
+      // Fallback for abilities without IDs (legacy)
       if (!targetEnemy) {
         handleVictory();
         return null;
@@ -539,6 +715,7 @@ let party_death_monster_sound = [
 const audioCollections = [
   [victorySound],
   [combatMusic],
+  [levelUpSound],
   attackSounds,
   [defendSound],
   [potion_sound],
@@ -644,6 +821,454 @@ function rollFromDiceSpec(spec) {
     total += Math.floor(Math.random() * sides) + 1;
   }
   return total;
+}
+
+/**
+ * Parse a dice string like "2d6" or "1d8+2" and roll it.
+ * Returns a numeric result.
+ */
+function rollDiceString(diceStr) {
+  if (!diceStr || diceStr === '0' || diceStr === '+0') return 0;
+  if (typeof diceStr === 'number') return diceStr;
+  
+  // Handle simple numeric strings
+  const numericOnly = parseInt(diceStr, 10);
+  if (!isNaN(numericOnly) && String(numericOnly) === diceStr) {
+    return numericOnly;
+  }
+  
+  // Parse dice notation: NdS or NdS+M or +NdS
+  let total = 0;
+  const parts = diceStr.replace(/\s/g, '').split(/(?=[+-])/);
+  
+  for (const part of parts) {
+    if (!part) continue;
+    const diceMatch = part.match(/^([+-]?)(\d+)?d(\d+)$/);
+    if (diceMatch) {
+      const sign = diceMatch[1] === '-' ? -1 : 1;
+      const dice = parseInt(diceMatch[2] || '1', 10);
+      const sides = parseInt(diceMatch[3], 10);
+      for (let i = 0; i < dice; i++) {
+        total += sign * (Math.floor(Math.random() * sides) + 1);
+      }
+    } else {
+      // Flat modifier like +5 or -3
+      total += parseInt(part, 10) || 0;
+    }
+  }
+  return total;
+}
+
+// ========================
+// Ability & Status Effect System
+// ========================
+
+// Cached ability and status effect definitions
+let abilityCatalog = {};
+let statusEffectCatalog = {};
+
+/**
+ * Load abilities and status effects from JSON files.
+ */
+async function loadAbilitiesAndEffects() {
+  try {
+    const [abilitiesRes, effectsRes] = await Promise.all([
+      fetch('abilities.json'),
+      fetch('status_effects.json')
+    ]);
+    
+    if (abilitiesRes.ok) {
+      const abilitiesData = await abilitiesRes.json();
+      const rawAbilities = abilitiesData.abilities || [];
+      const abilitiesArray = Array.isArray(rawAbilities)
+        ? rawAbilities
+        : Object.values(rawAbilities);
+      abilityCatalog = abilitiesArray.reduce((map, ability) => {
+        map[ability.id] = ability;
+        return map;
+      }, {});
+      console.log('Loaded abilities:', Object.keys(abilityCatalog));
+    }
+    
+    if (effectsRes.ok) {
+      const effectsData = await effectsRes.json();
+      const rawEffects = effectsData.status_effects || [];
+      const effectsArray = Array.isArray(rawEffects)
+        ? rawEffects
+        : Object.values(rawEffects);
+      statusEffectCatalog = effectsArray.reduce((map, effect) => {
+        map[effect.id] = effect;
+        return map;
+      }, {});
+      console.log('Loaded status effects:', Object.keys(statusEffectCatalog));
+    }
+  } catch (err) {
+    console.warn('Could not load abilities/effects:', err);
+  }
+}
+
+/**
+ * Get the ability definition by ID.
+ */
+function getAbilityById(abilityId) {
+  return abilityCatalog[abilityId] || null;
+}
+
+/**
+ * Get the status effect definition by ID.
+ */
+function getStatusEffectById(statusId) {
+  return statusEffectCatalog[statusId] || null;
+}
+
+/**
+ * Get the applicable level rule for an ability based on character level.
+ */
+function getLevelRule(ability, characterLevel) {
+  if (!ability || !ability.level_rules || !ability.level_rules.length) {
+    return null;
+  }
+  
+  // Find the highest min_level that is <= characterLevel
+  let applicableRule = null;
+  for (const rule of ability.level_rules) {
+    if (rule.min_level <= characterLevel) {
+      if (!applicableRule || rule.min_level > applicableRule.min_level) {
+        applicableRule = rule;
+      }
+    }
+  }
+  return applicableRule;
+}
+
+/**
+ * Apply a single effect from an ability to the target(s).
+ * @param {Object} effect - The effect definition from the ability.
+ * @param {Object} caster - The character using the ability.
+ * @param {Object|Array} targets - Single target or array of targets.
+ * @param {Object} levelRule - The applicable level rule for scaling.
+ * @returns {Object} Result of applying the effect.
+ */
+function applyEffect(effect, caster, targets, levelRule) {
+  const targetArray = Array.isArray(targets) ? targets : [targets];
+  const results = [];
+  
+  // Calculate adjusted chance
+  let chance = effect.chance || 1.0;
+  if (levelRule && levelRule.chance_delta) {
+    chance += levelRule.chance_delta;
+  }
+  chance = Math.min(1.0, Math.max(0, chance));
+  
+  // Calculate adjusted magnitude with level bonus (+1 per level)
+  let magnitudeStr = effect.magnitude || '0';
+  if (levelRule && levelRule.magnitude_delta && levelRule.magnitude_delta !== '+0') {
+    magnitudeStr = magnitudeStr + levelRule.magnitude_delta;
+  }
+  // Add character level bonus to magnitude (+1 per level)
+  const levelBonus = getAbilityLevelBonus(caster);
+  
+  for (const target of targetArray) {
+    if (!target || target.hp <= 0 || target.alive === false) continue;
+    
+    // Roll against chance
+    const roll = Math.random();
+    if (roll > chance) {
+      results.push({ target, success: false, reason: 'missed' });
+      continue;
+    }
+    
+    const baseMagnitude = rollDiceString(magnitudeStr);
+    const magnitude = effect.skipLevelBonus ? baseMagnitude : baseMagnitude + levelBonus;
+    
+    switch (effect.type) {
+      case 'damage': {
+        target.hp -= magnitude;
+        results.push({ target, success: true, type: 'damage', amount: magnitude });
+        log(`${target.name} takes ${magnitude} ${effect.damage_type || ''} damage!`);
+        break;
+      }
+      
+      case 'heal': {
+        const resource = effect.resource || 'hp';
+        const maxVal = target[`max${resource.charAt(0).toUpperCase() + resource.slice(1)}`] || target[resource] + magnitude;
+        const before = target[resource];
+        target[resource] = Math.min(maxVal, target[resource] + magnitude);
+        const healed = target[resource] - before;
+        results.push({ target, success: true, type: 'heal', resource, amount: healed });
+        log(`${target.name} recovers ${healed} ${resource}!`);
+        break;
+      }
+      
+      case 'status':
+      case 'buff': {
+        const statusDef = getStatusEffectById(effect.status_id);
+        if (!statusDef) {
+          results.push({ target, success: false, reason: 'unknown_status' });
+          break;
+        }
+        
+        // Initialize status_effects array if needed
+        if (!target.status_effects) target.status_effects = [];
+        
+        // Check if target already has this status
+        const existing = target.status_effects.find(s => s.id === effect.status_id);
+        
+        if (existing) {
+          // Handle stacking
+          if (statusDef.stackable) {
+            const maxStacks = statusDef.max_stacks || 99;
+            existing.stacks = Math.min((existing.stacks || 1) + 1, maxStacks);
+            existing.duration = Math.max(existing.duration, effect.duration_turns || statusDef.default_duration);
+            log(`${target.name}'s ${statusDef.name} intensifies! (${existing.stacks} stacks)`);
+          } else {
+            // Refresh duration
+            existing.duration = Math.max(existing.duration, effect.duration_turns || statusDef.default_duration);
+            log(`${target.name}'s ${statusDef.name} is refreshed.`);
+          }
+        } else {
+          // Apply new status
+          target.status_effects.push({
+            id: effect.status_id,
+            name: statusDef.name,
+            duration: effect.duration_turns || statusDef.default_duration,
+            magnitude: magnitude,
+            stacks: 1,
+            appliedBy: caster.name || 'unknown'
+          });
+          log(`${target.name} is afflicted with ${statusDef.name}!`);
+        }
+        
+        results.push({ target, success: true, type: 'status', status: effect.status_id });
+        break;
+      }
+
+      case 'cleanse': {
+        if (target.status_effects && target.status_effects.length) {
+          const before = target.status_effects.length;
+          const statusId = effect.status_id;
+          target.status_effects = statusId
+            ? target.status_effects.filter(s => s.id !== statusId)
+            : [];
+          const removed = before - target.status_effects.length;
+          if (removed > 0) {
+            log(`${target.name} is cleansed of ${statusId || 'ailments'}.`);
+          }
+        }
+        results.push({ target, success: true, type: 'cleanse' });
+        break;
+      }
+
+      case 'cure_all': {
+        if (target.status_effects) {
+          target.status_effects = [];
+        }
+        log(`${target.name} feels renewed.`);
+        results.push({ target, success: true, type: 'cleanse' });
+        break;
+      }
+
+      case 'weapon_coating': {
+        if (!target.weaponCoatings) {
+          target.weaponCoatings = [];
+        }
+        target.weaponCoatings.push({
+          type: effect.coating_type,
+          damagePerTurn: effect.magnitude || '1d6',
+          duration: effect.duration_turns || 3
+        });
+        log(`${target.name}'s weapon is coated with ${effect.coating_type}.`);
+        results.push({ target, success: true, type: 'weapon_coating' });
+        break;
+      }
+
+      case 'barrier': {
+        target.barrier = {
+          active: true,
+          remainingTurns: effect.duration_turns || 2
+        };
+        log(`A barrier shields ${target.name}.`);
+        results.push({ target, success: true, type: 'barrier' });
+        break;
+      }
+
+      case 'immobilize': {
+        target.immobilized = {
+          active: true,
+          remainingTurns: effect.duration_turns || 2
+        };
+        log(`${target.name} is immobilized!`);
+        results.push({ target, success: true, type: 'immobilize' });
+        break;
+      }
+
+      case 'confusion': {
+        target.confused = {
+          active: true,
+          remainingTurns: effect.duration_turns || 2
+        };
+        log(`${target.name} is thrown into disarray!`);
+        results.push({ target, success: true, type: 'confusion' });
+        break;
+      }
+      
+      case 'meta': {
+        // Meta effects like nullify_incoming_damage are handled by combat logic
+        if (effect.meta_action === 'rest_party') {
+          [player, companion]
+            .filter(Boolean)
+            .forEach(member => {
+              member.hp = member.maxHp;
+              member.sanity = member.maxSanity;
+              member.status_effects = [];
+            });
+          log('The party takes a moment to rest and recover.');
+        }
+        results.push({ target, success: true, type: 'meta', action: effect.meta_action });
+        break;
+      }
+      
+      default:
+        results.push({ target, success: false, reason: 'unknown_effect_type' });
+    }
+  }
+  
+  return results;
+}
+
+// Expose effect engine for other modules (e.g., item system)
+const globalScope = typeof window !== 'undefined' ? window : globalThis;
+globalScope.sharedEffectEngine = globalScope.sharedEffectEngine || {};
+globalScope.sharedEffectEngine.applyEffect = applyEffect;
+globalScope.sharedEffectEngine.rollDiceString = rollDiceString;
+
+/**
+ * Resolve using an ability.
+ * @param {string} abilityId - The ID of the ability to use.
+ * @param {Object} caster - The character using the ability.
+ * @param {Object|Array} targets - The target(s) of the ability.
+ * @returns {Object} Result of the ability use.
+ */
+function resolveAbilityUse(abilityId, caster, targets) {
+  const ability = getAbilityById(abilityId);
+  if (!ability) {
+    log(`Unknown ability: ${abilityId}`);
+    return { success: false, reason: 'unknown_ability' };
+  }
+  
+  const characterLevel = caster.level || 1;
+  const levelRule = getLevelRule(ability, characterLevel);
+  
+  // Determine actual targets based on level rule target override
+  let actualTargets = targets;
+  if (levelRule && levelRule.target_override) {
+    const override = levelRule.target_override;
+    if (override === 'enemy_team') {
+      actualTargets = getLivingEnemies();
+    } else if (override === 'ally_team') {
+      actualTargets = [player, companion].filter(c => c && c.alive !== false && c.hp > 0);
+    }
+  }
+  
+  const allResults = [];
+  
+  // Apply each effect in the ability
+  for (const effect of ability.base_effects || []) {
+    const effectResults = applyEffect(effect, caster, actualTargets, levelRule);
+    allResults.push(...effectResults);
+  }
+  
+  return { success: true, ability: ability.name, results: allResults };
+}
+
+/**
+ * Process status effects at the start of a combatant's turn.
+ * Handles DoT, HoT, and decrementing durations.
+ * @param {Object} combatant - The combatant whose turn is starting.
+ */
+function processStatusEffects(combatant) {
+  if (!combatant || !combatant.status_effects || combatant.status_effects.length === 0) {
+    return;
+  }
+  
+  const effectsToRemove = [];
+  
+  for (const activeEffect of combatant.status_effects) {
+    const statusDef = getStatusEffectById(activeEffect.id);
+    if (!statusDef) continue;
+    
+    // Check for tags that affect behavior
+    const tags = statusDef.tags || [];
+    
+    // Handle no_action tag (stun) - handled in turn logic
+    
+    // Handle tick_damage (DoT like poison, fire, bleeding)
+    if (statusDef.tick_damage) {
+      const tickDmg = rollDiceString(statusDef.tick_damage);
+      const stacks = activeEffect.stacks || 1;
+      const totalDmg = tickDmg * stacks;
+      combatant.hp -= totalDmg;
+      log(`${combatant.name} takes ${totalDmg} ${statusDef.name} damage!`);
+    }
+    
+    // Handle tick_heal (HoT like regeneration)
+    if (statusDef.tick_heal) {
+      const tickHeal = rollDiceString(statusDef.tick_heal);
+      const maxHp = combatant.maxHp || combatant.hp + tickHeal;
+      const before = combatant.hp;
+      combatant.hp = Math.min(maxHp, combatant.hp + tickHeal);
+      const healed = combatant.hp - before;
+      if (healed > 0) {
+        log(`${combatant.name} regenerates ${healed} HP.`);
+      }
+    }
+    
+    // Decrement duration
+    activeEffect.duration--;
+    
+    if (activeEffect.duration <= 0) {
+      effectsToRemove.push(activeEffect);
+      log(`${combatant.name}'s ${activeEffect.name} wears off.`);
+    }
+  }
+  
+  // Remove expired effects
+  for (const effect of effectsToRemove) {
+    const idx = combatant.status_effects.indexOf(effect);
+    if (idx >= 0) {
+      combatant.status_effects.splice(idx, 1);
+    }
+  }
+}
+
+/**
+ * Check if a combatant is stunned (has no_action tag).
+ */
+function isStunned(combatant) {
+  if (!combatant || !combatant.status_effects) return false;
+  
+  for (const activeEffect of combatant.status_effects) {
+    const statusDef = getStatusEffectById(activeEffect.id);
+    if (statusDef && statusDef.tags && statusDef.tags.includes('no_action')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if a combatant is charmed (ai_override tag).
+ */
+function isCharmed(combatant) {
+  if (!combatant || !combatant.status_effects) return false;
+  
+  for (const activeEffect of combatant.status_effects) {
+    const statusDef = getStatusEffectById(activeEffect.id);
+    if (statusDef && statusDef.tags && statusDef.tags.includes('ai_override')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ========================
@@ -1104,6 +1729,9 @@ function setupItemSelectionUI() {
 // After fetching all data, it sets up the user interface and starts combat.
 async function loadCombatData() {
   try {
+    // Load abilities and status effects for the combat system
+    await loadAbilitiesAndEffects();
+    
     // Load item database for the unified item system
     await loadItemDatabase('./inventory.json');
     
@@ -1311,6 +1939,34 @@ function nextTurn() {
     return setTimeout(nextTurn, 500);
   }
   
+  // Process status effects at the start of this combatant's turn (DoT, HoT, duration ticks)
+  processStatusEffects(current.data);
+  
+  // Check if the combatant died from status effects (e.g., poison)
+  if (current.data.hp <= 0) {
+    if (current.type === 'enemy') {
+      current.data.alive = false;
+      log(`${current.data.name} succumbs to their afflictions!`);
+      rebuildCombatants();
+      updateUI();
+      checkEnemyStatus();
+      return setTimeout(nextTurn, 1000);
+    } else if (current.type === 'player' || current.type === 'companion') {
+      current.data.alive = false;
+      log(`${current.data.name || 'A party member'} falls!`);
+      updateUI();
+      checkLossCondition();
+      return;
+    }
+  }
+  
+  // Check if the combatant is stunned
+  if (isStunned(current.data)) {
+    log(`${current.data.name || 'Someone'} is stunned and cannot act!`);
+    updateUI();
+    return setTimeout(nextTurn, 1500);
+  }
+  
   // Update UI before the current combatant acts
   updateUI();
   
@@ -1352,8 +2008,9 @@ function updateUI() {  // Change the background image based on 'battleBackground
     backdrop.classList.add(`${battleBackground}-bg`);
   }
   
-  // Update player info
-  document.getElementById('player-name').textContent = player.name || "Cryptonaut";
+  // Update player info (include level if > 0)
+  const playerLevelText = player.level > 0 ? ` (Lv.${player.level})` : '';
+  document.getElementById('player-name').textContent = (player.name || "Cryptonaut") + playerLevelText;
   document.getElementById('player-hp').textContent = player.hp;
   document.getElementById('player-sanity').textContent = player.sanity;
   const playerImg = document.querySelector('#player-portrait img');
@@ -1365,8 +2022,9 @@ function updateUI() {  // Change the background image based on 'battleBackground
   // Show or hide the ally portrait depending on whether they're alive
   document.getElementById('ally-portrait').style.display = companion.alive ? 'block' : 'none';
   
-  // Update companion info
-  document.getElementById('companion-name').textContent = companion.name || "Companion";
+  // Update companion info (include level if > 0)
+  const companionLevelText = companion.level > 0 ? ` (Lv.${companion.level})` : '';
+  document.getElementById('companion-name').textContent = (companion.name || "Companion") + companionLevelText;
   document.getElementById('ally-hp').textContent = companion.hp;
   document.getElementById('ally-sanity').textContent = companion.sanity;
   const companionImg = document.querySelector('#ally-portrait img');
@@ -1734,11 +2392,19 @@ function checkEnemyStatus() {
   // Debug info
   console.log(`checkEnemyStatus found ${defeated.length} newly defeated enemies`);
   
-  // Mark each one as dead, log a message
+  // Mark each one as dead, log a message, and award XP
   defeated.forEach(dead => {
     log(`🎉 The ${dead.name} is defeated!`);
     dead.alive = false;
     console.log(`Marked enemy as defeated: ${dead.name}, HP: ${dead.hp}, alive: ${dead.alive}`);
+    
+    // Award XP to both player and companion (party XP)
+    const xpReward = dead.xp_reward || 10;
+    log(`⭐ Party gains ${xpReward} XP!`);
+    awardXp(player, xpReward);
+    if (companion && companion.alive) {
+      awardXp(companion, xpReward);
+    }
     
     // Find the corresponding UI element and hide it immediately
     const deadIndex = enemies.indexOf(dead);
@@ -1814,6 +2480,30 @@ function handleVictory() {
   setTimeout(() => {
     document.getElementById('victory-screen')?.classList.add('visible');
   }, 1500);
+}
+
+// ========================
+// Handling Party Defeat
+// ========================
+// Called when the player dies from status effects or other damage.
+function checkLossCondition() {
+  // Check if player is dead
+  if (player.hp <= 0 || player.sanity <= 0) {
+    if (combatEnded) return;
+    combatEnded = true;
+    stopCombatMusic();
+    log("💀 You collapse from injuries or madness. Game over.");
+    disableActions();
+    
+    // Play death sound
+    const deathSounds = player.gender === 'f' ? party_death_female_sound :
+                        player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+    playRandomSound(deathSounds);
+    
+    // Could show a defeat screen here
+    return true;
+  }
+  return false;
 }
 
 

@@ -1,0 +1,250 @@
+{
+  "abilities": [
+    {
+      "id": "stun_attack",
+      "name": "Stunning Blow",
+      "category": "offense",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "damage",
+          "damage_type": "physical",
+          "target_scope": "enemy",
+          "magnitude": "1d8",
+          "chance": 1.0
+        },
+        {
+          "type": "status",
+          "status_id": "stun",
+          "target_scope": "enemy",
+          "duration_turns": 1,
+          "magnitude": "0",
+          "chance": 0.55
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "enemy",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "enemy",      "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+        { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.15, "magnitude_delta": "+1d4" }
+      ]
+    },
+    {
+      "id": "poison_blast",
+      "name": "Poison Blast",
+      "category": "offense",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "status",
+          "status_id": "poison",
+          "target_scope": "enemy",
+          "duration_turns": 3,
+          "magnitude": "1d4",
+          "chance": 0.65
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "enemy",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "enemy",      "chance_delta": 0.10, "magnitude_delta": "+1d2" },
+        { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
+      ]
+    },
+    {
+      "id": "fire_blast",
+      "name": "Fire Blast",
+      "category": "offense",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "status",
+          "status_id": "fire",
+          "target_scope": "enemy",
+          "duration_turns": 2,
+          "magnitude": "1d6",
+          "chance": 0.65
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "enemy",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "enemy",      "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+        { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
+      ]
+    },
+    {
+      "id": "bleeding_strike",
+      "name": "Rending Slash",
+      "category": "offense",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "damage",
+          "damage_type": "physical",
+          "target_scope": "enemy",
+          "magnitude": "1d10",
+          "chance": 1.0
+        },
+        {
+          "type": "status",
+          "status_id": "bleeding",
+          "target_scope": "enemy",
+          "duration_turns": 2,
+          "magnitude": "1d8",
+          "chance": 0.65
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "enemy",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "enemy",      "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+        { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
+      ]
+    },
+    {
+      "id": "hypnotise",
+      "name": "Hypnotise",
+      "category": "offense",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "status",
+          "status_id": "charmed",
+          "target_scope": "enemy",
+          "duration_turns": 2,
+          "magnitude": "0",
+          "chance": 0.50
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "enemy",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "enemy",      "chance_delta": 0.15, "magnitude_delta": "+0" },
+        { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.15, "magnitude_delta": "+0" }
+      ]
+    },
+    {
+      "id": "counter_attack",
+      "name": "Counter",
+      "category": "reaction",
+      "usable_in": ["combat"],
+      "action_cost": 0,
+      "trigger": {
+        "event": "on_hit",
+        "once_per_round": true
+      },
+      "base_effects": [
+        {
+          "type": "damage",
+          "damage_type": "physical",
+          "target_scope": "last_attacker",
+          "magnitude": "weapon_damage",
+          "chance": 0.50
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "chance_delta": 0.15, "magnitude_delta": "+1d4" },
+        { "min_level": 3, "chance_delta": 0.20, "magnitude_delta": "+1d6" }
+      ]
+    },
+    {
+      "id": "parry",
+      "name": "Parry",
+      "category": "reaction",
+      "usable_in": ["combat"],
+      "action_cost": 0,
+      "trigger": {
+        "event": "on_hit_attempt",
+        "once_per_round": true
+      },
+      "base_effects": [
+        {
+          "type": "meta",
+          "meta_action": "nullify_incoming_damage",
+          "target_scope": "self",
+          "magnitude": "0",
+          "chance": 0.50
+        },
+        {
+          "type": "status",
+          "status_id": "stun",
+          "target_scope": "last_attacker",
+          "duration_turns": 1,
+          "magnitude": "0",
+          "chance": 0.50
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "chance_delta": 0.15, "magnitude_delta": "+0" },
+        { "min_level": 3, "chance_delta": 0.20, "magnitude_delta": "+0" }
+      ]
+    },
+    {
+      "id": "heal",
+      "name": "Mending Light",
+      "category": "support",
+      "usable_in": ["combat", "exploration"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "heal",
+          "resource": "hp",
+          "target_scope": "ally",
+          "magnitude": "1d21",
+          "chance": 0.95
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "ally",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "ally",      "chance_delta": 0.00, "magnitude_delta": "+1d10" },
+        { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.00, "magnitude_delta": "+1d10" }
+      ]
+    },
+    {
+      "id": "calm",
+      "name": "Calming Words",
+      "category": "support",
+      "usable_in": ["combat", "exploration"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "heal",
+          "resource": "sanity",
+          "target_scope": "ally",
+          "magnitude": "1d21",
+          "chance": 0.85
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "ally",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "ally",      "chance_delta": 0.05, "magnitude_delta": "+1d10" },
+        { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.05, "magnitude_delta": "+1d10" }
+      ]
+    },
+    {
+      "id": "inspire",
+      "name": "Inspire",
+      "category": "support",
+      "usable_in": ["combat"],
+      "action_cost": 1,
+      "base_effects": [
+        {
+          "type": "buff",
+          "status_id": "attack_up",
+          "target_scope": "ally",
+          "duration_turns": 3,
+          "magnitude": "+1d6",
+          "chance": 0.75
+        }
+      ],
+      "level_rules": [
+        { "min_level": 1, "target_override": "ally",      "chance_delta": 0.00, "magnitude_delta": "+0" },
+        { "min_level": 2, "target_override": "ally",      "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+        { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
+      ]
+    }
+  ]
+}

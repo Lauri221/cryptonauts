@@ -13,12 +13,14 @@
         "defense": 1,
         "speed": 3,
         "ability1": {
+          "id": "calm",
           "name": "Calm",
-          "description": "Restore part sanity."
+          "description": "Restore party sanity."
         },
         "ability2": {
+          "id": "hypnotise",
           "name": "Hypnotize",
-          "description": "Turn enemy hostile to friendly or self."
+          "description": "Charm an enemy to fight for you."
         },
         "resistance": "Sanity",
         "weakness": "Natural"

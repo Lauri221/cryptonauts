@@ -8,6 +8,7 @@
       "attackPower": 10,
       "sanityDamage": 5,
       "init": 8,
+      "xp_reward": 10,
       "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
       "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
     },
@@ -18,7 +19,8 @@
       "hp": 40,
       "attackPower": 6,
       "sanityDamage": 8,
-      "init": 7
+      "init": 7,
+      "xp_reward": 15
     },
     {
       "id": "cultist",
@@ -28,6 +30,7 @@
       "attackPower": 4,
       "sanityDamage": 3,
       "init": 6,
+      "xp_reward": 12,
       "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
       "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
     },
@@ -37,7 +40,8 @@
       "hp": 50,
       "attackPower": 12,
       "sanityDamage": 10,
-      "init": 7
+      "init": 7,
+      "xp_reward": 25
     }
   ]
 }
