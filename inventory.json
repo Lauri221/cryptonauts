@@ -167,5 +167,41 @@
     "effects": [
       { "kind": "hp", "mode": "heal", "dice": "1d6+2" }
     ]
+  },
+  {
+    "item_id": "scroll_spirit_guardian",
+    "name": "Scroll of Spirit Guardian",
+    "description": "An ancient parchment inscribed with binding runes. When read aloud, it calls forth a spectral guardian to fight alongside you.",
+    "image": "./assets/img/ally_portrait/spirit_guardian.png",
+    "type": "consumable",
+    "usableContexts": ["combat"],
+    "targetType": "self",
+    "effects": [
+      { "kind": "summon", "summonId": "spirit_guardian" }
+    ]
+  },
+  {
+    "item_id": "scroll_shadow_familiar",
+    "name": "Scroll of Shadow Familiar",
+    "description": "A dark scroll that writhes with living shadows. Speaking its words unleashes a swift and deadly familiar.",
+    "image": "./assets/img/ally_portrait/shadow_familiar.png",
+    "type": "consumable",
+    "usableContexts": ["combat"],
+    "targetType": "self",
+    "effects": [
+      { "kind": "summon", "summonId": "shadow_familiar" }
+    ]
+  },
+  {
+    "item_id": "scroll_healing_wisp",
+    "name": "Scroll of Healing Wisp",
+    "description": "A luminous scroll that glows with gentle warmth. Its incantation summons a healing wisp to tend to your wounds.",
+    "image": "./assets/img/ally_portrait/healing_wisp.png",
+    "type": "consumable",
+    "usableContexts": ["combat"],
+    "targetType": "self",
+    "effects": [
+      { "kind": "summon", "summonId": "healing_wisp" }
+    ]
   }
 ]

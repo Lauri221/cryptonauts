@@ -1,0 +1,79 @@
+{
+  "summons": [
+    {
+      "id": "spirit_guardian",
+      "name": "Spirit Guardian",
+      "class": "Summon",
+      "base_stats": {
+        "hp": 20,
+        "sanity": 10,
+        "basic_attack": {
+          "dice": 1,
+          "sides": 6
+        },
+        "support_power": 6,
+        "defense": 0,
+        "init": 5
+      },
+      "portrait": "assets/img/ally_portrait/spirit_guardian.png",
+      "audio": {
+        "voice_hurt": "cryptonaut_monster_hurt_sounds",
+        "voice_death": "cryptonaut_monster_death_sounds",
+        "voice_combat_start": "cryptonaut_monster_combat_start_sounds"
+      },
+      "duration": 3,
+      "ai_behavior": "attack_weakest",
+      "description": "A spectral ally summoned to aid you in battle."
+    },
+    {
+      "id": "shadow_familiar",
+      "name": "Shadow Familiar",
+      "class": "Summon",
+      "base_stats": {
+        "hp": 15,
+        "sanity": 5,
+        "basic_attack": {
+          "dice": 2,
+          "sides": 4
+        },
+        "support_power": 4,
+        "defense": 1,
+        "init": 7
+      },
+      "portrait": "assets/img/ally_portrait/shadow_familiar.png",
+      "audio": {
+        "voice_hurt": "cryptonaut_monster_hurt_sounds",
+        "voice_death": "cryptonaut_monster_death_sounds",
+        "voice_combat_start": "cryptonaut_monster_combat_start_sounds"
+      },
+      "duration": 2,
+      "ai_behavior": "attack_strongest",
+      "description": "A swift shadow creature that strikes hard but fades quickly."
+    },
+    {
+      "id": "healing_wisp",
+      "name": "Healing Wisp",
+      "class": "Summon",
+      "base_stats": {
+        "hp": 10,
+        "sanity": 15,
+        "basic_attack": {
+          "dice": 1,
+          "sides": 4
+        },
+        "support_power": 10,
+        "defense": 0,
+        "init": 4
+      },
+      "portrait": "assets/img/ally_portrait/healing_wisp.png",
+      "audio": {
+        "voice_hurt": "cryptonaut_monster_hurt_sounds",
+        "voice_death": "cryptonaut_monster_death_sounds",
+        "voice_combat_start": "cryptonaut_monster_combat_start_sounds"
+      },
+      "duration": 4,
+      "ai_behavior": "support_heal",
+      "description": "A gentle spirit focused on healing wounded allies."
+    }
+  ]
+}

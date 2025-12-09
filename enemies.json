@@ -4,32 +4,58 @@
       "id": "priestess",
       "name": "Priestess",
       "gender": "f",
-      "hp": 10,
-      "attackPower": 10,
-      "sanityDamage": 5,
-      "init": 8,
-      "xp_reward": 10,
-      "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
-      "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
+      "base_stats": {
+        "hp": 8,
+        "basic_attack": {
+          "dice": 1,
+          "sides": 10
+        },
+        "sanity_damage": 3,
+        "defense": 0,
+        "init": 2
+      },
+      "audio": {
+        "voice_hurt": "enemy_female_hurt",
+        "voice_death": "enemy_female_death",
+        "voice_combat_start": "enemy_female_combat_start"
+      },
+      "xp_reward": 10
     },
     {
       "id": "mossleech",
       "name": "Moss Leech",
       "gender": "o",
-      "hp": 40,
-      "attackPower": 6,
-      "sanityDamage": 8,
-      "init": 7,
+      "base_stats": {
+        "hp": 40,
+        "basic_attack": {
+          "dice": 1,
+          "sides": 6
+        },
+        "sanity_damage": 8,
+        "defense": 2,
+        "init": 7
+      },
+      "audio": {
+        "voice_hurt": "enemy_monster_hurt",
+        "voice_death": "enemy_monster_death",
+        "voice_combat_start": "enemy_monster_combat_start"
+      },
       "xp_reward": 15
     },
     {
       "id": "cultist",
       "name": "Cultist",
       "gender": "f",
-      "hp": 30,
-      "attackPower": 4,
-      "sanityDamage": 3,
-      "init": 6,
+      "base_stats": {
+        "hp": 10,
+        "basic_attack": {
+          "dice": 2,
+          "sides": 6
+        },
+        "sanity_damage": 3,
+        "defense": 1,
+        "init": 1
+      },
       "xp_reward": 12,
       "enemy_hit_sound": ["./sound/hurt_f1.mp3", "./sound/hurt_f2.mp3"],
       "enemy_death_sound": ["./sound/death_f1.mp3", "./sound/death_f2.mp3"]
@@ -37,10 +63,17 @@
     {
       "id": "shadow_wraith",
       "name": "Shadow Wraith",
-      "hp": 50,
-      "attackPower": 12,
-      "sanityDamage": 10,
-      "init": 7,
+      "gender": "o",
+      "base_stats": {
+        "hp": 50,
+        "basic_attack": {
+          "dice": 2,
+          "sides": 6
+        },
+        "sanity_damage": 10,
+        "defense": 1,
+        "init": 7
+      },
       "xp_reward": 25
     }
   ]

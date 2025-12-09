@@ -16,7 +16,11 @@
       sigil_of_warding: 0,
       chains_of_old: 0,
       eldritch_discord: 0,
-      herbal_tonic: 3
+      herbal_tonic: 3,
+      // Summon scrolls
+      scroll_spirit_guardian: 1,
+      scroll_shadow_familiar: 1,
+      scroll_healing_wisp: 1
     },
     equipment: {
       // per character

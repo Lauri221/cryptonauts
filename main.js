@@ -8,6 +8,16 @@ let player = {};
 // Holds companion's information (HP, sanity, ability, etc.)
 let companion = {};
 
+// Array of summoned friendly NPCs (AI-controlled)
+let summonedNPCs = [];
+
+// Tracks which character the player is currently controlling ('player' or 'companion')
+let activeControlledCharacter = 'player';
+
+// Tracks pending action awaiting target selection
+let pendingAction = null;
+let targetSelectionMode = false;
+
 // Array of all enemies in the current encounter
 let enemies = [];
 
@@ -380,6 +390,10 @@ let levelUpSound = new Audio('./sound/level_up.mp3');
 let combatMusic = new Audio('./music/combat.mp3');
 combatMusic.loop = true;
 
+// Defeat music for party loss
+let defeatMusic = new Audio('./music/defeat_music.mp3');
+defeatMusic.loop = false;
+
 //adding sound effects for combat
 // Using sword sounds for attack (randomly pick one)
 let attackSounds = [
@@ -390,6 +404,7 @@ let attackSounds = [
 ];
 let defendSound = new Audio('./sound/shield.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
+let summon_sound = new Audio('./sound/summon.mp3');
 
 // Enemy death sound effects
 let enemy_death_male_sound = [
@@ -452,8 +467,14 @@ let enemy_hurt_monster_sound = [
 // Player Action Handler
 // ========================
 // Called by the UI buttons (Attack, Ability 1, Ability 2, Item).
+// Now handles both player and companion turns since companion is player-controlled.
 function chooseAction(actionId) {
-  if (combatants[currentTurn]?.type !== 'player') return;
+  const current = combatants[currentTurn];
+  // Allow actions for player or companion (both are player-controlled)
+  if (current?.type !== 'player' && current?.type !== 'companion') return;
+  
+  // Track which character is acting
+  activeControlledCharacter = current.type;
 
   if (actionId !== 'item' && itemSelectionOpen) {
     hideItemSelection();
@@ -464,16 +485,207 @@ function chooseAction(actionId) {
     return;
   }
 
-  const result = executePlayerAction(actionId);
-  if (!result) return;
-  completePlayerAction(result);
+  // Check if action needs target selection
+  if (actionId === 'defend') {
+    // Defend doesn't need a target
+    const result = executePlayerAction(actionId, null);
+    if (result) completePlayerAction(result);
+    return;
+  }
+  
+  // Enter target selection mode for actions that need targets
+  startActionTargeting(actionId);
 }
 
-function executePlayerAction(actionId) {
+function startActionTargeting(actionId) {
+  const actor = activeControlledCharacter === 'companion' ? companion : player;
+  
+  // Determine target type
+  let targetType = 'enemy';
+  
+  if (actionId === 'ability1' || actionId === 'ability2') {
+    const abilitySlot = actionId === 'ability1' ? actor.ability1 : actor.ability2;
+    const abilityId = abilitySlot?.id;
+    if (abilityId) {
+      const abilityDef = getAbilityById(abilityId);
+      if (abilityDef?.base_effects?.some(eff => 
+        eff.target_scope === 'ally' || eff.target_scope === 'self' || eff.type === 'heal'
+      )) {
+        targetType = 'ally';
+      }
+    }
+  }
+  
+  // Store pending action
+  pendingAction = { actionId, targetType, actor };
+  targetSelectionMode = true;
+  
+  // Set up targetable portraits
+  if (targetType === 'enemy') {
+    enemies.forEach((enemy, i) => {
+      if (enemy.alive !== false && enemy.hp > 0) {
+        const card = document.getElementById(`enemy-portrait-${i}`);
+        if (card) {
+          card.classList.add('targetable', 'target-enemy');
+          card.dataset.targetType = 'enemy';
+          card.dataset.enemyIndex = i;
+          card.addEventListener('click', handleTargetClick);
+        }
+      }
+    });
+    log('Select an enemy target...');
+  } else {
+    const playerCard = document.getElementById('player-portrait');
+    if (playerCard && player.alive !== false && player.hp > 0) {
+      playerCard.classList.add('targetable', 'target-ally');
+      playerCard.dataset.targetType = 'player';
+      playerCard.addEventListener('click', handleTargetClick);
+    }
+    const allyCard = document.getElementById('ally-portrait');
+    if (allyCard && companion.alive !== false && companion.hp > 0) {
+      allyCard.classList.add('targetable', 'target-ally');
+      allyCard.dataset.targetType = 'companion';
+      allyCard.addEventListener('click', handleTargetClick);
+    }
+    summonedNPCs.forEach(summon => {
+      if (summon.alive && summon.hp > 0) {
+        const card = document.getElementById(`summon-portrait-${summon.id}`);
+        if (card) {
+          card.classList.add('targetable', 'target-ally');
+          card.dataset.targetType = 'summon';
+          card.dataset.summonId = summon.id;
+          card.addEventListener('click', handleTargetClick);
+        }
+      }
+    });
+    log('Select a friendly target...');
+  }
+}
+
+function enterTargetSelection(actionId) {
+  const actor = activeControlledCharacter === 'companion' ? companion : player;
+  
+  // Determine what kind of targets this action needs
+  let targetType = 'enemy'; // default
+  
+  if (actionId === 'defend') {
+    // Defend doesn't need a target, execute immediately
+    const result = executePlayerAction(actionId, null);
+    if (result) completePlayerAction(result);
+    return;
+  }
+  
+  // Check if it's an ability that targets allies
+  if (actionId === 'ability1' || actionId === 'ability2') {
+    const abilitySlot = actionId === 'ability1' ? actor.ability1 : actor.ability2;
+    const abilityId = abilitySlot?.id;
+    if (abilityId) {
+      const abilityDef = getAbilityById(abilityId);
+      if (abilityDef) {
+        // Check base_effects to determine target type
+        const hasAllyEffect = abilityDef.base_effects?.some(eff => 
+          eff.target_scope === 'ally' || eff.target_scope === 'self' || eff.type === 'heal'
+        );
+        if (hasAllyEffect) {
+          targetType = 'ally';
+        }
+      }
+    }
+  }
+  
+  // Store pending action
+  pendingAction = { actionId, targetType, actor };
+  targetSelectionMode = true;
+  
+  // Highlight valid targets
+  highlightValidTargets(targetType);
+  
+  // Show instruction
+  log(`Select a ${targetType === 'ally' ? 'friendly' : 'enemy'} target...`);
+}
+
+function highlightValidTargets(targetType) {
+  // Remove any existing target-valid highlights
+  document.querySelectorAll('.portrait').forEach(p => p.classList.remove('target-valid'));
+  
+  if (targetType === 'enemy') {
+    // Highlight living enemies
+    enemies.forEach((enemy, i) => {
+      if (enemy.alive !== false && enemy.hp > 0) {
+        const card = document.getElementById(`enemy-portrait-${i}`);
+        if (card) card.classList.add('target-valid');
+      }
+    });
+  } else if (targetType === 'ally') {
+    // Highlight player and companion
+    if (player.alive !== false && player.hp > 0) {
+      document.getElementById('player-portrait')?.classList.add('target-valid');
+    }
+    if (companion.alive !== false && companion.hp > 0) {
+      document.getElementById('ally-portrait')?.classList.add('target-valid');
+    }
+    // Highlight summons
+    summonedNPCs.forEach(summon => {
+      if (summon.alive && summon.hp > 0) {
+        const card = document.getElementById(`summon-portrait-${summon.id}`);
+        if (card) card.classList.add('target-valid');
+      }
+    });
+  }
+}
+
+function cancelTargetSelection() {
+  targetSelectionMode = false;
+  pendingAction = null;
+  document.querySelectorAll('.portrait').forEach(p => p.classList.remove('target-valid'));
+  log('Action cancelled.');
+  // Re-enable action buttons
+  enableActions();
+}
+
+function handlePortraitClick(target) {
+  if (!targetSelectionMode || !pendingAction) return;
+  
+  // Validate target
+  const { actionId, targetType } = pendingAction;
+  let isValid = false;
+  
+  if (targetType === 'enemy' && target.type === 'enemy') {
+    isValid = target.data.alive !== false && target.data.hp > 0;
+  } else if (targetType === 'ally') {
+    if (target.type === 'player' || target.type === 'companion' || target.type === 'summon') {
+      isValid = target.data.alive !== false && target.data.hp > 0;
+    }
+  }
+  
+  if (!isValid) {
+    log('Invalid target.');
+    return;
+  }
+  
+  // Clear targeting mode
+  targetSelectionMode = false;
+  document.querySelectorAll('.portrait').forEach(p => p.classList.remove('target-valid'));
+  
+  // Execute action with selected target
+  const result = executePlayerAction(actionId, target.data);
+  pendingAction = null;
+  
+  if (result) {
+    completePlayerAction(result);
+  }
+}
+
+function executePlayerAction(actionId, selectedTarget = null) {
   const livingEnemies = getLivingEnemies();
-  const targetEnemy = livingEnemies[0] || null;
-  const abilityName = actionId === 'ability1' ? (player.ability1?.name || 'Ability 1')
-                      : actionId === 'ability2' ? (player.ability2?.name || 'Ability 2')
+  const targetEnemy = selectedTarget || livingEnemies[0] || null;
+  
+  // Determine which character is acting (player or companion)
+  const actor = activeControlledCharacter === 'companion' ? companion : player;
+  const actorName = actor === player ? 'You' : actor.name;
+  
+  const abilityName = actionId === 'ability1' ? (actor.ability1?.name || 'Ability 1')
+                      : actionId === 'ability2' ? (actor.ability2?.name || 'Ability 2')
                       : null;
 
   switch (actionId) {
@@ -482,20 +694,20 @@ function executePlayerAction(actionId) {
         handleVictory();
         return null;
       }
-      const damage = getScaledBasicAttack(player);
+      const damage = getScaledBasicAttack(actor);
       targetEnemy.hp -= damage;
-      log(`You attack ${targetEnemy.name} for ${damage} damage.`);
+      log(`${actorName} attack${actor === player ? '' : 's'} ${targetEnemy.name} for ${damage} damage.`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'attack' };
+      return { enemy: targetEnemy, damage, action: 'attack', actor };
     }
     case 'defend': {
-      const sanityGainCap = player.maxSanity ?? (player.sanity + 5);
-      const sanityBefore = player.sanity;
-      player.sanity = Math.min(sanityGainCap, player.sanity + 5);
-      const sanityGain = player.sanity - sanityBefore;
-      log(`You brace yourself${sanityGain ? ` and regain ${sanityGain} sanity` : ''}.`);
+      const sanityGainCap = actor.maxSanity ?? (actor.sanity + 5);
+      const sanityBefore = actor.sanity;
+      actor.sanity = Math.min(sanityGainCap, actor.sanity + 5);
+      const sanityGain = actor.sanity - sanityBefore;
+      log(`${actorName} brace${actor === player ? '' : 's'}${sanityGain ? ` and regain${actor === player ? '' : 's'} ${sanityGain} sanity` : ''}.`);
       defendSound.play().catch(err => console.log('Sound error:', err));
-      return { action: 'defend' };
+      return { action: 'defend', actor };
     }
     case 'element': {
       if (!targetEnemy) {
@@ -504,55 +716,55 @@ function executePlayerAction(actionId) {
       }
       const damage = Math.floor(Math.random() * 12) + 8;
       targetEnemy.hp -= damage;
-      player.sanity = Math.max(0, player.sanity - 5);
-      log(`Elemental strike! ${damage} damage dealt, sanity -5.`);
+      actor.sanity = Math.max(0, actor.sanity - 5);
+      log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${damage} damage dealt, sanity -5.`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'element' };
+      return { enemy: targetEnemy, damage, action: 'element', actor };
     }
     case 'ability1': {
-      if (!player.ability1) {
-        log('This class does not have a first ability.');
+      if (!actor.ability1) {
+        log(`${actorName} do${actor === player ? '' : 'es'} not have a first ability.`);
         return null;
       }
-      const abilityId = player.ability1.id;
+      const abilityId = actor.ability1.id;
       if (abilityId && getAbilityById(abilityId)) {
         // Use the new ability resolution system
-        const targets = getLivingEnemies()[0] || player; // Default to self if no target needed
-        const result = resolveAbilityUse(abilityId, player, targets);
-        return { action: 'ability1', abilityResult: result };
+        const targets = selectedTarget || getLivingEnemies()[0] || actor; // Use selected target
+        const result = resolveAbilityUse(abilityId, actor, targets);
+        return { action: 'ability1', abilityResult: result, actor };
       }
       // Fallback for abilities without IDs (legacy)
-      const sanityBefore = player.sanity;
-      const hpBefore = player.hp;
-      const sanityCap = player.maxSanity ?? (player.sanity + 10);
-      const hpCap = player.maxHp ?? (player.hp + 5);
-      player.sanity = Math.min(sanityCap, player.sanity + 10);
-      player.hp = Math.min(hpCap, player.hp + 5);
-      const sanityGain = player.sanity - sanityBefore;
-      const hpGain = player.hp - hpBefore;
+      const sanityBefore = actor.sanity;
+      const hpBefore = actor.hp;
+      const sanityCap = actor.maxSanity ?? (actor.sanity + 10);
+      const hpCap = actor.maxHp ?? (actor.hp + 5);
+      actor.sanity = Math.min(sanityCap, actor.sanity + 10);
+      actor.hp = Math.min(hpCap, actor.hp + 5);
+      const sanityGain = actor.sanity - sanityBefore;
+      const hpGain = actor.hp - hpBefore;
       const pieces = [];
-      if (hpGain > 0) pieces.push(`restore ${hpGain} HP`);
-      if (sanityGain > 0) pieces.push(`regain ${sanityGain} sanity`);
+      if (hpGain > 0) pieces.push(`restore${actor === player ? '' : 's'} ${hpGain} HP`);
+      if (sanityGain > 0) pieces.push(`regain${actor === player ? '' : 's'} ${sanityGain} sanity`);
       const effectText = pieces.length ? `, ${pieces.join(' and ')}` : '';
-      log(`You use ${abilityName}${effectText}.`);
-      return { action: 'ability1' };
+      log(`${actorName} use${actor === player ? '' : 's'} ${abilityName}${effectText}.`);
+      return { action: 'ability1', actor };
     }
     case 'ability2': {
-      if (!player.ability2) {
-        log('This class does not have a second ability.');
+      if (!actor.ability2) {
+        log(`${actorName} do${actor === player ? '' : 'es'} not have a second ability.`);
         return null;
       }
-      const abilityId2 = player.ability2.id;
+      const abilityId2 = actor.ability2.id;
       if (abilityId2 && getAbilityById(abilityId2)) {
         // Use the new ability resolution system
-        const targetForAbility = targetEnemy || getLivingEnemies()[0];
+        const targetForAbility = selectedTarget || targetEnemy || getLivingEnemies()[0];
         if (!targetForAbility) {
           handleVictory();
           return null;
         }
-        const result = resolveAbilityUse(abilityId2, player, targetForAbility);
+        const result = resolveAbilityUse(abilityId2, actor, targetForAbility);
         playAttackSound();
-        return { enemy: targetForAbility, action: 'ability2', abilityResult: result };
+        return { enemy: targetForAbility, action: 'ability2', abilityResult: result, actor };
       }
       // Fallback for abilities without IDs (legacy)
       if (!targetEnemy) {
@@ -561,14 +773,14 @@ function executePlayerAction(actionId) {
       }
       const damage = Math.floor(Math.random() * 8) + 6;
       targetEnemy.hp -= damage;
-      const sanityBefore = player.sanity;
-      const sanityCap = player.maxSanity ?? (player.sanity + 5);
-      player.sanity = Math.min(sanityCap, player.sanity + 5);
-      const sanityGain = player.sanity - sanityBefore;
-      const sanityText = sanityGain ? ` and steady your mind (+${sanityGain} sanity)` : '';
-      log(`You unleash ${abilityName}, unsettling ${targetEnemy.name} for ${damage} damage${sanityText}.`);
+      const sanityBefore = actor.sanity;
+      const sanityCap = actor.maxSanity ?? (actor.sanity + 5);
+      actor.sanity = Math.min(sanityCap, actor.sanity + 5);
+      const sanityGain = actor.sanity - sanityBefore;
+      const sanityText = sanityGain ? ` and stead${actor === player ? 'y your' : 'ies their'} mind (+${sanityGain} sanity)` : '';
+      log(`${actorName} unleash${actor === player ? '' : 'es'} ${abilityName}, unsettling ${targetEnemy.name} for ${damage} damage${sanityText}.`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'ability2' };
+      return { enemy: targetEnemy, damage, action: 'ability2', actor };
     }
     default:
       log('Unknown action.');
@@ -690,6 +902,16 @@ let enemy_male_combat_start_sounds = [
   new Audio('./sound/enemy_male_combat_starts_02.mp3')
 ];
 
+let enemy_female_combat_start_sounds = [
+  new Audio('./sound/enemy_female_combat_start_01.mp3')
+];
+
+let enemy_monster_combat_start_sounds = [
+  new Audio('./sound/enemy_monster_combat_start_01.mp3'),
+  new Audio('./sound/enemy_monster_combat_start_02.mp3'),
+  new Audio('./sound/enemy_monster_combat_start_03.mp3')
+];
+
 // Party defeat sounds
 
 let party_death_male_sound = [
@@ -719,6 +941,7 @@ const audioCollections = [
   attackSounds,
   [defendSound],
   [potion_sound],
+  [summon_sound],
   cryptonaut_male_hurt_sounds,
   cryptonaut_female_hurt_sounds,
   cryptonaut_monster_hurt_sounds,
@@ -729,6 +952,8 @@ const audioCollections = [
   cryptonaut_female_combat_start_sounds,
   cryptonaut_monster_combat_start_sounds,
   enemy_male_combat_start_sounds,
+  enemy_female_combat_start_sounds,
+  enemy_monster_combat_start_sounds,
   party_death_male_sound,
   party_death_female_sound,
   party_death_monster_sound,
@@ -772,6 +997,53 @@ function startCombatMusic() {
   if (!combatMusic) return;
   combatMusic.currentTime = 0;
   combatMusic.play().catch(err => console.log('Combat music error:', err));
+  
+  // Play a combat start voice 2 seconds after music begins
+  setTimeout(() => {
+    playCombatStartVoice();
+    // Start first turn 2 seconds after combat start voice
+    setTimeout(() => {
+      nextTurn();
+    }, 2000);
+  }, 2000);
+}
+
+/**
+ * Play a random combat start voice from either the player/companion or an enemy.
+ * 50% chance for each side.
+ */
+function playCombatStartVoice() {
+  const isPlayerSide = Math.random() < 0.5;
+  
+  if (isPlayerSide) {
+    // Play player or companion combat start sound based on gender
+    const gender = player.gender || 'm';
+    let soundArray;
+    if (gender === 'f') {
+      soundArray = cryptonaut_female_combat_start_sounds;
+    } else if (gender === 'm') {
+      soundArray = cryptonaut_male_combat_start_sounds;
+    } else {
+      soundArray = cryptonaut_monster_combat_start_sounds;
+    }
+    playRandomSound(soundArray);
+  } else {
+    // Play a random enemy's combat start sound based on their gender
+    const livingEnemies = enemies.filter(e => e.alive !== false && e.hp > 0);
+    if (livingEnemies.length === 0) return;
+    
+    const randomEnemy = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
+    const gender = randomEnemy.gender || 'o';
+    let soundArray;
+    if (gender === 'f') {
+      soundArray = enemy_female_combat_start_sounds;
+    } else if (gender === 'm') {
+      soundArray = enemy_male_combat_start_sounds;
+    } else {
+      soundArray = enemy_monster_combat_start_sounds;
+    }
+    playRandomSound(soundArray);
+  }
 }
 
 function stopCombatMusic() {
@@ -1111,6 +1383,32 @@ function applyEffect(effect, caster, targets, levelRule) {
         results.push({ target, success: true, type: 'confusion' });
         break;
       }
+
+      case 'summon': {
+        if (!effect.summonId) {
+          results.push({ target, success: false, reason: 'missing_summon_id' });
+          break;
+        }
+        if (typeof spawnSummon !== 'function') {
+          log('Summon effect failed: system unavailable.');
+          results.push({ target, success: false, reason: 'summon_system_unavailable' });
+          break;
+        }
+        const summonOutcome = spawnSummon(effect.summonId);
+        if (summonOutcome.success) {
+          results.push({
+            target: summonOutcome.summon || target,
+            success: true,
+            type: 'summon',
+            summonId: effect.summonId
+          });
+        } else {
+          const failureMessage = summonOutcome.message || 'Summon failed.';
+          log(failureMessage);
+          results.push({ target, success: false, reason: failureMessage });
+        }
+        break;
+      }
       
       case 'meta': {
         // Meta effects like nullify_incoming_damage are handled by combat logic
@@ -1158,6 +1456,7 @@ function resolveAbilityUse(abilityId, caster, targets) {
   
   const characterLevel = caster.level || 1;
   const levelRule = getLevelRule(ability, characterLevel);
+  const casterName = caster?.name || 'Someone';
   
   // Determine actual targets based on level rule target override
   let actualTargets = targets;
@@ -1169,6 +1468,10 @@ function resolveAbilityUse(abilityId, caster, targets) {
       actualTargets = [player, companion].filter(c => c && c.alive !== false && c.hp > 0);
     }
   }
+
+  const targetSummary = describeTargetsForLog(actualTargets);
+  const preface = targetSummary ? ` on ${targetSummary}` : '';
+  log(`⚔️ ${casterName} uses ${ability.name}${preface}.`);
   
   const allResults = [];
   
@@ -1177,8 +1480,53 @@ function resolveAbilityUse(abilityId, caster, targets) {
     const effectResults = applyEffect(effect, caster, actualTargets, levelRule);
     allResults.push(...effectResults);
   }
+
+  logAbilityResultDetails(ability.name, allResults);
   
   return { success: true, ability: ability.name, results: allResults };
+}
+
+function describeTargetsForLog(targets) {
+  if (!targets) return '';
+  const arr = Array.isArray(targets) ? targets : [targets];
+  const names = arr
+    .filter(t => t)
+    .map(t => t.name || t.displayName || t.id || 'unknown target');
+  if (!names.length) return '';
+  if (names.length <= 3) {
+    return names.join(', ');
+  }
+  return `${names.length} targets`;
+}
+
+function logAbilityResultDetails(abilityName, results) {
+  if (!results || results.length === 0) {
+    log(`${abilityName} has no noticeable effect.`);
+    return;
+  }
+  
+  results.forEach(result => {
+    const targetName = result?.target?.name || result?.target?.displayName || result?.target?.id || 'unknown target';
+    const typeLabel = result?.type ? ` (${result.type})` : '';
+    if (result.success) {
+      log(`✔️ ${abilityName}${typeLabel} succeeds on ${targetName}.`);
+    } else {
+      const reasonText = formatFailureReason(result?.reason);
+      log(`✖️ ${abilityName}${typeLabel} fails on ${targetName}${reasonText}.`);
+    }
+  });
+}
+
+function formatFailureReason(reason) {
+  if (!reason) return '';
+  if (typeof reason === 'string') {
+    return ` (${reason.replace(/_/g, ' ')})`;
+  }
+  try {
+    return ` (${JSON.stringify(reason)})`;
+  } catch (err) {
+    return ' (unknown reason)';
+  }
 }
 
 /**
@@ -1550,10 +1898,36 @@ function addTargetClickListeners() {
  * Handle clicking on a target portrait.
  */
 function handleTargetClick(event) {
-  if (!targetSelectionActive || !selectedItemId) return;
-  
   const portrait = event.currentTarget;
   const targetType = portrait.dataset.targetType;
+  
+  // Handle action targeting
+  if (pendingAction && targetSelectionMode) {
+    let target = null;
+    
+    if (targetType === 'player') {
+      target = player;
+    } else if (targetType === 'companion') {
+      target = companion;
+    } else if (targetType === 'enemy') {
+      const enemyIndex = parseInt(portrait.dataset.enemyIndex, 10);
+      target = enemies[enemyIndex];
+    } else if (targetType === 'summon') {
+      const summonId = portrait.dataset.summonId;
+      target = summonedNPCs.find(s => s.id === summonId);
+    }
+    
+    if (target) {
+      const actionId = pendingAction.actionId;
+      cancelTargetSelection();
+      const result = executePlayerAction(actionId, target);
+      if (result) completePlayerAction(result);
+    }
+    return;
+  }
+  
+  // Handle item targeting
+  if (!targetSelectionActive || !selectedItemId) return;
   
   let target = null;
   
@@ -1625,6 +1999,9 @@ function cancelTargetSelection() {
   targetSelectionActive = false;
   selectedItemId = null;
   selectedItemDef = null;
+  pendingActionId = null;
+  pendingAction = null;
+  targetSelectionMode = false;
   
   // Hide target selection prompt
   const targetPanel = document.getElementById('target-selection');
@@ -1638,6 +2015,7 @@ function cancelTargetSelection() {
     portrait.removeEventListener('click', handleTargetClick);
     delete portrait.dataset.targetType;
     delete portrait.dataset.enemyIndex;
+    delete portrait.dataset.summonId;
   });
 }
 
@@ -1735,6 +2113,9 @@ async function loadCombatData() {
     // Load item database for the unified item system
     await loadItemDatabase('./inventory.json');
     
+    // Load summon templates for scroll items
+    await loadSummonTemplates();
+    
     // Initialize inventory state with starting items (can be loaded from save later)
     const inventorySeed = (typeof window !== 'undefined' && window.initialInventoryState)
       ? cloneData(window.initialInventoryState)
@@ -1791,20 +2172,34 @@ async function loadCombatData() {
         console.error(`Enemy template not found for id: ${slot.id}`);
         return;
       }
-        // Create a completely new object based on the template
+      
+      // Extract base_stats (new format) or fall back to legacy flat properties
+      const baseStats = template.base_stats || {};
+      const hp = baseStats.hp ?? template.hp ?? 10;
+      const init = baseStats.init ?? template.init ?? 5;
+      const sanityDamage = baseStats.sanity_damage ?? template.sanityDamage ?? 0;
+      const defense = baseStats.defense ?? template.defense ?? 0;
+      const basicAttack = baseStats.basic_attack ?? template.basic_attack ?? null;
+      
+      // Create a completely new object based on the template
       const enemyInstance = {
         id: template.id,
         name: template.name,
-        gender: template.gender || 'm', // Include gender, default to male if not specified
-        hp: template.hp, // Use the HP from the template (priestess = 10)
-        attackPower: template.attackPower,
-        sanityDamage: template.sanityDamage,
-        init: template.init,
+        gender: template.gender || 'o', // Include gender, default to other/monster if not specified
+        hp: hp,
+        maxHp: hp,
+        basic_attack: basicAttack,
+        sanityDamage: sanityDamage,
+        defense: defense,
+        init: init,
+        xp_reward: template.xp_reward ?? 0,
+        enemy_hit_sound: template.enemy_hit_sound || null,
+        enemy_death_sound: template.enemy_death_sound || null,
         alive: true,
         position: slot.position
       };
       
-      console.log(`Created enemy: ${enemyInstance.name} with HP: ${enemyInstance.hp}`);
+      console.log(`Created enemy: ${enemyInstance.name} with HP: ${enemyInstance.hp}, basic_attack:`, basicAttack);
       enemies.push(enemyInstance);
     });
     
@@ -1817,6 +2212,7 @@ async function loadCombatData() {
     generateEnemyCards();
     setupTurnOrder();
     updateUI();
+    // Start combat music and sequenced audio, which will call nextTurn after delays
     startCombatMusic();
   } catch (err) {
     console.error("Error loading data:", err);
@@ -1832,14 +2228,17 @@ async function loadCombatData() {
 function setupTurnOrder() {
   // Make sure we only include enemies that are alive and have HP > 0
   enemies = enemies.filter(e => e.hp > 0 && e.alive !== false);
+  const activeSummons = summonedNPCs.filter(s => s.alive);
   
   // Build array with all combatants:
   //  1) Player object with type 'player'
   //  2) Companion object with type 'companion'
-  //  3) Each enemy (mapped to type 'enemy')
+  //  3) Active summons
+  //  4) Each enemy (mapped to type 'enemy')
   combatants = [
     { type: 'player', data: player },
     { type: 'companion', data: companion },
+    ...activeSummons.map(s => ({ type: 'summon', data: s })),
     ...enemies.map(e => ({ type: 'enemy', data: e }))
   ];
   
@@ -1893,7 +2292,7 @@ function startRound() {
   
   // Reset to the first combatant
   currentTurn = -1; // Will be incremented to 0 in nextTurn()
-  nextTurn();
+  // nextTurn is now called after audio sequencing from startCombatMusic
 }
 
 
@@ -1972,24 +2371,54 @@ function nextTurn() {
   
   // Decide actions based on the combatant 'type'
   if (current.type === 'player') {
+    // Check if player is charmed (hypnotized)
+    if (isCharmed(current.data)) {
+      // Charmed player attacks party or summons
+      disableActions();
+      log("You are hypnotised and strike your allies!");
+      setTimeout(() => {
+        handleCharmedAllyTurn(current.data);
+      }, 1000);
+      return;
+    }
+    activeControlledCharacter = 'player';
     log("Your turn! Choose an action...");
     enableActions(); // Allows user to click Attack / Defend / etc.
   } else if (current.type === 'companion') {
-    disableActions(); // Hide player controls
+    // Check if companion is charmed (hypnotized)
+    if (isCharmed(current.data)) {
+      // Charmed ally attacks party or summons
+      disableActions();
+      log(`${current.data.name} is hypnotised and attacks allies!`);
+      setTimeout(() => {
+        handleCharmedAllyTurn(current.data);
+      }, 1000);
+      return;
+    }
+    // Companion is now player-controlled (not AI)
     // Check if companion is actually alive
     if (!companion.alive || companion.hp <= 0) {
       log(`${companion.name || "Companion"} is incapacitated and skips their turn.`);
       return setTimeout(nextTurn, 1000);
     }
-    // Wait 1 second, then let the companion AI act
-    setTimeout(companionTurn, 1000);
+    activeControlledCharacter = 'companion';
+    log(`${companion.name}'s turn! Choose an action...`);
+    enableActions(); // Player controls the companion too
+  } else if (current.type === 'summon') {
+    disableActions(); // Hide player controls
+    // AI-controlled summoned NPC
+    if (!current.data.alive || current.data.hp <= 0) {
+      log(`${current.data.name || "Summon"} has faded and skips their turn.`);
+      return setTimeout(nextTurn, 1000);
+    }
+    // Wait 1 second, then let the summon AI act
+    setTimeout(() => summonedNPCTurn(current.data), 1000);
   } else if (current.type === 'enemy') {
     disableActions(); // Hide player controls
     // Pass 'current.data' (the actual enemy object) to the enemyTurn function
     setTimeout(() => enemyTurn(current.data), 1000);
   }
 }
-
 
 // ========================
 // Update the User Interface
@@ -2058,10 +2487,15 @@ function updateUI() {  // Change the background image based on 'battleBackground
     }
   });
   
-  // Highlight the portrait of whoever's turn it is
-  document.querySelectorAll(".portrait").forEach(el => el.classList.remove("active-turn"));
-  if (combatants.length > 0 && currentTurn < combatants.length) {
+  // Remove previous highlights
+  document.querySelectorAll('.portrait').forEach(card => {
+    card.classList.remove('active-turn');
+  });
+  
+  // Highlight whose turn it is
+  if (combatants.length > 0 && currentTurn >= 0 && currentTurn < combatants.length) {
     const current = combatants[currentTurn];
+    if (!current) return;
     if (current.type === 'player') {
       document.getElementById('player-portrait').classList.add('active-turn');
     } else if (current.type === 'companion') {
@@ -2073,10 +2507,17 @@ function updateUI() {  // Change the background image based on 'battleBackground
       if (ix >= 0) {
         document.getElementById(`enemy-portrait-${ix}`).classList.add('active-turn');
       }
+    } else if (current.type === 'summon') {
+      const summonCard = document.getElementById(`summon-portrait-${current.data.id}`);
+      if (summonCard) {
+        summonCard.classList.add('active-turn');
+      }
     }
   }
+  
+  // Update summon UI
+  updateSummonUI();
 }
-
 
 // ========================
 // Generating Enemy Portrait Cards
@@ -2112,6 +2553,11 @@ function generateEnemyCards() {
     // Only show the card if the enemy is alive
     card.style.display = enemy.alive !== false && enemy.hp > 0 ? 'block' : 'none';
     
+    // Add click handler for target selection
+    card.addEventListener('click', () => {
+      handlePortraitClick({ type: 'enemy', data: enemy, index: i });
+    });
+    
     // Append the card to the enemy area in the DOM
     enemyArea.appendChild(card);
     
@@ -2119,11 +2565,363 @@ function generateEnemyCards() {
   });
 }
 
+// ========================
+// Summoned NPC (AI-Controlled) Turn
+// ========================
+// This function handles AI-controlled summoned NPCs.
+// The old companion AI logic is preserved here for summons.
+function summonedNPCTurn(summon) {
+  if (!summon || !summon.alive || summon.hp <= 0) {
+    console.log(`Summon ${summon?.name || 'unknown'} is not available to act`);
+    setTimeout(nextTurn, 500);
+    return;
+  }
+  
+  // Before summon acts, clean up enemies array to ensure we don't target defeated enemies
+  const initialEnemyCount = enemies.length;
+  enemies = enemies.filter(e => e.alive !== false && e.hp > 0);
+  
+  if (initialEnemyCount !== enemies.length) {
+    console.log(`Summon turn: Filtered out ${initialEnemyCount - enemies.length} defeated enemies`);
+  }
+  
+  // If there are no enemies left, trigger victory and exit
+  if (!enemies.length || !enemies.some(e => e.alive !== false && e.hp > 0)) {
+    console.log("Summon found no valid enemies, triggering victory");
+    handleVictory();
+    return;
+  }
+  
+  // First filter to get only valid targets (alive enemies with HP > 0)
+  const validTargets = enemies.filter(e => e.alive !== false && e.hp > 0);
+  
+  // Additional sanity check to make sure we have targets
+  if (!validTargets.length) {
+    console.log("No valid targets for summon after filtering");
+    handleVictory();
+    return;
+  }
+  
+  console.log(`${summon.name} found ${validTargets.length} valid targets`);
+  
+  // Determine target based on AI behavior
+  let targetEnemy;
+  const aiBehavior = summon.ai_behavior || 'attack_weakest';
+  
+  switch (aiBehavior) {
+    case 'attack_strongest':
+      targetEnemy = [...validTargets].sort((a, b) => b.hp - a.hp)[0];
+      break;
+    case 'support_heal': {
+      const friendlyTargets = [player, companion, ...(summonedNPCs || [])]
+        .filter(ally => ally && ally.alive !== false && ally.hp > 0);
+
+      if (!friendlyTargets.length) {
+        log(`${summon.name} finds no allies to mend.`);
+        setTimeout(nextTurn, 1000);
+        return;
+      }
+
+      const ratio = (ally) => {
+        const max = ally.maxHp || ally.hp || 1;
+        return ally.hp / max;
+      };
+
+      const injuredTargets = friendlyTargets.filter(ally => ally.hp < (ally.maxHp || ally.hp));
+      const prioritisedPool = injuredTargets.length ? injuredTargets : friendlyTargets;
+      const healTarget = [...prioritisedPool].sort((a, b) => ratio(a) - ratio(b))[0];
+
+      if (!healTarget) {
+        log(`${summon.name} waits for someone to heal.`);
+        setTimeout(nextTurn, 1000);
+        return;
+      }
+
+      const healAmt = Math.floor(Math.random() * (summon.support_power || 6) + 3);
+      const maxHp = healTarget.maxHp || healTarget.hp + healAmt;
+      const before = healTarget.hp;
+      healTarget.hp = Math.min(maxHp, healTarget.hp + healAmt);
+      const restored = healTarget.hp - before;
+      const label = healTarget === player ? 'you' : (healTarget.name || 'an ally');
+      if (restored > 0) {
+        log(`${summon.name} bathes ${label} in light, restoring ${restored} HP!`);
+      } else {
+        log(`${summon.name}'s healing washes over ${label}, but there is no effect.`);
+      }
+      potion_sound.play().catch(e => console.log('Sound error:', e));
+
+      saveGameState();
+      updateUI();
+      if (!combatEnded) {
+        setTimeout(nextTurn, 2000);
+      }
+      return;
+    }
+    case 'attack_weakest':
+    default:
+      targetEnemy = [...validTargets].sort((a, b) => a.hp - b.hp)[0];
+      break;
+  }
+  
+  // Double-check that our target is actually valid before attacking
+  if (!targetEnemy || targetEnemy.hp <= 0 || targetEnemy.alive === false) {
+    console.log("Target enemy is invalid or already defeated - skipping summon attack");
+    setTimeout(nextTurn, 1000);
+    return;
+  }
+  
+  // Attack the target
+  const dmg = summon.basic_attack 
+    ? rollFromDiceSpec(summon.basic_attack)
+    : Math.floor(Math.random() * (summon.support_power || 6) + 3);
+  targetEnemy.hp -= dmg;
+  log(`${summon.name} attacks ${targetEnemy.name} for ${dmg} damage!`);
+  
+  console.log(`After summon attack: ${targetEnemy.name}, HP: ${targetEnemy.hp}`);
+  
+  playAttackSound();
+  
+  const enemyIndex = enemies.indexOf(targetEnemy);
+  if (enemyIndex >= 0) {
+    updateEnemyHP(enemyIndex);
+    flashDamage(`enemy-portrait-${enemyIndex}`);
+  }
+  
+  updateUI();
+  
+  if (targetEnemy.hp <= 0) {
+    targetEnemy.alive = false;
+    console.log(`Enemy defeated by summon: ${targetEnemy.name}`);
+    
+    if (enemyIndex >= 0) {
+      const card = document.getElementById(`enemy-portrait-${enemyIndex}`);
+      if (card) {
+        card.style.display = 'none';
+      }
+    }
+    
+    setTimeout(() => {
+      const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
+                             targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+      playRandomSound(deathSoundArray);
+    }, 1000);
+  } else {
+    setTimeout(() => {
+      const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
+                            targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+      playRandomSound(hurtSoundArray);
+    }, 1000);
+  }
+  
+  if (checkEnemyStatus()) {
+    return;
+  }
+  
+  // Decrease summon duration
+  if (summon.remainingDuration !== undefined) {
+    summon.remainingDuration--;
+    updateSummonUI();
+    if (summon.remainingDuration <= 0) {
+      summon.alive = false;
+      log(`${summon.name} fades away...`);
+      // Remove from combatants
+      combatants = combatants.filter(c => c.data !== summon);
+      summonedNPCs = summonedNPCs.filter(s => s !== summon);
+      cleanupSummonUI();
+    }
+  }
+  
+  saveGameState();
+  
+  if (!combatEnded) {
+    setTimeout(nextTurn, 2000);
+  }
+}
 
 // ========================
-// Companion (Ally) AI
+// Summon System
 // ========================
-// This function is called when the companion's turn starts.
+
+// Cache for loaded summon templates
+let summonTemplates = null;
+
+/**
+ * Load summon templates from npc_summon.json
+ */
+async function loadSummonTemplates() {
+  if (summonTemplates) return summonTemplates;
+  
+  try {
+    const response = await fetch('npc_summon.json');
+    if (!response.ok) {
+      console.error('Failed to load summon templates');
+      return null;
+    }
+    const data = await response.json();
+    summonTemplates = data.summons || [];
+    console.log('Summon templates loaded:', summonTemplates.length);
+    return summonTemplates;
+  } catch (err) {
+    console.error('Error loading summon templates:', err);
+    return null;
+  }
+}
+
+/**
+ * Spawn a summoned NPC into combat.
+ * @param {string} summonId - The ID of the summon from npc_summon.json
+ * @returns {Object} - Result { success, message, summon? }
+ */
+function spawnSummon(summonId) {
+  if (!summonTemplates) {
+    return { success: false, message: 'Summon templates not loaded.' };
+  }
+  
+  const template = summonTemplates.find(s => s.id === summonId);
+  if (!template) {
+    return { success: false, message: `Unknown summon: ${summonId}` };
+  }
+  
+  // Check if we already have too many summons (limit to 2)
+  if (summonedNPCs.length >= 2) {
+    return { success: false, message: 'You cannot control more summons.' };
+  }
+  
+  // Create the summon instance
+  const baseStats = template.base_stats || {};
+  const summonInstance = {
+    id: template.id,
+    name: template.name,
+    class: template.class || 'Summon',
+    hp: baseStats.hp || 10,
+    maxHp: baseStats.hp || 10,
+    sanity: baseStats.sanity || 5,
+    maxSanity: baseStats.sanity || 5,
+    basic_attack: baseStats.basic_attack || { dice: 1, sides: 4 },
+    support_power: baseStats.support_power || 5,
+    defense: baseStats.defense || 0,
+    init: baseStats.init || 5,
+    portrait: template.portrait || 'assets/img/ally_portrait/summon_npc.png',
+    audio: template.audio || {},
+    ai_behavior: template.ai_behavior || 'attack_weakest',
+    remainingDuration: template.duration || 3,
+    alive: true,
+    isSummon: true
+  };
+  
+  // Add to summonedNPCs array
+  summonedNPCs.push(summonInstance);
+  
+  // Add to combatants list
+  const newCombatant = { type: 'summon', data: summonInstance };
+  newCombatant.baseInit = summonInstance.init;
+  newCombatant.rollInit = summonInstance.init + (Math.floor(Math.random() * 7) - 3);
+  combatants.push(newCombatant);
+  
+  // Re-sort combatants by initiative (summon joins the battle)
+  combatants.sort((a, b) => b.rollInit - a.rollInit);
+  
+  // Generate UI card for the summon
+  generateSummonCard(summonInstance);
+  updateSummonUI();
+  
+  // Play summon sound effect
+  summon_sound.currentTime = 0;
+  summon_sound.play().catch(err => console.log('Summon sound error:', err));
+  
+  log(`${summonInstance.name} appears to aid you! (${summonInstance.remainingDuration} turns)`);
+  
+  return { 
+    success: true, 
+    message: `${summonInstance.name} has been summoned!`,
+    summon: summonInstance 
+  };
+}
+
+/**
+ * Generate a UI card for a summoned NPC
+ */
+function generateSummonCard(summon) {
+  const summonArea = document.getElementById('summon-area');
+  if (!summonArea) return;
+  const cardId = `summon-portrait-${summon.id}`;
+  const hpId = `summon-hp-${summon.id}`;
+  const durationId = `summon-duration-${summon.id}`;
+  const existingCard = document.getElementById(cardId);
+  if (existingCard) {
+    existingCard.remove();
+  }
+  
+  const card = document.createElement('div');
+  card.className = 'portrait summon';
+  card.id = cardId;
+  card.dataset.summonId = summon.id;
+  
+  card.innerHTML = `
+    <img src="${summon.portrait}" alt="${summon.name}">
+    <div class="stats">
+      <div class="character-name"><span>${summon.name}</span></div>
+      <div>HP: <span id="${hpId}">${summon.hp}</span></div>
+      <div class="summon-duration">Turns: <span id="${durationId}">${summon.remainingDuration}</span></div>
+    </div>
+  `;
+  
+  // Add click handler for target selection
+  card.addEventListener('click', () => {
+    handlePortraitClick({ type: 'summon', data: summon });
+  });
+  
+  summonArea.appendChild(card);
+}
+
+/**
+ * Update summon UI cards
+ */
+function updateSummonUI() {
+  summonedNPCs.forEach((summon) => {
+    const card = document.getElementById(`summon-portrait-${summon.id}`);
+    const hpSpan = document.getElementById(`summon-hp-${summon.id}`);
+    const durationSpan = document.getElementById(`summon-duration-${summon.id}`);
+    
+    if (card) {
+      card.style.display = summon.alive ? 'block' : 'none';
+    }
+    if (hpSpan) {
+      hpSpan.textContent = summon.hp;
+    }
+    if (durationSpan) {
+      durationSpan.textContent = summon.remainingDuration;
+    }
+  });
+}
+
+/**
+ * Remove expired or dead summons from UI
+ */
+function cleanupSummonUI() {
+  const summonArea = document.getElementById('summon-area');
+  if (!summonArea) return;
+  
+  // Remove cards for dead/expired summons
+  summonArea.querySelectorAll('.portrait.summon').forEach(card => {
+    const summonId = card.dataset.summonId;
+    const activeSummon = summonedNPCs.find(s => s.id === summonId && s.alive);
+    if (!activeSummon) {
+      card.remove();
+    }
+  });
+}
+
+// Expose spawnSummon globally for the item system
+if (typeof window !== 'undefined') {
+  window.spawnSummon = spawnSummon;
+}
+
+// ========================
+// Legacy Companion AI (kept for reference, now uses summonedNPCTurn)
+// ========================
+// This function was previously used for companion AI.
+// Companion is now player-controlled. This is kept for backwards compatibility.
 function companionTurn() {  
   // Before companion acts, clean up enemies array to ensure we don't target defeated enemies
   const initialEnemyCount = enemies.length;
@@ -2242,6 +3040,129 @@ function companionTurn() {
 // Enemy Turn
 // ========================
 // This is called with the enemy object whose turn it is.
+function handleCharmedEnemyTurn(enemy) {
+  if (!enemy) return true;
+  console.log(`Enemy ${enemy.name} is charmed and turns on their allies.`);
+  playAttackSound();
+  const alliedTargets = enemies.filter(e => e !== enemy && e.alive !== false && e.hp > 0);
+  const summonTargets = (summonedNPCs || []).filter(s => s.alive && s.hp > 0);
+  const potentialTargets = [...alliedTargets, ...summonTargets];
+  const target = potentialTargets.length
+    ? potentialTargets[Math.floor(Math.random() * potentialTargets.length)]
+    : enemy;
+  const dmg = enemy.basic_attack
+    ? rollFromDiceSpec(enemy.basic_attack)
+    : Math.floor(Math.random() * (enemy.attackPower || 5) + 1);
+  // 1s delay before hit sound
+  setTimeout(() => {
+    target.hp -= dmg;
+    const targetLabel = target === enemy ? 'themselves' : target.name;
+    log(`🌀 ${enemy.name} is hypnotised and strikes ${targetLabel} for ${dmg} damage!`);
+    if (target === enemy || alliedTargets.includes(target)) {
+      const enemyIndex = enemies.indexOf(target);
+      if (enemyIndex >= 0) {
+        updateEnemyHP(enemyIndex);
+        flashDamage(`enemy-portrait-${enemyIndex}`);
+      }
+      if (target.hp <= 0 && target.alive !== false) {
+        target.alive = false;
+        setTimeout(() => {
+          const deathSoundArray = target.gender === 'f' ? enemy_death_female_sound : 
+                                 target.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+          playRandomSound(deathSoundArray);
+        }, 100);
+      } else {
+        setTimeout(() => {
+          const hurtSoundArray = target.gender === 'f' ? enemy_hurt_female_sound : 
+                                target.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+          playRandomSound(hurtSoundArray);
+        }, 100);
+      }
+      const victoryTriggered = checkEnemyStatus();
+      updateUI();
+      saveGameState();
+      if (!victoryTriggered && !combatEnded) {
+        setTimeout(nextTurn, 2000);
+      }
+      return;
+    }
+    const cardId = `summon-portrait-${target.id}`;
+    if (document.getElementById(cardId)) {
+      flashDamage(cardId);
+    }
+    updateSummonUI();
+    if (target.hp <= 0 && target.alive) {
+      target.alive = false;
+      log(`${target.name} dissipates under the assault!`);
+      combatants = combatants.filter(c => c.data !== target);
+      summonedNPCs = summonedNPCs.filter(s => s !== target);
+      cleanupSummonUI();
+    }
+    saveGameState();
+    updateUI();
+    if (!combatEnded) {
+      setTimeout(nextTurn, 2000);
+    }
+  }, 1000);
+}
+
+function handleCharmedAllyTurn(ally) {
+  if (!ally) return;
+  console.log(`${ally.name} is charmed and attacks party or summons.`);
+  playAttackSound();
+  const partyTargets = [player, companion].filter(c => c && c.alive !== false && c.hp > 0 && c !== ally);
+  const summonTargets = (summonedNPCs || []).filter(s => s.alive && s.hp > 0);
+  const potentialTargets = [...partyTargets, ...summonTargets];
+  const target = potentialTargets.length
+    ? potentialTargets[Math.floor(Math.random() * potentialTargets.length)]
+    : ally;
+  const dmg = ally.basic_attack
+    ? rollFromDiceSpec(ally.basic_attack)
+    : Math.floor(Math.random() * 6) + 3;
+  setTimeout(() => {
+    target.hp -= dmg;
+    const targetLabel = target === ally ? 'themselves' : (target === player ? 'you' : target.name);
+    log(`🌀 ${ally.name} is hypnotised and strikes ${targetLabel} for ${dmg} damage!`);
+    if (target === player || target === companion) {
+      const portraitId = target === player ? 'player-portrait' : 'ally-portrait';
+      flashDamage(portraitId);
+      setTimeout(() => {
+        const hurtSounds = target.gender === 'f' ? cryptonaut_female_hurt_sounds : 
+                          target.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
+        const deathSounds = target.gender === 'f' ? party_death_female_sound : 
+                             target.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+        if (target.hp <= 0) {
+          if (target.alive !== false) {
+            target.alive = false;
+            playRandomSound(deathSounds);
+          }
+        } else {
+          playRandomSound(hurtSounds);
+        }
+      }, 100);
+    } else {
+      const cardId = `summon-portrait-${target.id}`;
+      if (document.getElementById(cardId)) {
+        flashDamage(cardId);
+      }
+      updateSummonUI();
+      if (target.hp <= 0 && target.alive) {
+        target.alive = false;
+        log(`${target.name} fades away!`);
+        combatants = combatants.filter(c => c.data !== target);
+        summonedNPCs = summonedNPCs.filter(s => s !== target);
+        cleanupSummonUI();
+      }
+    }
+    updateUI();
+    saveGameState();
+    const lossTriggered = checkLossCondition();
+    if (!lossTriggered && !combatEnded) {
+      setTimeout(nextTurn, 2000);
+    }
+  }, 1000);
+}
+
 function enemyTurn(enemy) {
   // If the enemy is not alive or has HP <= 0, skip the turn
   if (!enemy || !enemy.alive || enemy.hp <= 0) {
@@ -2259,6 +3180,11 @@ function enemyTurn(enemy) {
   
   // Log that this enemy is taking their turn
   console.log(`Enemy turn: ${enemy.name} (HP: ${enemy.hp})`);
+  
+  if (isCharmed(enemy)) {
+    handleCharmedEnemyTurn(enemy);
+    return;
+  }
   
   // Simple AI that sometimes targets the player more often if the player has low HP
   // or the companion more often if the companion has low HP, etc.
@@ -2283,69 +3209,75 @@ function enemyTurn(enemy) {
     // Play attack sound for enemy
   playAttackSound();
   
-  // Calculate damage for the attack
-  const dmg = Math.floor(Math.random() * (enemy.attackPower || 5) + 1);
+  // Calculate damage for the attack using dice spec if available
+  let dmg;
+  if (enemy.basic_attack) {
+    dmg = rollFromDiceSpec(enemy.basic_attack);
+  } else {
+    // Legacy fallback for old data format
+    dmg = Math.floor(Math.random() * (enemy.attackPower || 5) + 1);
+  }
+  
+  // 1s delay before damage is applied and hit sound plays
+  setTimeout(() => {
     if (targetIsPlayer) {
-    // Attacking player
-    const sanityDmg = enemy.sanityDamage || 2; // Some enemies also deal sanity damage
-    player.hp -= dmg;
-    player.sanity -= sanityDmg;
-    log(`☠ The ${enemy.name} strikes you for ${dmg} damage, sanity -${sanityDmg}.`);
-    
-    // Flash player portrait red to indicate damage
-    flashDamage('player-portrait');
+      // Attacking player
+      const sanityDmg = enemy.sanityDamage || 0; // Some enemies also deal sanity damage
+      player.hp -= dmg;
+      player.sanity -= sanityDmg;
+      log(`☠ The ${enemy.name} strikes you for ${dmg} damage, sanity -${sanityDmg}.`);
       
-    // Play hurt sound for player with delay
-    setTimeout(() => {
-      // Get player gender from player data or default to male
+      // Flash player portrait red to indicate damage
+      flashDamage('player-portrait');
+        
       const playerSounds = player.gender === 'f' ? cryptonaut_female_hurt_sounds : 
                           player.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
-      playRandomSound(playerSounds);
-      
-      // Check if player is defeated (only play death sound if actually dying)
-      if (player.hp <= 0 && player.alive) {
-        player.alive = false; // Mark as dead
-        // Play death sound for player
-        const playerDeathSounds = player.gender === 'f' ? party_death_female_sound : 
-                                 player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
-        playRandomSound(playerDeathSounds);
+      const playerDeathSounds = player.gender === 'f' ? party_death_female_sound : 
+                               player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+
+      if (player.hp <= 0) {
+        if (player.alive) {
+          player.alive = false; // Mark as dead once to avoid repeated sounds
+          playRandomSound(playerDeathSounds);
+        }
+      } else {
+        playRandomSound(playerSounds);
       }
-    }, 1000);
-  } else {
-    // Attacking companion
-    companion.hp -= dmg;
-    log(`☠ The ${enemy.name} attacks ${companion.name} for ${dmg} damage!`);
-    
-    // Flash companion portrait red to indicate damage
-    flashDamage('ally-portrait');
+    } else {
+      // Attacking companion
+      companion.hp -= dmg;
+      log(`☠ The ${enemy.name} attacks ${companion.name} for ${dmg} damage!`);
       
-    // Play hurt sound for companion with delay
-    setTimeout(() => {
-      // Get companion gender from data
+      // Flash companion portrait red to indicate damage
+      flashDamage('ally-portrait');
+        
       const companionSounds = companion.gender === 'f' ? cryptonaut_female_hurt_sounds : 
                              companion.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
-      playRandomSound(companionSounds);
-      
-      // Check if companion is defeated (only play death sound if actually dying)
-      if (companion.hp <= 0 && companion.alive) {
-        // Play death sound for companion
-        const companionDeathSounds = companion.gender === 'f' ? party_death_female_sound : 
+      const companionDeathSounds = companion.gender === 'f' ? party_death_female_sound : 
                                     companion.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
-        playRandomSound(companionDeathSounds);
+
+      if (companion.hp <= 0) {
+        if (companion.alive) {
+          playRandomSound(companionDeathSounds);
+        }
+      } else {
+        playRandomSound(companionSounds);
       }
-    }, 1000);
-  }
-  
-  updateUI();
-  
-  // Check if the player or companion got defeated here
-  if (player.hp <= 0 || player.sanity <= 0) {
-    stopCombatMusic();
-    combatEnded = true;
-    log("💀 You collapse from injuries or madness. Game over.");
-    disableActions(); // Player can no longer act
-    return;
-  }
+    }
+    
+    updateUI();
+    
+    // Check if the player or companion got defeated here
+    if (player.hp <= 0 || player.sanity <= 0) {
+      stopCombatMusic();
+      combatEnded = true;
+      log("💀 You collapse from injuries or madness. Game over.");
+      disableActions(); // Player can no longer act
+      // Play defeat music
+      defeatMusic.currentTime = 0;
+      defeatMusic.play().catch(err => console.log('Defeat music error:', err));
+      return;
+    }
   
   if (companion.hp <= 0 && companion.alive) {
     companion.alive = false;
@@ -2362,11 +3294,12 @@ function enemyTurn(enemy) {
     if (currentTurn >= combatants.length) currentTurn = 0;
   }
   
-  saveGameState();    // Save updated HP for player/companion
-    // Only proceed to next turn if combat hasn't ended
-  if (!combatEnded) {
-    setTimeout(nextTurn, 2000); // Move to the next turn after 2 seconds
-  }
+    saveGameState();    // Save updated HP for player/companion
+    // Only proceed to next turn if combat hasn't ended, 2s after hit sounds
+    if (!combatEnded) {
+      setTimeout(nextTurn, 2000); // Move to the next turn after 2 seconds
+    }
+  }, 1000);
 }
 
 function playAttackSound() {
@@ -2376,7 +3309,6 @@ function playAttackSound() {
   sound.currentTime = 0;
   sound.play().catch(err => console.log('Sound error:', err));
 }
-
 
 // ========================
 // Checking for Enemy Defeat
@@ -2500,12 +3432,15 @@ function checkLossCondition() {
                         player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
     playRandomSound(deathSounds);
     
+    // Play defeat music
+    defeatMusic.currentTime = 0;
+    defeatMusic.play().catch(err => console.log('Defeat music error:', err));
+    
     // Could show a defeat screen here
     return true;
   }
   return false;
 }
-
 
 // ========================
 // Saving Game State
@@ -2520,7 +3455,6 @@ function saveGameState() {
   }
 }
 
-
 // ========================
 // Logging Utility
 // ========================
@@ -2531,7 +3465,6 @@ function log(text) {
   logDiv.innerHTML += `<div>> ${text}</div>`; // Append a new line
   logDiv.scrollTop = logDiv.scrollHeight;     // Auto-scroll to bottom
 }
-
 
 // ========================
 // UI Helpers

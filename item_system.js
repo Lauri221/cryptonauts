@@ -371,6 +371,11 @@ function convertItemEffectToAbilityEffect(effect) {
         type: 'confusion',
         duration_turns: effect.duration || 2
       };
+    case 'summon':
+      return {
+        type: 'summon',
+        summonId: effect.summonId
+      };
     case 'rest':
       return {
         type: 'meta',
@@ -580,6 +585,32 @@ function applyLegacyItemEffect(effect, context) {
           unlockRoomTag(context.roomId, effect.tag, context.gameState);
         }
         result.message = `Unlocked: ${effect.tag}`;
+      }
+      break;
+    }
+
+    case 'summon': {
+      // Summon effect - calls the global summon function from main.js
+      if (context.type !== 'combat') {
+        result.message = 'Summons can only be called during combat.';
+        break;
+      }
+      
+      const summonId = effect.summonId;
+      if (!summonId) {
+        result.message = 'Invalid summon scroll.';
+        break;
+      }
+      
+      // Call the global summon function (defined in main.js)
+      if (typeof window !== 'undefined' && typeof window.spawnSummon === 'function') {
+        const summonResult = window.spawnSummon(summonId);
+        result.message = summonResult.message || `Summoned ${summonId}!`;
+      } else if (typeof spawnSummon === 'function') {
+        const summonResult = spawnSummon(summonId);
+        result.message = summonResult.message || `Summoned ${summonId}!`;
+      } else {
+        result.message = 'Summon system not available.';
       }
       break;
     }

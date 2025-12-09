@@ -82,6 +82,16 @@ body {
   z-index: 2;
 }
 
+/* Summon area - displays summoned NPCs */
+#summon-area {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+}
+
 /* Character card styling - smaller size */
 .portrait {
   background-color: rgba(0, 0, 0, 0.7);
@@ -114,6 +124,23 @@ body {
 .portrait.enemy {
   flex: 1;
   max-width: 120px;
+}
+
+/* Summon portrait styling */
+.portrait.summon {
+  background-color: rgba(100, 50, 150, 0.8);
+  border: 2px solid #9966ff;
+  max-width: 100px;
+  flex: 0 0 auto;
+}
+
+.portrait.summon img {
+  border-color: #9966ff;
+}
+
+.portrait.summon .summon-duration {
+  color: #cc99ff;
+  font-size: 0.85em;
 }
 
 /* Stats display - smaller font */
