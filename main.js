@@ -343,6 +343,25 @@ function getScaledBasicAttack(character) {
 }
 
 /**
+ * Apply defense to incoming damage and subtract from target HP.
+ * Only reduces damage for 'physical' damage type (or when damageType omitted).
+ * Returns the final damage applied (>= 0).
+ */
+function applyDamageToTarget(target, rawDamage, damageType = 'physical') {
+  if (!target || typeof rawDamage !== 'number') return 0;
+
+  const def = Number(target.defense || 0) || 0;
+  // Only apply defense to physical damage
+  let final = rawDamage;
+  if (!damageType || damageType === 'physical') {
+    final = Math.max(0, rawDamage - Math.floor(def));
+  }
+
+  target.hp -= final;
+  return final;
+}
+
+/**
  * Get the ability magnitude bonus based on character level.
  * +1 per level cumulative.
  */
@@ -461,6 +480,34 @@ let enemy_hurt_monster_sound = [
   new Audio('./sound/enemy_monster_hurt_06.mp3'),
   new Audio('./sound/enemy_monster_hurt_07.mp3'),
   new Audio('./sound/enemy_monster_hurt_08.mp3')
+];
+
+let enemy_hurt_beast_sound = [
+  new Audio('./sound/enemy_beast_hurt_01.mp3'),
+  new Audio('./sound/enemy_beast_hurt_02.mp3'),
+  new Audio('./sound/enemy_beast_hurt_03.mp3')
+];
+
+let enemy_death_beast_sound = [
+  new Audio('./sound/enemy_beast_death_01.mp3'),
+  new Audio('./sound/enemy_beast_death_02.mp3'),
+  new Audio('./sound/enemy_beast_death_03.mp3')
+];
+
+let enemy_hurt_insect_sound = [
+  new Audio('./sound/enemy_insect_hurt_01.mp3'),
+  new Audio('./sound/enemy_insect_hurt_02.mp3'),
+  new Audio('./sound/enemy_insect_hurt_03.mp3'),
+  new Audio('./sound/enemy_insect_hurt_04.mp3')
+];
+
+let enemy_death_insect_sound = [
+  new Audio('./sound/enemy_insect_death_01.mp3'),
+  new Audio('./sound/enemy_insect_death_02.mp3'),
+  new Audio('./sound/enemy_insect_death_03.mp3')
+];
+let enemy_insect_combat_start_sounds = [
+  new Audio('./sound/growl_combat_start.mp3')
 ];
 
 // ========================
@@ -695,10 +742,10 @@ function executePlayerAction(actionId, selectedTarget = null) {
         return null;
       }
       const damage = getScaledBasicAttack(actor);
-      targetEnemy.hp -= damage;
-      log(`${actorName} attack${actor === player ? '' : 's'} ${targetEnemy.name} for ${damage} damage.`);
+      const final = applyDamageToTarget(targetEnemy, damage, 'physical');
+      log(`${actorName} attack${actor === player ? '' : 's'} ${targetEnemy.name} for ${final} damage (${damage} raw).`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'attack', actor };
+      return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'attack', actor };
     }
     case 'defend': {
       const sanityGainCap = actor.maxSanity ?? (actor.sanity + 5);
@@ -715,11 +762,12 @@ function executePlayerAction(actionId, selectedTarget = null) {
         return null;
       }
       const damage = Math.floor(Math.random() * 12) + 8;
-      targetEnemy.hp -= damage;
+      // Elemental attacks bypass physical defense (magical)
+      const final = applyDamageToTarget(targetEnemy, damage, 'elemental');
       actor.sanity = Math.max(0, actor.sanity - 5);
-      log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${damage} damage dealt, sanity -5.`);
+      log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${final} damage dealt (raw ${damage}), sanity -5.`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'element', actor };
+      return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'element', actor };
     }
     case 'ability1': {
       if (!actor.ability1) {
@@ -772,7 +820,7 @@ function executePlayerAction(actionId, selectedTarget = null) {
         return null;
       }
       const damage = Math.floor(Math.random() * 8) + 6;
-      targetEnemy.hp -= damage;
+      const final = applyDamageToTarget(targetEnemy, damage, 'physical');
       const sanityBefore = actor.sanity;
       const sanityCap = actor.maxSanity ?? (actor.sanity + 5);
       actor.sanity = Math.min(sanityCap, actor.sanity + 5);
@@ -780,7 +828,7 @@ function executePlayerAction(actionId, selectedTarget = null) {
       const sanityText = sanityGain ? ` and stead${actor === player ? 'y your' : 'ies their'} mind (+${sanityGain} sanity)` : '';
       log(`${actorName} unleash${actor === player ? '' : 'es'} ${abilityName}, unsettling ${targetEnemy.name} for ${damage} damage${sanityText}.`);
       playAttackSound();
-      return { enemy: targetEnemy, damage, action: 'ability2', actor };
+      return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'ability2', actor };
     }
     default:
       log('Unknown action.');
@@ -804,14 +852,12 @@ function completePlayerAction(result = {}) {
     if (enemy.hp <= 0 && enemy.alive !== false) {
       enemy.alive = false;
       setTimeout(() => {
-        const deathSoundArray = enemy.gender === 'f' ? enemy_death_female_sound :
-                                enemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+        const deathSoundArray = getEnemyDeathSounds(enemy);
         playRandomSound(deathSoundArray);
       }, 1000);
     } else if (damage > 0) {
       setTimeout(() => {
-        const hurtSoundArray = enemy.gender === 'f' ? enemy_hurt_female_sound :
-                               enemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+        const hurtSoundArray = getEnemyHurtSounds(enemy);
         playRandomSound(hurtSoundArray);
       }, 1000);
     }
@@ -912,6 +958,86 @@ let enemy_monster_combat_start_sounds = [
   new Audio('./sound/enemy_monster_combat_start_03.mp3')
 ];
 
+const enemySoundBank = {
+  enemy_male_hurt: enemy_hurt_male_sound,
+  enemy_female_hurt: enemy_hurt_female_sound,
+  enemy_monster_hurt: enemy_hurt_monster_sound,
+  enemy_beast_hurt: enemy_hurt_beast_sound,
+  enemy_insect_hurt: enemy_hurt_insect_sound,
+  enemy_male_death: enemy_death_male_sound,
+  enemy_female_death: enemy_death_female_sound,
+  enemy_monster_death: enemy_death_monster_sound,
+  enemy_beast_death: enemy_death_beast_sound,
+  enemy_insect_death: enemy_death_insect_sound,
+  enemy_male_combat_start: enemy_male_combat_start_sounds,
+  enemy_female_combat_start: enemy_female_combat_start_sounds,
+  enemy_monster_combat_start: enemy_monster_combat_start_sounds,
+  enemy_beast_combat_start: enemy_monster_combat_start_sounds,
+  enemy_insect_combat_start: enemy_insect_combat_start_sounds,
+  growl_combat_start: enemy_insect_combat_start_sounds
+};
+
+function resolveEnemySoundArray(key, fallbackArray) {
+  if (key && enemySoundBank[key]) {
+    return enemySoundBank[key];
+  }
+  return fallbackArray;
+}
+
+function getDefaultEnemyHurtArray(enemy) {
+  if (!enemy) return enemy_hurt_monster_sound;
+  switch (enemy.gender) {
+    case 'f':
+      return enemy_hurt_female_sound;
+    case 'm':
+      return enemy_hurt_male_sound;
+    case 'i':
+      return enemy_hurt_insect_sound;
+    default:
+      return enemy_hurt_monster_sound;
+  }
+}
+
+function getDefaultEnemyDeathArray(enemy) {
+  if (!enemy) return enemy_death_monster_sound;
+  switch (enemy.gender) {
+    case 'f':
+      return enemy_death_female_sound;
+    case 'm':
+      return enemy_death_male_sound;
+    case 'i':
+      return enemy_death_insect_sound;
+    default:
+      return enemy_death_monster_sound;
+  }
+}
+
+function getDefaultEnemyCombatStartArray(enemy) {
+  if (!enemy) return enemy_monster_combat_start_sounds;
+  switch (enemy.gender) {
+    case 'f':
+      return enemy_female_combat_start_sounds;
+    case 'm':
+      return enemy_male_combat_start_sounds;
+    case 'i':
+      return enemy_insect_combat_start_sounds;
+    default:
+      return enemy_monster_combat_start_sounds;
+  }
+}
+
+function getEnemyHurtSounds(enemy) {
+  return resolveEnemySoundArray(enemy?.audio?.voice_hurt, getDefaultEnemyHurtArray(enemy));
+}
+
+function getEnemyDeathSounds(enemy) {
+  return resolveEnemySoundArray(enemy?.audio?.voice_death, getDefaultEnemyDeathArray(enemy));
+}
+
+function getEnemyCombatStartSounds(enemy) {
+  return resolveEnemySoundArray(enemy?.audio?.voice_combat_start, getDefaultEnemyCombatStartArray(enemy));
+}
+
 // Party defeat sounds
 
 let party_death_male_sound = [
@@ -954,15 +1080,20 @@ const audioCollections = [
   enemy_male_combat_start_sounds,
   enemy_female_combat_start_sounds,
   enemy_monster_combat_start_sounds,
+  enemy_insect_combat_start_sounds,
   party_death_male_sound,
   party_death_female_sound,
   party_death_monster_sound,
   enemy_death_male_sound,
   enemy_death_female_sound,
   enemy_death_monster_sound,
+  enemy_death_beast_sound,
+  enemy_death_insect_sound,
   enemy_hurt_male_sound,
   enemy_hurt_female_sound,
-  enemy_hurt_monster_sound
+  enemy_hurt_monster_sound,
+  enemy_hurt_beast_sound,
+  enemy_hurt_insect_sound
 ];
 
 function getAllAudioNodes() {
@@ -1033,15 +1164,7 @@ function playCombatStartVoice() {
     if (livingEnemies.length === 0) return;
     
     const randomEnemy = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
-    const gender = randomEnemy.gender || 'o';
-    let soundArray;
-    if (gender === 'f') {
-      soundArray = enemy_female_combat_start_sounds;
-    } else if (gender === 'm') {
-      soundArray = enemy_male_combat_start_sounds;
-    } else {
-      soundArray = enemy_monster_combat_start_sounds;
-    }
+    const soundArray = getEnemyCombatStartSounds(randomEnemy);
     playRandomSound(soundArray);
   }
 }
@@ -1255,9 +1378,11 @@ function applyEffect(effect, caster, targets, levelRule) {
     
     switch (effect.type) {
       case 'damage': {
-        target.hp -= magnitude;
-        results.push({ target, success: true, type: 'damage', amount: magnitude });
-        log(`${target.name} takes ${magnitude} ${effect.damage_type || ''} damage!`);
+        // Respect damage type: physical damage is reduced by defense
+        const dmgType = effect.damage_type || 'physical';
+        const applied = applyDamageToTarget(target, magnitude, dmgType);
+        results.push({ target, success: true, type: 'damage', amount: applied, raw: magnitude });
+        log(`${target.name} takes ${applied} ${dmgType} damage (raw ${magnitude})!`);
         break;
       }
       
@@ -2195,6 +2320,7 @@ async function loadCombatData() {
         xp_reward: template.xp_reward ?? 0,
         enemy_hit_sound: template.enemy_hit_sound || null,
         enemy_death_sound: template.enemy_death_sound || null,
+        audio: template.audio ? { ...template.audio } : {},
         alive: true,
         position: slot.position
       };
@@ -2670,12 +2796,12 @@ function summonedNPCTurn(summon) {
     return;
   }
   
-  // Attack the target
+    // Attack the target
   const dmg = summon.basic_attack 
     ? rollFromDiceSpec(summon.basic_attack)
     : Math.floor(Math.random() * (summon.support_power || 6) + 3);
-  targetEnemy.hp -= dmg;
-  log(`${summon.name} attacks ${targetEnemy.name} for ${dmg} damage!`);
+  const final = applyDamageToTarget(targetEnemy, dmg, 'physical');
+  log(`${summon.name} attacks ${targetEnemy.name} for ${final} damage (${dmg} raw)!`);
   
   console.log(`After summon attack: ${targetEnemy.name}, HP: ${targetEnemy.hp}`);
   
@@ -2701,14 +2827,12 @@ function summonedNPCTurn(summon) {
     }
     
     setTimeout(() => {
-      const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
-                             targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+        const deathSoundArray = getEnemyDeathSounds(targetEnemy);
       playRandomSound(deathSoundArray);
     }, 1000);
   } else {
     setTimeout(() => {
-      const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
-                            targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+        const hurtSoundArray = getEnemyHurtSounds(targetEnemy);
       playRandomSound(hurtSoundArray);
     }, 1000);
   }
@@ -2972,8 +3096,8 @@ function companionTurn() {
     
     // Otherwise, the companion attacks the weakest enemy
     const dmg = Math.floor(Math.random() * (companion.support_power || 8) + 5);
-    targetEnemy.hp -= dmg;
-    log(`${companion.name} attacks ${targetEnemy.name} for ${dmg} damage!`);
+    const final = applyDamageToTarget(targetEnemy, dmg, 'physical');
+    log(`${companion.name} attacks ${targetEnemy.name} for ${final} damage (${dmg} raw)!`);
     
     // Log the state of the target enemy after damage is applied
     console.log(`After companion attack: ${targetEnemy.name}, HP: ${targetEnemy.hp}`);
@@ -3007,15 +3131,13 @@ function companionTurn() {
       
       // Play death sound for the enemy with delay
       setTimeout(() => {
-        const deathSoundArray = targetEnemy.gender === 'f' ? enemy_death_female_sound : 
-                               targetEnemy.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+        const deathSoundArray = getEnemyDeathSounds(targetEnemy);
         playRandomSound(deathSoundArray);
       }, 1000);
     } else {
       // Play hurt sound if the enemy was damaged but not defeated (with delay)
       setTimeout(() => {
-        const hurtSoundArray = targetEnemy.gender === 'f' ? enemy_hurt_female_sound : 
-                              targetEnemy.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+        const hurtSoundArray = getEnemyHurtSounds(targetEnemy);
         playRandomSound(hurtSoundArray);
       }, 1000);
     }
@@ -3055,9 +3177,9 @@ function handleCharmedEnemyTurn(enemy) {
     : Math.floor(Math.random() * (enemy.attackPower || 5) + 1);
   // 1s delay before hit sound
   setTimeout(() => {
-    target.hp -= dmg;
+    const final = applyDamageToTarget(target, dmg, 'physical');
     const targetLabel = target === enemy ? 'themselves' : target.name;
-    log(`🌀 ${enemy.name} is hypnotised and strikes ${targetLabel} for ${dmg} damage!`);
+    log(`🌀 ${enemy.name} is hypnotised and strikes ${targetLabel} for ${final} damage (${dmg} raw)!`);
     if (target === enemy || alliedTargets.includes(target)) {
       const enemyIndex = enemies.indexOf(target);
       if (enemyIndex >= 0) {
@@ -3067,14 +3189,12 @@ function handleCharmedEnemyTurn(enemy) {
       if (target.hp <= 0 && target.alive !== false) {
         target.alive = false;
         setTimeout(() => {
-          const deathSoundArray = target.gender === 'f' ? enemy_death_female_sound : 
-                                 target.gender === 'm' ? enemy_death_male_sound : enemy_death_monster_sound;
+          const deathSoundArray = getEnemyDeathSounds(target);
           playRandomSound(deathSoundArray);
         }, 100);
       } else {
         setTimeout(() => {
-          const hurtSoundArray = target.gender === 'f' ? enemy_hurt_female_sound : 
-                                target.gender === 'm' ? enemy_hurt_male_sound : enemy_hurt_monster_sound;
+          const hurtSoundArray = getEnemyHurtSounds(target);
           playRandomSound(hurtSoundArray);
         }, 100);
       }
@@ -3120,9 +3240,9 @@ function handleCharmedAllyTurn(ally) {
     ? rollFromDiceSpec(ally.basic_attack)
     : Math.floor(Math.random() * 6) + 3;
   setTimeout(() => {
-    target.hp -= dmg;
+    const final = applyDamageToTarget(target, dmg, 'physical');
     const targetLabel = target === ally ? 'themselves' : (target === player ? 'you' : target.name);
-    log(`🌀 ${ally.name} is hypnotised and strikes ${targetLabel} for ${dmg} damage!`);
+    log(`🌀 ${ally.name} is hypnotised and strikes ${targetLabel} for ${final} damage (${dmg} raw)!`);
     if (target === player || target === companion) {
       const portraitId = target === player ? 'player-portrait' : 'ally-portrait';
       flashDamage(portraitId);
@@ -3223,9 +3343,9 @@ function enemyTurn(enemy) {
     if (targetIsPlayer) {
       // Attacking player
       const sanityDmg = enemy.sanityDamage || 0; // Some enemies also deal sanity damage
-      player.hp -= dmg;
+      const final = applyDamageToTarget(player, dmg, 'physical');
       player.sanity -= sanityDmg;
-      log(`☠ The ${enemy.name} strikes you for ${dmg} damage, sanity -${sanityDmg}.`);
+      log(`☠ The ${enemy.name} strikes you for ${final} damage (${dmg} raw), sanity -${sanityDmg}.`);
       
       // Flash player portrait red to indicate damage
       flashDamage('player-portrait');
@@ -3245,8 +3365,8 @@ function enemyTurn(enemy) {
       }
     } else {
       // Attacking companion
-      companion.hp -= dmg;
-      log(`☠ The ${enemy.name} attacks ${companion.name} for ${dmg} damage!`);
+      const final = applyDamageToTarget(companion, dmg, 'physical');
+      log(`☠ The ${enemy.name} attacks ${companion.name} for ${final} damage (${dmg} raw)!`);
       
       // Flash companion portrait red to indicate damage
       flashDamage('ally-portrait');
