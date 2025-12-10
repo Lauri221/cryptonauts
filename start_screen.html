@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptonauts - Start Screen</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="exploration.css">
+</head>
+<body>
+  
+  <!-- ======================== -->
+  <!-- START MENU SCREEN -->
+  <!-- ======================== -->
+  <div id="start-menu" class="menu-screen">
+    <div class="menu-container">
+      <div class="menu-title">
+        <h1>CRYPTONAUTS</h1>
+        <p class="subtitle">Descend into Madness</p>
+      </div>
+      
+      <div class="menu-buttons">
+        <button id="btn-new-game" class="menu-btn primary">New Game</button>
+        <button id="btn-continue" class="menu-btn" disabled>Continue</button>
+        <button id="btn-options-start" class="menu-btn">Options</button>
+      </div>
+      
+      <div class="menu-footer">
+        <p class="version">v0.1 Alpha</p>
+      </div>
+    </div>
+    
+    <!-- Atmospheric background effects -->
+    <div class="menu-bg-effects">
+      <div class="fog fog-1"></div>
+      <div class="fog fog-2"></div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- CHARACTER CREATION SCREEN -->
+  <!-- ======================== -->
+  <div id="character-creation" class="menu-screen hidden">
+    <div class="creation-container">
+      <h1>Prepare Your Expedition</h1>
+      
+      <!-- Player Section -->
+      <section class="creation-section">
+        <h2>👤 Your Character</h2>
+        
+        <div class="creation-row">
+          <label for="player-name-input">Name</label>
+          <input type="text" id="player-name-input" placeholder="Enter your name..." maxlength="24">
+        </div>
+        
+        <div class="creation-row">
+          <label>Class</label>
+          <div id="player-class-select" class="class-selector">
+            <!-- Class cards inserted via JS -->
+          </div>
+        </div>
+        
+        <div class="creation-row">
+          <label>Gender</label>
+          <div class="gender-selector">
+            <button class="gender-btn selected" data-gender="m">♂ Male</button>
+            <button class="gender-btn" data-gender="f">♀ Female</button>
+          </div>
+        </div>
+        
+        <!-- Player Preview -->
+        <div class="character-preview" id="player-preview">
+          <img id="player-preview-portrait" src="assets/img/ally_portrait/warrior_male.png" alt="Player">
+          <div class="preview-stats" id="player-preview-stats">
+            <div class="stat-row"><span>HP:</span> <span id="preview-player-hp">30</span></div>
+            <div class="stat-row"><span>Sanity:</span> <span id="preview-player-sanity">20</span></div>
+            <div class="stat-row"><span>Attack:</span> <span id="preview-player-attack">2d6</span></div>
+            <div class="stat-row"><span>Defense:</span> <span id="preview-player-defense">2</span></div>
+          </div>
+          <div class="preview-abilities" id="player-preview-abilities"></div>
+        </div>
+      </section>
+      
+      <!-- Companion Section -->
+      <section class="creation-section">
+        <h2>🤝 Choose Your Companion</h2>
+        
+        <div id="companion-select" class="companion-selector">
+          <!-- Companion cards inserted via JS -->
+        </div>
+        
+        <!-- Companion Preview -->
+        <div class="character-preview" id="companion-preview">
+          <img id="companion-preview-portrait" src="assets/img/ally_portrait/alchemist_female.png" alt="Companion">
+          <div class="preview-info">
+            <h3 id="companion-preview-name">Dr. Eleanor Marsh</h3>
+            <p class="preview-class" id="companion-preview-class">Alchemist</p>
+            <p class="preview-backstory" id="companion-preview-backstory">A disgraced professor...</p>
+          </div>
+          <div class="preview-stats" id="companion-preview-stats">
+            <div class="stat-row"><span>HP:</span> <span id="preview-companion-hp">24</span></div>
+            <div class="stat-row"><span>Sanity:</span> <span id="preview-companion-sanity">20</span></div>
+            <div class="stat-row"><span>Attack:</span> <span id="preview-companion-attack">1d8</span></div>
+            <div class="stat-row"><span>Defense:</span> <span id="preview-companion-defense">1</span></div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Action Buttons -->
+      <div class="creation-actions">
+        <button id="btn-back-to-menu" class="menu-btn">Back</button>
+        <button id="btn-begin-expedition" class="menu-btn primary">Begin Expedition</button>
+      </div>
+    </div>
+    
+    <!-- Background effects -->
+    <div class="menu-bg-effects">
+      <div class="fog fog-1"></div>
+      <div class="fog fog-2"></div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- OPTIONS MODAL -->
+  <!-- ======================== -->
+  <div id="options-modal" class="menu-overlay hidden">
+    <div class="modal-container options-container">
+      <h2>OPTIONS</h2>
+      
+      <div class="options-section">
+        <h3>🔊 Audio</h3>
+        <div class="option-row">
+          <label for="music-volume">Music Volume</label>
+          <input type="range" id="music-volume" min="0" max="100" value="70">
+          <span id="music-volume-value">70%</span>
+        </div>
+        <div class="option-row">
+          <label for="sfx-volume">SFX Volume</label>
+          <input type="range" id="sfx-volume" min="0" max="100" value="80">
+          <span id="sfx-volume-value">80%</span>
+        </div>
+      </div>
+      
+      <div class="options-section">
+        <h3>👁️ Visual Effects</h3>
+        <div class="option-row">
+          <label for="sanity-jitter">Sanity Screen Effects</label>
+          <input type="checkbox" id="sanity-jitter" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+        <div class="option-row">
+          <label for="text-scramble">Text Scrambling</label>
+          <input type="checkbox" id="text-scramble" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+      </div>
+      
+      <div class="options-section">
+        <h3>🤖 Gemini AI</h3>
+        <div class="option-row">
+          <label for="enable-gemini">Enable Gemini Narration</label>
+          <input type="checkbox" id="enable-gemini" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+        <div class="option-row api-key-row">
+          <label for="gemini-api-key">API Key</label>
+          <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+          <button id="btn-toggle-key" class="small-btn">Show</button>
+        </div>
+        <div class="option-row">
+          <button id="btn-test-gemini" class="small-btn">Test Connection</button>
+          <span id="gemini-test-result" class="test-result"></span>
+        </div>
+      </div>
+      
+      <div class="modal-buttons">
+        <button id="btn-options-save" class="menu-btn primary">Save & Close</button>
+        <button id="btn-options-cancel" class="menu-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- CONFIRM DIALOG -->
+  <!-- ======================== -->
+  <div id="confirm-dialog" class="menu-overlay hidden">
+    <div class="modal-container confirm-container">
+      <h3 id="confirm-title">Confirm</h3>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="modal-buttons">
+        <button id="btn-confirm-yes" class="menu-btn danger">Yes</button>
+        <button id="btn-confirm-no" class="menu-btn primary">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="start_screen.js"></script>
+</body>
+</html>

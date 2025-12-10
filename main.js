@@ -278,6 +278,8 @@ let combatEnded = false;
 // Default action set in case a character JSON omits custom moves
 const DEFAULT_ACTIONS = ['attack', 'defend', 'element', 'item'];
 
+const DEATH_CARD_IMAGE = 'assets/img/death.png';
+
 // Tracks whether the player has already clicked to begin combat/audio
 let combatInitialized = false;
 
@@ -304,7 +306,11 @@ async function getCharacterSpec(characterFile, characterId) {
   }
 
   const specFile = characterSpecCache[characterFile];
-  const spec = specFile.characters?.find(c => c.id === characterId);
+  let spec = specFile.characters?.find(c => c.id === characterId);
+
+  if (!spec && Array.isArray(specFile.companions)) {
+    spec = specFile.companions.find(c => c.id === characterId);
+  }
 
   if (!spec) {
     throw new Error(`Character id "${characterId}" not found inside ${characterFile}`);
@@ -415,14 +421,28 @@ async function hydratePartyMember(rawConfig = {}) {
 
   const spec = await getCharacterSpec(rawConfig.character_file, rawConfig.character_id);
   const baseStats = spec.base_stats || {};
-  const genderKey = rawConfig.gender || 'm';
+  const genderKey = rawConfig.gender || spec.gender || 'm';
   const genderVariants = spec.gender_variants || {};
   const genderData = genderVariants[genderKey] || Object.values(genderVariants)[0] || {};
 
-  const portrait = resolvePortraitPath(genderData.portrait) || rawConfig.portrait;
+  const portrait =
+    resolvePortraitPath(genderData.portrait) ||
+    resolvePortraitPath(spec.portrait) ||
+    resolvePortraitPath(rawConfig.portrait) ||
+    spec.portrait ||
+    rawConfig.portrait ||
+    null;
   const inventoryIds = rawConfig.inventory || spec.starting_inventory || [];
   const inventory = buildInventoryFromIds(inventoryIds);
   const actions = buildCharacterActions(baseStats);
+
+  const audioProfile = genderData.audio
+    ? { ...genderData.audio }
+    : spec.audio
+      ? { ...spec.audio }
+      : rawConfig.audioProfile
+        ? { ...rawConfig.audioProfile }
+        : null;
 
   // Level and XP - start at level 0 with 0 XP, 50 XP to reach level 1
   const level = rawConfig.level ?? 0;
@@ -459,7 +479,7 @@ async function hydratePartyMember(rawConfig = {}) {
     inventory,
     actions,
     portrait,
-    audioProfile: genderData.audio ? { ...genderData.audio } : rawConfig.audioProfile || null
+    audioProfile
   };
 
   return hydrated;
@@ -1073,6 +1093,7 @@ function completePlayerAction(result = {}) {
     }
 
     if (enemy.hp <= 0 && enemy.alive !== false) {
+      animateEnemyDeath(enemy, enemyIndex);
       enemy.alive = false;
       setTimeout(() => {
         const deathSoundArray = getEnemyDeathSounds(enemy);
@@ -2410,7 +2431,22 @@ function playRandomSound(soundArray) {
 document.addEventListener("DOMContentLoaded", () => {
   setupCombatStartOverlay();
   setupItemSelectionUI();
+  checkExplorationParams();
 });
+
+// Check if coming from exploration mode
+function checkExplorationParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromExploration = urlParams.get('fromExploration') === 'true';
+  const enemyId = urlParams.get('enemy');
+  
+  if (fromExploration && enemyId) {
+    console.log(`[Combat] Initiated from exploration with enemy: ${enemyId}`);
+    // Store the enemy ID for loadCombatData to use
+    window.explorationCombatEnemy = enemyId;
+    window.fromExploration = true;
+  }
+}
 
 function setupCombatStartOverlay() {
   const startButton = document.getElementById('start-combat-button');
@@ -2443,6 +2479,45 @@ function setupItemSelectionUI() {
   }
 }
 
+function getExplorationCombatState() {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return null;
+  }
+
+  const stored = sessionStorage.getItem('explorationCombat');
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(stored);
+  } catch (err) {
+    console.warn('[Combat] Failed to parse exploration combat payload:', err);
+    return null;
+  }
+}
+
+function applyExplorationOverrides(baseConfig, partyState) {
+  if (!partyState) {
+    return baseConfig;
+  }
+
+  const merged = { ...baseConfig };
+  merged.character_file = merged.character_file || 'characters.json';
+
+  if (partyState.name) merged.name = partyState.name;
+  if (partyState.gender) merged.gender = partyState.gender;
+  if (partyState.classId || partyState.character_id) {
+    merged.character_id = partyState.classId || partyState.character_id;
+  }
+  if (partyState.level != null) merged.level = partyState.level;
+  if (partyState.xp != null) merged.xp = partyState.xp;
+  if (partyState.xpToNextLevel != null) merged.xpToNextLevel = partyState.xpToNextLevel;
+  if (partyState.portrait) merged.portrait = partyState.portrait;
+
+  return merged;
+}
+
 
 // ========================
 // Data Loading Function
@@ -2464,14 +2539,19 @@ async function loadCombatData() {
     // Load summon templates for scroll items
     await loadSummonTemplates();
     
+    const explorationCombatState = getExplorationCombatState();
+
     // Initialize inventory state with starting items (can be loaded from save later)
-    const inventorySeed = (typeof window !== 'undefined' && window.initialInventoryState)
+    const defaultInventorySeed = (typeof window !== 'undefined' && window.initialInventoryState)
       ? cloneData(window.initialInventoryState)
       : {
           vial_vital_humours: 2,
           tincture_of_lucidity: 1,
           herbal_tonic: 3
         };
+    const inventorySeed = explorationCombatState?.inventory
+      ? cloneData(explorationCombatState.inventory)
+      : defaultInventorySeed;
     initInventoryState(inventorySeed || {});
     
     // Load inventory definitions used to hydrate party inventories (legacy support)
@@ -2481,14 +2561,16 @@ async function loadCombatData() {
 
     // 1) Load player data
     const playerRes = await fetch('player.json'); // Fetch local file
-    const playerConfig = await playerRes.json();  // Convert the response to JS object
+    const rawPlayerConfig = await playerRes.json();  // Convert the response to JS object
+    const playerConfig = applyExplorationOverrides(rawPlayerConfig, explorationCombatState?.player);
     player = await hydratePartyMember(playerConfig);
     player.alive = player.hp > 0;                 // Mark player as alive if HP > 0
     renderActionButtons(player.actions);
     
     // 2) Load companion data
     const companionRes = await fetch('companion.json');
-    const companionConfig = await companionRes.json();
+    const rawCompanionConfig = await companionRes.json();
+    const companionConfig = applyExplorationOverrides(rawCompanionConfig, explorationCombatState?.companion);
     companion = await hydratePartyMember(companionConfig);
     companion.alive = companion.hp > 0;           // Mark companion as alive if HP > 0
     
@@ -2498,10 +2580,40 @@ async function loadCombatData() {
     
     console.log("Enemy templates loaded:", JSON.stringify(enemyData.enemies));
     
-    // 4) Load encounter definition
+    // 4) Load encounter definition or use exploration enemy
     //    - Tells us which enemies appear, their positions, and the background
-    const encRes = await fetch('combat_encounter.json');
-    const encounter = await encRes.json();
+    let encounter;
+    
+    if (window.fromExploration && window.explorationCombatEnemy) {
+      // Create encounter from exploration enemy
+      const explorationEnemy = window.explorationCombatEnemy;
+      console.log(`[Combat] Creating exploration encounter for: ${explorationEnemy}`);
+      
+      encounter = {
+        encounter_name: "Exploration Encounter",
+        background: 'assets/img/environment/dungeon1.png',
+        enemies: [{ id: explorationEnemy, position: 1 }]
+      };
+      
+      // Load saved party state from exploration if available
+      const expState = explorationCombatState;
+      if (expState) {
+        // Apply exploration HP/sanity to combat
+        if (expState.player) {
+          player.hp = Math.max(1, expState.player.hp);
+          player.sanity = Math.max(0, expState.player.sanity);
+        }
+        if (expState.companion) {
+          companion.hp = Math.max(1, expState.companion.hp);
+          companion.sanity = Math.max(0, expState.companion.sanity);
+        }
+        console.log(`[Combat] Applied exploration state - Player HP: ${player.hp}, Sanity: ${player.sanity}`);
+      }
+    } else {
+      // Standard encounter from file
+      const encRes = await fetch('combat_encounter.json');
+      encounter = await encRes.json();
+    }
     
     // If the encounter JSON has a background or encounter name, set them here
     battleBackground = encounter.background || 'combat';
@@ -2693,14 +2805,22 @@ function nextTurn() {
   // Check if the combatant died from status effects (e.g., poison)
   if (current.data.hp <= 0) {
     if (current.type === 'enemy') {
-      current.data.alive = false;
+      if (current.data.alive !== false) {
+        current.data.alive = false;
+        const enemyIndex = enemies.indexOf(current.data);
+        animateEnemyDeath(current.data, enemyIndex);
+      }
       log(`${current.data.name} succumbs to their afflictions!`);
       rebuildCombatants();
       updateUI();
       checkEnemyStatus();
       return setTimeout(nextTurn, 1000);
     } else if (current.type === 'player' || current.type === 'companion') {
-      current.data.alive = false;
+      if (current.data.alive !== false) {
+        current.data.alive = false;
+        const cardId = current.type === 'player' ? 'player-portrait' : 'ally-portrait';
+        animateAllyDeath(cardId);
+      }
       log(`${current.data.name || 'A party member'} falls!`);
       updateUI();
       checkLossCondition();
@@ -2795,13 +2915,20 @@ function updateUI() {  // Change the background image based on 'battleBackground
   document.getElementById('player-hp').textContent = player.hp;
   document.getElementById('player-sanity').textContent = player.sanity;
   const playerImg = document.querySelector('#player-portrait img');
+  const playerCard = document.getElementById('player-portrait');
+  const playerDeathAnim = playerCard?.dataset.deathAnimating === 'running';
+  if (playerCard) {
+    if (player.alive) {
+      resetDeathCardState(playerCard, player.portrait);
+    }
+    playerCard.style.display = (!player.alive && !playerDeathAnim) ? 'none' : 'block';
+  }
   if (playerImg && player.portrait) {
-    playerImg.src = player.portrait;
+    if (!playerDeathAnim) {
+      playerImg.src = player.portrait;
+    }
     playerImg.alt = player.name || 'Player';
   }
-  
-  // Show or hide the ally portrait depending on whether they're alive
-  document.getElementById('ally-portrait').style.display = companion.alive ? 'block' : 'none';
   
   // Update companion info (include level if > 0)
   const companionLevelText = companion.level > 0 ? ` (Lv.${companion.level})` : '';
@@ -2809,8 +2936,18 @@ function updateUI() {  // Change the background image based on 'battleBackground
   document.getElementById('ally-hp').textContent = companion.hp;
   document.getElementById('ally-sanity').textContent = companion.sanity;
   const companionImg = document.querySelector('#ally-portrait img');
+  const companionCard = document.getElementById('ally-portrait');
+  const companionDeathAnim = companionCard?.dataset.deathAnimating === 'running';
+  if (companionCard) {
+    if (companion.alive) {
+      resetDeathCardState(companionCard, companion.portrait);
+    }
+    companionCard.style.display = (!companion.alive && !companionDeathAnim) ? 'none' : 'block';
+  }
   if (companionImg && companion.portrait) {
-    companionImg.src = companion.portrait;
+    if (!companionDeathAnim) {
+      companionImg.src = companion.portrait;
+    }
     companionImg.alt = companion.name || 'Ally';
   }
   
@@ -2823,16 +2960,26 @@ function updateUI() {  // Change the background image based on 'battleBackground
   });
     // Then, only show the ones that correspond to living enemies
   enemies.forEach((enemy, i) => {
-    // Each enemy's portrait has an ID like "enemy-portrait-0"
-    const card = document.getElementById(`enemy-portrait-${i}`);
+    const cardId = enemy.cardElementId || `enemy-portrait-${i}`;
+    const card = document.getElementById(cardId);
     const hpSpan = document.getElementById(`enemy-hp-${i}`);
     if (card && hpSpan) {
       // Force the HP display text to update with current enemy HP value
       hpSpan.textContent = `${enemy.hp}`;
       
-      // Show the card only if enemy is alive
-      const shouldDisplay = enemy.alive !== false && enemy.hp > 0;
-      card.style.display = shouldDisplay ? 'block' : 'none';
+      const isAlive = enemy.alive !== false && enemy.hp > 0;
+      const deathAnim = card.dataset.deathAnimating === 'running';
+      const portraitSrc = enemy.portrait || `assets/img/enemy_portrait/${enemy.id}.png`;
+      if (isAlive && !deathAnim) {
+        resetDeathCardState(card, portraitSrc);
+      }
+      card.style.display = (isAlive || deathAnim) ? 'block' : 'none';
+      if (!deathAnim) {
+        const img = card.querySelector('img');
+        if (img && img.src !== portraitSrc) {
+          img.src = portraitSrc;
+        }
+      }
       
       // Debug logging to track enemy HP updates in UI
       console.log(`Enemy ${enemy.name} (index ${i}): HP=${enemy.hp}, alive=${enemy.alive}, display=${card.style.display}, element text=${hpSpan.textContent}`);
@@ -2892,10 +3039,10 @@ function generateEnemyCards() {
     card.dataset.enemyId = enemy.id;
     card.dataset.enemyIndex = i;
     
+    const portraitPath = enemy.portrait || `assets/img/enemy_portrait/${enemy.id}.png`;
     // The ID is used elsewhere for updating HP, etc.
-    // We assume there's an image at "assets/img/enemy_portrait/<enemy.id>.png"
     card.innerHTML = `
-      <img src="assets/img/enemy_portrait/${enemy.id}.png" alt="${enemy.name}">
+      <img src="${portraitPath}" alt="${enemy.name}">
       <div class="stats">
         <div class="character-name"><span>${enemy.name}</span></div>
         <div>HP: <span id="enemy-hp-${i}">${enemy.hp}</span></div>
@@ -2912,6 +3059,11 @@ function generateEnemyCards() {
     
     // Append the card to the enemy area in the DOM
     enemyArea.appendChild(card);
+    const img = card.querySelector('img');
+    if (img) {
+      img.dataset.originalSrc = portraitPath;
+    }
+    enemy.cardElementId = card.id;
     
     console.log(`Generated card for ${enemy.name} (id: ${enemy.id}) with HP: ${enemy.hp}, alive: ${enemy.alive}`);
   });
@@ -3042,16 +3194,11 @@ function summonedNPCTurn(summon) {
   updateUI();
   
   if (targetEnemy.hp <= 0) {
-    targetEnemy.alive = false;
-    console.log(`Enemy defeated by summon: ${targetEnemy.name}`);
-    
-    if (enemyIndex >= 0) {
-      const card = document.getElementById(`enemy-portrait-${enemyIndex}`);
-      if (card) {
-        card.style.display = 'none';
-      }
+    if (targetEnemy.alive !== false) {
+      targetEnemy.alive = false;
+      animateEnemyDeath(targetEnemy, enemyIndex);
     }
-    
+    console.log(`Enemy defeated by summon: ${targetEnemy.name}`);
     setTimeout(() => {
         const deathSoundArray = getEnemyDeathSounds(targetEnemy);
       playRandomSound(deathSoundArray);
@@ -3215,11 +3362,16 @@ function generateSummonCard(summon) {
       <div class="summon-duration">Turns: <span id="${durationId}">${summon.remainingDuration}</span></div>
     </div>
   `;
+  card.dataset.summonId = summon.id;
   
   // Add click handler for target selection
   card.addEventListener('click', () => {
     handlePortraitClick({ type: 'summon', data: summon });
   });
+  const img = card.querySelector('img');
+  if (img) {
+    img.dataset.originalSrc = summon.portrait;
+  }
   
   summonArea.appendChild(card);
 }
@@ -3234,7 +3386,11 @@ function updateSummonUI() {
     const durationSpan = document.getElementById(`summon-duration-${summon.id}`);
     
     if (card) {
-      card.style.display = summon.alive ? 'block' : 'none';
+      const deathAnim = card.dataset.deathAnimating === 'running';
+      if (summon.alive && !deathAnim) {
+        resetDeathCardState(card, summon.portrait);
+      }
+      card.style.display = (summon.alive || deathAnim) ? 'block' : 'none';
     }
     if (hpSpan) {
       hpSpan.textContent = summon.hp;
@@ -3256,7 +3412,7 @@ function cleanupSummonUI() {
   summonArea.querySelectorAll('.portrait.summon').forEach(card => {
     const summonId = card.dataset.summonId;
     const activeSummon = summonedNPCs.find(s => s.id === summonId && s.alive);
-    if (!activeSummon) {
+    if (!activeSummon && card.dataset.deathAnimating !== 'running') {
       card.remove();
     }
   });
@@ -3342,18 +3498,11 @@ function companionTurn() {
     updateUI();
       // Check if this attack defeated the enemy
     if (targetEnemy.hp <= 0) {
-      targetEnemy.alive = false;
-      console.log(`Enemy defeated by companion: ${targetEnemy.name}`);
-      
-      // Immediately update the enemy's display status in the UI
-      const enemyIndex = enemies.indexOf(targetEnemy);
-      if (enemyIndex >= 0) {
-        const card = document.getElementById(`enemy-portrait-${enemyIndex}`);
-        if (card) {
-          card.style.display = 'none';
-          console.log(`Hide UI card for enemy defeated by companion at index ${enemyIndex}`);
-        }
+      if (targetEnemy.alive !== false) {
+        targetEnemy.alive = false;
+        animateEnemyDeath(targetEnemy, enemyIndex);
       }
+      console.log(`Enemy defeated by companion: ${targetEnemy.name}`);
       
       // Play death sound for the enemy with delay
       setTimeout(() => {
@@ -3414,6 +3563,7 @@ function handleCharmedEnemyTurn(enemy) {
       }
       if (target.hp <= 0 && target.alive !== false) {
         target.alive = false;
+        animateEnemyDeath(target, enemyIndex);
         setTimeout(() => {
           const deathSoundArray = getEnemyDeathSounds(target);
           playRandomSound(deathSoundArray);
@@ -3439,6 +3589,7 @@ function handleCharmedEnemyTurn(enemy) {
     updateSummonUI();
     if (target.hp <= 0 && target.alive) {
       target.alive = false;
+      animateSummonDeath(target, true);
       log(`${target.name} dissipates under the assault!`);
       combatants = combatants.filter(c => c.data !== target);
       summonedNPCs = summonedNPCs.filter(s => s !== target);
@@ -3480,6 +3631,7 @@ function handleCharmedAllyTurn(ally) {
         if (target.hp <= 0) {
           if (target.alive !== false) {
             target.alive = false;
+            animateAllyDeath(portraitId);
             playRandomSound(deathSounds);
           }
         } else {
@@ -3494,6 +3646,7 @@ function handleCharmedAllyTurn(ally) {
       updateSummonUI();
       if (target.hp <= 0 && target.alive) {
         target.alive = false;
+        animateSummonDeath(target, true);
         log(`${target.name} fades away!`);
         combatants = combatants.filter(c => c.data !== target);
         summonedNPCs = summonedNPCs.filter(s => s !== target);
@@ -3600,6 +3753,7 @@ function enemyTurn(enemy) {
       if (player.hp <= 0) {
         if (player.alive) {
           player.alive = false; // Mark as dead once to avoid repeated sounds
+          animateAllyDeath('player-portrait');
           playRandomSound(playerDeathSounds);
         }
       } else {
@@ -3643,6 +3797,7 @@ function enemyTurn(enemy) {
   
   if (companion.hp <= 0 && companion.alive) {
     companion.alive = false;
+    animateAllyDeath('ally-portrait');
     log(`${companion.name} falls unconscious!`);
     rebuildCombatants();
     
@@ -3679,6 +3834,11 @@ function playAttackSound() {
 function checkEnemyStatus() {
   // Gather all enemies with zero or negative HP that are still marked as alive
   const defeated = enemies.filter(e => e.hp <= 0 && e.alive !== false);
+  enemies.forEach((enemy, idx) => {
+    if (enemy.hp <= 0) {
+      animateEnemyDeath(enemy, idx);
+    }
+  });
   
   // If none are defeated, return false (no changes)
   if (!defeated.length) return false;
@@ -3700,14 +3860,9 @@ function checkEnemyStatus() {
       awardXp(companion, xpReward);
     }
     
-    // Find the corresponding UI element and hide it immediately
     const deadIndex = enemies.indexOf(dead);
     if (deadIndex >= 0) {
-      const card = document.getElementById(`enemy-portrait-${deadIndex}`);
-      if (card) {
-        card.style.display = 'none';
-        console.log(`Hide UI card for defeated enemy at index ${deadIndex}`);
-      }
+      animateEnemyDeath(dead, deadIndex);
     }
   });
   
@@ -3770,10 +3925,53 @@ function handleVictory() {
   // Save final game state
   saveGameState();
   
+  // Check if returning to exploration
+  if (window.fromExploration) {
+    handleExplorationReturn(true);
+    return;
+  }
+  
   // Show victory screen
   setTimeout(() => {
     document.getElementById('victory-screen')?.classList.add('visible');
   }, 1500);
+}
+
+// Handle return to exploration after combat
+function handleExplorationReturn(victory) {
+  // Store combat result for exploration to pick up
+  const combatResult = {
+    victory: victory,
+    player: {
+      hp: player.hp,
+      maxHp: player.maxHp,
+      sanity: player.sanity,
+      maxSanity: player.maxSanity,
+      statusEffects: player.statusEffects || []
+    },
+    companion: companion ? {
+      hp: companion.hp,
+      maxHp: companion.maxHp,
+      sanity: companion.sanity,
+      maxSanity: companion.maxSanity,
+      statusEffects: companion.statusEffects || []
+    } : null,
+    inventory: typeof getInventoryState === 'function' ? getInventoryState() : null,
+    xpGained: enemies.reduce((sum, e) => sum + (e.xp_reward || 0), 0)
+  };
+  
+  sessionStorage.setItem('explorationCombatResult', JSON.stringify(combatResult));
+  
+  // Clear exploration combat data
+  sessionStorage.removeItem('explorationCombat');
+  
+  // Redirect back to exploration
+  setTimeout(() => {
+    log(victory ? "🚶 Returning to exploration..." : "💀 Your journey ends here...");
+    setTimeout(() => {
+      window.location.href = 'exploration.html';
+    }, 1500);
+  }, 2000);
 }
 
 // ========================
@@ -3785,6 +3983,10 @@ function checkLossCondition() {
   // Check if player is dead (HP only - sanity 0 means peak insanity, not defeat)
   if (player.hp <= 0) {
     if (combatEnded) return;
+    if (player.alive !== false) {
+      player.alive = false;
+      animateAllyDeath('player-portrait');
+    }
     combatEnded = true;
     stopCombatMusic();
     log("💀 You collapse from your injuries. Game over.");
@@ -3798,6 +4000,12 @@ function checkLossCondition() {
     // Play defeat music
     defeatMusic.currentTime = 0;
     defeatMusic.play().catch(err => console.log('Defeat music error:', err));
+    
+    // Check if returning to exploration (for game over handling)
+    if (window.fromExploration) {
+      handleExplorationReturn(false);
+      return true;
+    }
     
     // Could show a defeat screen here
     return true;
@@ -3867,6 +4075,101 @@ function flashDamage(characterId) {
   setTimeout(() => {
     portrait.classList.remove('damage-flash');
   }, 500);
+}
+
+function triggerDeathCardEffect(card, onComplete) {
+  if (!card) return;
+  if (card.dataset.deathAnimating === 'running') return;
+  card.dataset.deathAnimating = 'running';
+  card.classList.remove('death-hidden', 'death-card', 'death-fall');
+  card.classList.add('death-flash');
+  card.style.display = 'block';
+
+  const img = card.querySelector('img');
+  if (img && !img.dataset.originalSrc) {
+    img.dataset.originalSrc = img.src;
+  }
+
+  setTimeout(() => {
+    if (img) {
+      img.src = DEATH_CARD_IMAGE;
+      img.alt = 'Fallen combatant';
+    }
+    card.classList.add('death-card');
+  }, 250);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    card.dataset.deathAnimating = '';
+    card.classList.add('death-hidden');
+    card.style.display = 'none';
+    card.removeEventListener('animationend', finish);
+    if (typeof onComplete === 'function') {
+      onComplete();
+    }
+  };
+
+  setTimeout(() => {
+    card.classList.remove('death-flash');
+    card.classList.add('death-fall');
+    card.addEventListener('animationend', finish, { once: true });
+    // Fallback in case animationend doesn't fire
+    setTimeout(finish, 1600);
+  }, 1100);
+}
+
+function resetDeathCardState(card, portraitSrc) {
+  if (!card || card.dataset.deathAnimating === 'running') return;
+  card.classList.remove('death-flash', 'death-card', 'death-fall', 'death-hidden');
+  card.style.display = 'block';
+  const img = card.querySelector('img');
+  if (img) {
+    const source = portraitSrc || img.dataset.originalSrc;
+    if (source) {
+      img.src = source;
+      img.dataset.originalSrc = source;
+    }
+  }
+}
+
+function getEnemyCardElement(enemy, fallbackIndex) {
+  if (!enemy) return null;
+  if (enemy.cardElementId) {
+    const card = document.getElementById(enemy.cardElementId);
+    if (card) return card;
+  }
+  if (typeof fallbackIndex === 'number' && fallbackIndex >= 0) {
+    const card = document.getElementById(`enemy-portrait-${fallbackIndex}`);
+    if (card) return card;
+  }
+  if (enemy.id) {
+    return document.querySelector(`.portrait.enemy[data-enemy-id="${enemy.id}"]`);
+  }
+  return null;
+}
+
+function animateEnemyDeath(enemy, fallbackIndex) {
+  const card = getEnemyCardElement(enemy, fallbackIndex);
+  if (card) {
+    triggerDeathCardEffect(card);
+  }
+}
+
+function animateAllyDeath(cardId) {
+  const card = document.getElementById(cardId);
+  if (card) {
+    triggerDeathCardEffect(card);
+  }
+}
+
+function animateSummonDeath(summon, removeAfter = false) {
+  if (!summon) return;
+  const card = document.getElementById(`summon-portrait-${summon.id}`);
+  if (!card) return;
+  const onComplete = removeAfter ? () => cleanupSummonUI() : null;
+  triggerDeathCardEffect(card, onComplete);
 }
 
 // This function is used to leave the combat screen, e.g., after winning.

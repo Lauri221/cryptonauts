@@ -1,0 +1,261 @@
+{
+  "rooms": [
+    {
+      "id": "room_01_entrance",
+      "name": "Crypt Threshold",
+      "depth": 1,
+      "type": "entrance",
+      "nextRooms": ["room_02_gallery"],
+      "tags": ["intro", "low_threat", "safe_rest", "stone", "stairs"],
+      "baseDescription": "A narrow stairway descends from the chapel into the crypt below. Stale air rolls up from the dark, carrying the faint smell of old incense and damp stone.",
+      "environmentFeatures": [
+        "narrow stairway",
+        "rusted iron gate",
+        "faded warding sigils on the arch",
+        "broken offering bowl"
+      ],
+      "image": "assets/img/environment/room_01_entrance.png",
+      "maxThreatLevel": 1,
+      "allowRest": true,
+      "guaranteedEvents": [
+        "first_torch_pickup"
+      ],
+      "optionalEvents": [
+        "strange_draft_whispers",
+        "old_offering_coin",
+        "fading_holy_symbol"
+      ]
+    },
+    {
+      "id": "room_02_gallery",
+      "name": "Gallery of Faceless Saints",
+      "depth": 2,
+      "type": "hall",
+      "nextRooms": ["room_03_ossuary", "room_02a_side_cellar"],
+      "tags": ["mid_threat", "statues", "uncanny", "cult"],
+      "baseDescription": "Rows of hooded statues stand in alcoves along both walls, their faces chiseled smooth. Melted candles cling to their feet like pale, waxen roots.",
+      "environmentFeatures": [
+        "hooded statues with erased faces",
+        "melted candle stumps",
+        "dust-laden stone benches",
+        "cracked frescoes of forgotten saints"
+      ],
+      "image": "assets/img/environment/room_02_gallery.png",
+      "maxThreatLevel": 2,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "first_sanity_check_from_statues"
+      ],
+      "optionalEvents": [
+        "hidden_relic_behind_statue",
+        "waxen_footprints_leading_aside",
+        "whispering_crowd_hallucination"
+      ]
+    },
+    {
+      "id": "room_02a_side_cellar",
+      "name": "Side Cellar of Spoiled Offerings",
+      "depth": 2,
+      "type": "side_room",
+      "nextRooms": ["room_03_ossuary"],
+      "tags": ["loot_focus", "low_mid_threat", "rot", "vermin"],
+      "baseDescription": "A low stone door leads into a cramped cellar. Shelves sag under the weight of cracked jars and mold-eaten offerings, their contents long since curdled into black sludge.",
+      "environmentFeatures": [
+        "cramped ceiling and narrow aisles",
+        "shelves of decayed offerings",
+        "scuttling vermin in the darkness",
+        "faint smell of sour wine and rot"
+      ],
+      "image": "assets/img/environment/room_02a_side_cellar.png",
+      "maxThreatLevel": 2,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "chance_for_minor_loot",
+        "risk_of_poison_or_disease"
+      ],
+      "optionalEvents": [
+        "cursed_wine_flask",
+        "rat_swarm_scare",
+        "hidden_compartment_with_talisman"
+      ]
+    },
+    {
+      "id": "room_03_ossuary",
+      "name": "Bone-Bound Ossuary",
+      "depth": 3,
+      "type": "chamber",
+      "nextRooms": ["room_04_flooded_stair"],
+      "tags": ["mid_threat", "bones", "restless_dead", "claustrophobic"],
+      "baseDescription": "The walls of this chamber are mortared with skulls and longbones. The hollow eye sockets seem to follow every flicker of your torch.",
+      "environmentFeatures": [
+        "walls entirely lined with bones",
+        "loose skulls stacked in the center",
+        "narrow walkways between bone stacks",
+        "lingering cold that seeps into the marrow"
+      ],
+      "image": "assets/img/environment/room_03_ossuary.png",
+      "maxThreatLevel": 2,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "first_undead_or_restless_bones_encounter"
+      ],
+      "optionalEvents": [
+        "bone_charm_loot",
+        "collapsing_bone_stack_trap",
+        "whispering_from_single_skull"
+      ]
+    },
+    {
+      "id": "room_04_flooded_stair",
+      "name": "Flooded Stairwell",
+      "depth": 4,
+      "type": "corridor",
+      "nextRooms": ["room_05_chanting_hall"],
+      "tags": ["mid_threat", "environmental_hazard", "water", "darkness"],
+      "baseDescription": "A spiraling stairwell descends into black water. Each step is slick with slime, and the surface of the flood reflects your torchlight like a trembling, fractured mirror.",
+      "environmentFeatures": [
+        "waist-deep stagnant water",
+        "slick moss-covered steps",
+        "floating scraps of parchment and wax",
+        "distant ripples with no clear source"
+      ],
+      "image": "assets/img/environment/room_04_flooded_stair.png",
+      "maxThreatLevel": 2,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "environmental_test_slip_or_drown",
+        "chance_to_soak_or_ruin_gear"
+      ],
+      "optionalEvents": [
+        "lurking_watery_shape_attack",
+        "sunken_chest_with_rusted_relic",
+        "sanity_drain_from_reflections"
+      ]
+    },
+    {
+      "id": "room_05_chanting_hall",
+      "name": "Hall of Drowned Chants",
+      "depth": 5,
+      "type": "ritual_hall",
+      "nextRooms": ["room_06_dreaming_vault"],
+      "tags": ["high_threat", "cultists", "ritual", "sound"],
+      "baseDescription": "Long stone pews face a cracked altar. The walls are carved with overlapping runes, blackened by soot. Faint echoes of chanting hang in the air, though the hall stands empty.",
+      "environmentFeatures": [
+        "stone pews slick with candle wax",
+        "cracked black altar",
+        "walls covered in overlapping runes",
+        "lingering echo of impossible chanting"
+      ],
+      "image": "assets/img/environment/room_05_chanting_hall.png",
+      "maxThreatLevel": 3,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "major_cultist_or_spirit_encounter"
+      ],
+      "optionalEvents": [
+        "ritual_circle_buff_or_curse",
+        "hidden_switch_to_secret_compartment",
+        "vision_of_past_sacrifice_sanity_hit"
+      ]
+    },
+    {
+      "id": "room_06_dreaming_vault",
+      "name": "Dreaming Vault",
+      "depth": 6,
+      "type": "antechamber",
+      "nextRooms": ["room_boss_sanctum"],
+      "tags": ["high_threat", "dreams", "eldritch", "pre_boss"],
+      "baseDescription": "This low, domed chamber hums with a pressure you feel more in your thoughts than in your ears. Symbols of the Old Ones spiral across the floor, converging on a sealed stone door.",
+      "environmentFeatures": [
+        "domed ceiling of interlocking stones",
+        "spiraling eldritch sigils on the floor",
+        "sealed stone door marked with a many-eyed sigil",
+        "air thick with the taste of metal and sleep"
+      ],
+      "image": "assets/img/environment/room_06_dreaming_vault.png",
+      "maxThreatLevel": 3,
+      "allowRest": true,
+      "guaranteedEvents": [
+        "final_rest_or_sanity_test_before_boss",
+        "vision_of_boss_and_future_doom"
+      ],
+      "optionalEvents": [
+        "dream_bargain_with_entity",
+        "temporary_buff_or_curse",
+        "memory_fragment_from_previous_expedition"
+      ]
+    },
+    {
+      "id": "room_boss_sanctum",
+      "name": "Sanctum of the Old One",
+      "depth": 7,
+      "type": "boss",
+      "nextRooms": [],
+      "tags": ["boss", "eldritch", "high_threat", "endgame"],
+      "baseDescription": "The sanctum opens like a stone maw around a pit of midnight. Tendrils of black ichor cling to the walls, pulsing in time with a heartbeat that is not your own.",
+      "environmentFeatures": [
+        "central abyssal pit",
+        "pulsing black ichor on the walls",
+        "ceiling lost in darkness speckled with false stars",
+        "ritual pillars carved with impossible geometries"
+      ],
+      "image": "assets/img/environment/room_boss_sanctum.png",
+      "maxThreatLevel": 3,
+      "allowRest": false,
+      "guaranteedEvents": [
+        "final_boss_encounter"
+      ],
+      "optionalEvents": [
+        "pre_boss_dialogue_or_vision",
+        "desperate_sacrifice_option",
+        "alternate_ending_trigger"
+      ]
+    }
+  ],
+  "validItemIds": [
+    "vial_vital_humours",
+    "tincture_of_lucidity",
+    "coagulant_seal_bandages",
+    "berserker_blood",
+    "nightshade_resin",
+    "black_tar_pitch",
+    "chillwater_vapours_phial",
+    "purging_bitter_tincture",
+    "coagulant_seal_tonic",
+    "dreamless_incense",
+    "sigil_of_warding",
+    "chains_of_old",
+    "eldritch_discord",
+    "herbal_tonic",
+    "scroll_spirit_guardian",
+    "scroll_shadow_familiar",
+    "scroll_healing_wisp"
+  ],
+  "validEnemyIds": [
+    "priestess",
+    "mossleech",
+    "cultist",
+    "aberrant_beast",
+    "rat_man",
+    "sewer_centipede",
+    "male_grave_robber",
+    "corpse_eater",
+    "female_grave_robber",
+    "flesh_eating_vines",
+    "drowned_acolyte",
+    "leech_swarm",
+    "flesh_golem",
+    "pit_butcher",
+    "dream_eater"
+  ],
+  "enemyByRoom": {
+    "room_01_entrance": ["rat_man", "mossleech"],
+    "room_02_gallery": ["cultist", "female_grave_robber", "male_grave_robber"],
+    "room_02a_side_cellar": ["rat_man", "mossleech", "sewer_centipede"],
+    "room_03_ossuary": ["corpse_eater", "aberrant_beast", "flesh_eating_vines"],
+    "room_04_flooded_stair": ["mossleech", "leech_swarm", "drowned_acolyte"],
+    "room_05_chanting_hall": ["cultist", "priestess", "drowned_acolyte"],
+    "room_06_dreaming_vault": ["dream_eater", "flesh_golem"],
+    "room_boss_sanctum": ["dream_eater", "flesh_golem", "pit_butcher"]
+  }
+}

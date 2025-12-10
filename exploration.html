@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptonauts - Exploration</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="exploration.css">
+</head>
+<body>
+  
+
+  <!-- ======================== -->
+  <!-- PAUSE MENU OVERLAY -->
+  <!-- ======================== -->
+  <div id="pause-menu" class="menu-overlay hidden">
+    <div class="menu-container pause-container">
+      <h2>PAUSED</h2>
+      
+      <div class="menu-buttons">
+        <button id="btn-resume" class="menu-btn primary">Resume</button>
+        <button id="btn-save-game" class="menu-btn">Save Game</button>
+        <button id="btn-options-pause" class="menu-btn">Options</button>
+        <button id="btn-main-menu" class="menu-btn danger">Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- OPTIONS MODAL -->
+  <!-- ======================== -->
+  <div id="options-modal" class="menu-overlay hidden">
+    <div class="modal-container options-container">
+      <h2>OPTIONS</h2>
+      
+      <div class="options-section">
+        <h3>🔊 Audio</h3>
+        <div class="option-row">
+          <label for="music-volume">Music Volume</label>
+          <input type="range" id="music-volume" min="0" max="100" value="70">
+          <span id="music-volume-value">70%</span>
+        </div>
+        <div class="option-row">
+          <label for="sfx-volume">SFX Volume</label>
+          <input type="range" id="sfx-volume" min="0" max="100" value="80">
+          <span id="sfx-volume-value">80%</span>
+        </div>
+      </div>
+      
+      <div class="options-section">
+        <h3>👁️ Visual Effects</h3>
+        <div class="option-row">
+          <label for="sanity-jitter">Sanity Screen Effects</label>
+          <input type="checkbox" id="sanity-jitter" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+        <div class="option-row">
+          <label for="text-scramble">Text Scrambling</label>
+          <input type="checkbox" id="text-scramble" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+      </div>
+      
+      <div class="options-section">
+        <h3>🤖 Gemini AI</h3>
+        <div class="option-row">
+          <label for="enable-gemini">Enable Gemini Narration</label>
+          <input type="checkbox" id="enable-gemini" checked>
+          <span class="toggle-label">Enabled</span>
+        </div>
+        <div class="option-row api-key-row">
+          <label for="gemini-api-key">API Key</label>
+          <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+          <button id="btn-toggle-key" class="small-btn">Show</button>
+        </div>
+        <div class="option-row">
+          <button id="btn-test-gemini" class="small-btn">Test Connection</button>
+          <span id="gemini-test-result" class="test-result"></span>
+        </div>
+      </div>
+      
+      <div class="modal-buttons">
+        <button id="btn-options-save" class="menu-btn primary">Save & Close</button>
+        <button id="btn-options-cancel" class="menu-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- CONFIRM DIALOG -->
+  <!-- ======================== -->
+  <div id="confirm-dialog" class="menu-overlay hidden">
+    <div class="modal-container confirm-container">
+      <h3 id="confirm-title">Confirm</h3>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="modal-buttons">
+        <button id="btn-confirm-yes" class="menu-btn danger">Yes</button>
+        <button id="btn-confirm-no" class="menu-btn primary">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- MAIN EXPLORATION SCREEN -->
+  <!-- ======================== -->
+  <div id="exploration-screen" class="hidden" data-sanity-state="stable">
+    
+    <!-- Header with room name and depth -->
+    <header id="exploration-header">
+      <h1 id="room-title">Crypt Threshold</h1>
+      <div id="depth-indicator">Depth: <span id="current-depth">1</span> / 7</div>
+      <div id="header-buttons">
+        <button id="btn-pause" class="header-btn" title="Menu (Esc)">☰</button>
+      </div>
+      <div id="gemini-status" class="gemini-status"></div>
+    </header>
+
+    <!-- Main exploration area -->
+    <div id="exploration-area">
+      
+      <!-- Room backdrop -->
+      <div id="room-backdrop"></div>
+
+      <!-- Left side: Character portraits -->
+      <div id="character-panel">
+        <div id="player-card" class="portrait explorer">
+          <img src="assets/img/ally_portrait/warrior_male.png" alt="Player">
+          <div class="stats">
+            <div class="char-name" id="explorer-player-name">Cryptonaut</div>
+            <div>HP: <span id="explorer-player-hp">20</span>/<span id="explorer-player-maxhp">20</span></div>
+            <div>Sanity: <span id="explorer-player-sanity">15</span>/<span id="explorer-player-maxsanity">15</span></div>
+            <div class="status-effects" id="explorer-player-status"></div>
+          </div>
+        </div>
+        
+        <div id="companion-card" class="portrait explorer">
+          <img src="assets/img/ally_portrait/warrior_male.png" alt="Companion">
+          <div class="stats">
+            <div class="char-name" id="explorer-companion-name">Companion</div>
+            <div>HP: <span id="explorer-companion-hp">18</span>/<span id="explorer-companion-maxhp">18</span></div>
+            <div>Sanity: <span id="explorer-companion-sanity">12</span>/<span id="explorer-companion-maxsanity">12</span></div>
+            <div class="status-effects" id="explorer-companion-status"></div>
+          </div>
+        </div>
+
+        <!-- Inventory summary -->
+        <div id="inventory-panel">
+          <h3>Inventory</h3>
+          <div id="inventory-list"></div>
+        </div>
+      </div>
+
+      <!-- Center/Right: Narration and choices -->
+      <div id="narrative-panel">
+        <div id="narration-window">
+          <div id="narration-text">
+            <p class="narration-loading">The darkness awaits...</p>
+          </div>
+        </div>
+        
+        <div id="choice-panel">
+          <h3>What do you do?</h3>
+          <div id="choice-buttons">
+            <!-- Choices will be dynamically inserted here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Shared event log -->
+    <div id="bottom-panel">
+      <div id="exploration-log">
+        <div>📜 You descend into the crypt...</div>
+      </div>
+    </div>
+
+    <!-- Loading overlay for Gemini calls -->
+    <div id="loading-overlay" class="hidden">
+      <div class="loading-spinner"></div>
+      <p>The darkness stirs...</p>
+    </div>
+
+    <!-- Combat transition overlay -->
+    <div id="combat-transition" class="hidden">
+      <div class="combat-alert">
+        <h2>⚔️ Defend Yourself ⚔️</h2>
+        <p id="combat-reason">An enemy emerges from the shadows!</p>
+      </div>
+    </div>
+
+    <!-- Autosave indicator -->
+    <div id="autosave-indicator" class="hidden">
+      <span class="save-icon">💾</span> Saving...
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="inventory_state.js"></script>
+  <script src="item_system.js"></script>
+  <script src="exploration.js"></script>
+</body>
+</html>
