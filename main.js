@@ -2,6 +2,225 @@
 // Global Game State Variables
 // ========================
 
+// ========================
+// Insanity Mechanics - Sanity State System
+// ========================
+const SANITY_STATES = {
+  STABLE: 'stable',    // > 50% sanity
+  SHAKEN: 'shaken',    // 25-50% sanity
+  BROKEN: 'broken'     // 0-25% sanity (full insanity effects)
+};
+
+let currentSanityState = SANITY_STATES.STABLE;
+
+// Glyphs for text scrambling during insanity
+const INSANITY_GLYPHS = ['̷', '̸', '̵', '҉', '҈', '̢', '̛', '̡', '̣', '̤', '̥', '̦', '∴', '∵', '⁂', '☠', '◉', '▲'];
+
+// Phantom log messages that appear during insanity
+const PHANTOM_LOG_ENTRIES = [
+  "The shadows whisper your name...",
+  "Do you hear them too?",
+  "THEY ARE WATCHING",
+  "The walls breathe",
+  "Run. RUN. R̷U̸N̵",
+  "Behind you.",
+  "It was never real",
+  "Your reflection blinks",
+  "The void answers",
+  "S̷o̸m̵e̴t̷h̵i̸n̷g̴ ̶i̵s̷ ̵w̶r̸o̷n̶g̵",
+  "Don't trust them",
+  "You've been here before",
+  "TIME IS A CIRCLE",
+  "Wake up. WAKE UP.",
+  "The static grows louder"
+];
+
+/**
+ * Updates the sanity state based on current player sanity.
+ * Triggers UI effects when state changes.
+ */
+function updateSanityState() {
+  if (!player || player.maxSanity === 0) return;
+  
+  const sanityPercent = player.sanity / player.maxSanity;
+  let newState;
+  
+  if (sanityPercent > 0.5) {
+    newState = SANITY_STATES.STABLE;
+  } else if (sanityPercent > 0.25) {
+    newState = SANITY_STATES.SHAKEN;
+  } else {
+    newState = SANITY_STATES.BROKEN;
+  }
+  
+  if (newState !== currentSanityState) {
+    currentSanityState = newState;
+    applySanityStateEffects();
+    console.log(`[Insanity] Sanity state changed to: ${currentSanityState}`);
+  }
+}
+
+/**
+ * Applies visual and UI effects based on current sanity state.
+ */
+function applySanityStateEffects() {
+  const combatScreen = document.getElementById('combat-screen');
+  if (!combatScreen) return;
+  
+  // Set data attribute for CSS effects
+  combatScreen.dataset.sanityState = currentSanityState;
+  
+  // Clear any existing jitter intervals
+  if (window.insanityJitterInterval) {
+    clearInterval(window.insanityJitterInterval);
+    window.insanityJitterInterval = null;
+  }
+  
+  // Apply state-specific effects
+  if (currentSanityState === SANITY_STATES.BROKEN) {
+    startInsanityEffects();
+  } else if (currentSanityState === SANITY_STATES.SHAKEN) {
+    // Mild effects for shaken state
+    maybeAddPhantomLog(0.15);
+  }
+}
+
+/**
+ * Starts intensive insanity effects when in BROKEN state.
+ */
+function startInsanityEffects() {
+  // Continuous button jitter
+  window.insanityJitterInterval = setInterval(() => {
+    if (currentSanityState === SANITY_STATES.BROKEN) {
+      jitterActionButtons();
+    }
+  }, 800);
+  
+  // Initial phantom log
+  maybeAddPhantomLog(0.4);
+}
+
+/**
+ * Scrambles a string with zalgo-style glyphs for insanity effect.
+ * @param {string} text - Original text to scramble
+ * @param {number} intensity - 0-1, how much to scramble (default based on sanity state)
+ */
+function scrambleString(text, intensity = null) {
+  if (currentSanityState === SANITY_STATES.STABLE) return text;
+  
+  // Determine intensity based on sanity state if not provided
+  if (intensity === null) {
+    intensity = currentSanityState === SANITY_STATES.BROKEN ? 0.4 : 0.15;
+  }
+  
+  return text.split('').map(char => {
+    if (char === ' ' || Math.random() > intensity) return char;
+    const glyph = INSANITY_GLYPHS[Math.floor(Math.random() * INSANITY_GLYPHS.length)];
+    return char + glyph;
+  }).join('');
+}
+
+/**
+ * Renders text with insanity effects applied.
+ * @param {string} text - Text to render
+ * @param {boolean} forceScramble - Force scrambling regardless of state
+ */
+function renderInsanityText(text, forceScramble = false) {
+  if (forceScramble || currentSanityState !== SANITY_STATES.STABLE) {
+    return scrambleString(text);
+  }
+  return text;
+}
+
+/**
+ * Shuffles the order of action buttons.
+ */
+function shuffleActionButtons() {
+  if (currentSanityState !== SANITY_STATES.BROKEN) return;
+  
+  const actionsContainer = document.getElementById('actions');
+  if (!actionsContainer) return;
+  
+  const buttons = Array.from(actionsContainer.querySelectorAll('button'));
+  if (buttons.length < 2) return;
+  
+  // Fisher-Yates shuffle
+  for (let i = buttons.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    actionsContainer.insertBefore(buttons[j], buttons[i]);
+  }
+}
+
+/**
+ * Applies random position jitter to action buttons.
+ */
+function jitterActionButtons() {
+  if (currentSanityState === SANITY_STATES.STABLE) return;
+  
+  const actionsContainer = document.getElementById('actions');
+  if (!actionsContainer) return;
+  
+  const buttons = actionsContainer.querySelectorAll('button');
+  const maxJitter = currentSanityState === SANITY_STATES.BROKEN ? 8 : 3;
+  
+  buttons.forEach(btn => {
+    const x = (Math.random() - 0.5) * maxJitter * 2;
+    const y = (Math.random() - 0.5) * maxJitter * 2;
+    const rotate = (Math.random() - 0.5) * (maxJitter / 2);
+    btn.style.transform = `translate(${x}px, ${y}px) rotate(${rotate}deg)`;
+  });
+}
+
+/**
+ * Resets button positions (called when sanity stabilizes).
+ */
+function resetButtonPositions() {
+  const actionsContainer = document.getElementById('actions');
+  if (!actionsContainer) return;
+  
+  const buttons = actionsContainer.querySelectorAll('button');
+  buttons.forEach(btn => {
+    btn.style.transform = '';
+  });
+}
+
+/**
+ * Maybe adds a phantom log entry based on probability.
+ * @param {number} probability - 0-1 chance of adding a phantom log
+ */
+function maybeAddPhantomLog(probability = 0.2) {
+  if (Math.random() > probability) return;
+  
+  const message = PHANTOM_LOG_ENTRIES[Math.floor(Math.random() * PHANTOM_LOG_ENTRIES.length)];
+  addPhantomLogEntry(message);
+}
+
+/**
+ * Adds a phantom (hallucination) entry to the combat log.
+ * @param {string} message - The phantom message to display
+ */
+function addPhantomLogEntry(message) {
+  const combatLog = document.getElementById('combat-log');
+  if (!combatLog) return;
+  
+  const entry = document.createElement('div');
+  entry.className = 'phantom-log-entry';
+  entry.style.color = '#8b008b';
+  entry.style.fontStyle = 'italic';
+  entry.style.opacity = '0.85';
+  entry.style.textShadow = '0 0 5px #ff00ff';
+  entry.textContent = scrambleString(message, 0.25);
+  
+  combatLog.appendChild(entry);
+  combatLog.scrollTop = combatLog.scrollHeight;
+  
+  // Fade out after a moment (hallucinations are fleeting)
+  setTimeout(() => {
+    entry.style.transition = 'opacity 2s';
+    entry.style.opacity = '0.3';
+  }, 3000);
+}
+
 // Holds player's information (HP, sanity, name, etc.)
 let player = {};
 
@@ -765,6 +984,10 @@ function executePlayerAction(actionId, selectedTarget = null) {
       // Elemental attacks bypass physical defense (magical)
       const final = applyDamageToTarget(targetEnemy, damage, 'elemental');
       actor.sanity = Math.max(0, actor.sanity - 5);
+      
+      // Update sanity state after sanity cost
+      if (actor === player) updateSanityState();
+      
       log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${final} damage dealt (raw ${damage}), sanity -5.`);
       playAttackSound();
       return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'element', actor };
@@ -2563,6 +2786,9 @@ function updateUI() {  // Change the background image based on 'battleBackground
     backdrop.classList.add(`${battleBackground}-bg`);
   }
   
+  // Update sanity state based on current player sanity
+  updateSanityState();
+  
   // Update player info (include level if > 0)
   const playerLevelText = player.level > 0 ? ` (Lv.${player.level})` : '';
   document.getElementById('player-name').textContent = (player.name || "Cryptonaut") + playerLevelText;
@@ -3344,8 +3570,24 @@ function enemyTurn(enemy) {
       // Attacking player
       const sanityDmg = enemy.sanityDamage || 0; // Some enemies also deal sanity damage
       const final = applyDamageToTarget(player, dmg, 'physical');
-      player.sanity -= sanityDmg;
-      log(`☠ The ${enemy.name} strikes you for ${final} damage (${dmg} raw), sanity -${sanityDmg}.`);
+      const sanityBefore = player.sanity;
+      player.sanity = Math.max(0, player.sanity - sanityDmg); // Clamp to 0, don't go negative
+      
+      // Update sanity state after sanity damage
+      updateSanityState();
+      
+      // Special message when sanity first hits 0
+      if (sanityBefore > 0 && player.sanity === 0) {
+        log(`🌀 Your mind shatters... but you fight on through the madness!`);
+        maybeAddPhantomLog(1.0); // Guaranteed phantom log on sanity break
+      }
+      
+      log(`☠ The ${enemy.name} strikes you for ${final} damage (${dmg} raw)${sanityDmg > 0 ? `, sanity -${sanityDmg}` : ''}.`);
+      
+      // Maybe add phantom log during insanity
+      if (currentSanityState !== SANITY_STATES.STABLE) {
+        maybeAddPhantomLog(currentSanityState === SANITY_STATES.BROKEN ? 0.3 : 0.1);
+      }
       
       // Flash player portrait red to indicate damage
       flashDamage('player-portrait');
@@ -3387,11 +3629,11 @@ function enemyTurn(enemy) {
     
     updateUI();
     
-    // Check if the player or companion got defeated here
-    if (player.hp <= 0 || player.sanity <= 0) {
+    // Check if the player got defeated here (HP only - sanity 0 = peak insanity, not defeat)
+    if (player.hp <= 0) {
       stopCombatMusic();
       combatEnded = true;
-      log("💀 You collapse from injuries or madness. Game over.");
+      log("💀 You collapse from your injuries. Game over.");
       disableActions(); // Player can no longer act
       // Play defeat music
       defeatMusic.currentTime = 0;
@@ -3538,13 +3780,14 @@ function handleVictory() {
 // Handling Party Defeat
 // ========================
 // Called when the player dies from status effects or other damage.
+// Note: Sanity at 0 no longer causes defeat - player fights on in peak insanity!
 function checkLossCondition() {
-  // Check if player is dead
-  if (player.hp <= 0 || player.sanity <= 0) {
+  // Check if player is dead (HP only - sanity 0 means peak insanity, not defeat)
+  if (player.hp <= 0) {
     if (combatEnded) return;
     combatEnded = true;
     stopCombatMusic();
-    log("💀 You collapse from injuries or madness. Game over.");
+    log("💀 You collapse from your injuries. Game over.");
     disableActions();
     
     // Play death sound
@@ -3582,7 +3825,11 @@ function saveGameState() {
 function log(text) {
   const logDiv = document.getElementById('combat-log');
   if (!logDiv) return; // If there's no log element, skip
-  logDiv.innerHTML += `<div>> ${text}</div>`; // Append a new line
+  
+  // Apply insanity text scrambling if in broken/shaken state
+  const displayText = renderInsanityText(text);
+  
+  logDiv.innerHTML += `<div>> ${displayText}</div>`; // Append a new line
   logDiv.scrollTop = logDiv.scrollHeight;     // Auto-scroll to bottom
 }
 
@@ -3593,6 +3840,16 @@ function log(text) {
 // disableActions() disables them (for enemy turns, etc.)
 function enableActions() {
   document.querySelectorAll("#actions button").forEach(b => b.disabled = false);
+  
+  // Apply insanity effects to buttons when enabled
+  if (currentSanityState === SANITY_STATES.BROKEN) {
+    shuffleActionButtons();
+    jitterActionButtons();
+  } else if (currentSanityState === SANITY_STATES.SHAKEN) {
+    jitterActionButtons();
+  } else {
+    resetButtonPositions();
+  }
 }
 function disableActions() {
   document.querySelectorAll("#actions button").forEach(b => b.disabled = true);

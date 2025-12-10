@@ -466,3 +466,124 @@ button:disabled {
     margin: 0 auto;
   }
 }
+
+/* ========================
+   Insanity UI Effects
+   ======================== */
+
+/* Shaken state (25-50% sanity) - subtle unease */
+[data-sanity-state="shaken"] {
+  animation: shakenPulse 4s ease-in-out infinite;
+}
+
+[data-sanity-state="shaken"] #combat-log {
+  text-shadow: 0 0 2px rgba(138, 43, 226, 0.3);
+}
+
+[data-sanity-state="shaken"] button {
+  transition: transform 0.3s ease;
+}
+
+@keyframes shakenPulse {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50% { filter: brightness(0.95) saturate(0.9); }
+}
+
+/* Broken state (0-25% sanity) - full insanity */
+[data-sanity-state="broken"] {
+  animation: brokenJitter 0.15s infinite;
+}
+
+[data-sanity-state="broken"] #combat-log {
+  text-shadow: 0 0 8px rgba(255, 0, 255, 0.5), 0 0 2px rgba(255, 0, 0, 0.3);
+  animation: logGlitch 2s infinite;
+}
+
+[data-sanity-state="broken"] #combat-log div {
+  animation: textFlicker 0.1s infinite;
+}
+
+[data-sanity-state="broken"] button {
+  animation: buttonPanic 0.5s infinite;
+  box-shadow: 0 0 10px rgba(255, 0, 100, 0.4);
+}
+
+[data-sanity-state="broken"] .portrait {
+  animation: portraitDistort 3s infinite;
+}
+
+[data-sanity-state="broken"] #backdrop {
+  animation: backdropMadness 5s infinite;
+  filter: hue-rotate(0deg);
+}
+
+/* Insanity keyframe animations */
+@keyframes brokenJitter {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-1px, 1px); }
+  50% { transform: translate(1px, -1px); }
+  75% { transform: translate(-1px, -1px); }
+}
+
+@keyframes logGlitch {
+  0%, 90%, 100% { 
+    background-color: #222; 
+    border-color: #555;
+  }
+  92% { 
+    background-color: #331122; 
+    border-color: #882255;
+  }
+  94% { 
+    background-color: #112233; 
+    border-color: #225588;
+  }
+}
+
+@keyframes textFlicker {
+  0%, 95% { opacity: 1; }
+  96% { opacity: 0.8; }
+  97% { opacity: 1; }
+  98% { opacity: 0.6; }
+  99% { opacity: 0.9; }
+}
+
+@keyframes buttonPanic {
+  0%, 100% { 
+    background-color: #333;
+    border-color: #555;
+  }
+  50% { 
+    background-color: #442233;
+    border-color: #665544;
+  }
+}
+
+@keyframes portraitDistort {
+  0%, 100% { filter: none; }
+  25% { filter: hue-rotate(10deg) contrast(1.1); }
+  50% { filter: hue-rotate(-10deg) saturate(1.2); }
+  75% { filter: hue-rotate(5deg) brightness(0.9); }
+}
+
+@keyframes backdropMadness {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1); }
+  25% { filter: hue-rotate(15deg) saturate(0.8); }
+  50% { filter: hue-rotate(-15deg) saturate(1.1); }
+  75% { filter: hue-rotate(10deg) saturate(0.9); }
+}
+
+/* Phantom log entry styling */
+.phantom-log-entry {
+  color: #8b008b !important;
+  font-style: italic;
+  text-shadow: 0 0 5px #ff00ff, 0 0 10px #8b008b;
+  animation: phantomFade 4s ease-out;
+}
+
+@keyframes phantomFade {
+  0% { opacity: 0; transform: translateX(-10px); }
+  10% { opacity: 0.9; transform: translateX(0); }
+  80% { opacity: 0.85; }
+  100% { opacity: 0.3; }
+}
