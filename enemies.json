@@ -176,6 +176,31 @@
       "xp_reward": 10
     },
             {
+      "id": "corpse_eater",
+      "name": "Corpse Eater",
+      "gender": "o",
+      "trhreat_level": 1,
+      "portrait": "assets/img/enemy_portrait/corpse_eater.png",
+      "description": "These crypts regularly fill with the dead, attracting scavengers that feast on the remains.",
+      "base_stats": {
+        "hp": 10,
+        "basic_attack": {
+          "dice": 1,
+          "sides": 6
+        },
+        "sanity_damage": 1,
+        "defense": 0,
+        "init": 2,
+        "effects": []
+      },
+      "audio": {
+        "voice_hurt": "enemy_male_hurt",
+        "voice_death": "enemy_male_death",
+        "voice_combat_start": "enemy_male_combat_start"
+      },
+      "xp_reward": 10
+    },
+            {
       "id": "female_grave_robber",
       "name": "Female Grave Robber",
       "gender": "f",
