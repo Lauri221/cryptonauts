@@ -375,6 +375,88 @@
         "voice_combat_start": "enemy_beast_combat_start"
       },
           "xp_reward": 75
-        }
+        },
+        {
+  "id": "astral_creeper",
+  "name": "Astral Creeper",
+  "threat_level": 4,
+  "portrait": "assets/img/enemy_portrait/astral_creeper.png",
+  "description": "The Malaligned Young of the Astral Summoner.",
+  "base_stats": {
+    "hp": 8,
+    "basic_attack": { "dice": 1, "sides": 6 },
+    "sanity_damage": 2,
+    "defense": 0,
+    "init": 5
+    
+  },
+  "xp_reward": 10,
+  "audio": {
+    "voice_hurt": "astral_creeper_hurt",
+    "voice_death": "astral_creeper_death"
+  }
+},
+{
+  "id": "astral_summoner",
+  "name": "Astral Summoner",
+  "threat_level": 4,
+  "portrait": "assets/img/enemy_portrait/astral_summoner.png",
+  "description": "The Astral Summoner beyond the veil of Stars, chanting a sanity-eating hymn that reshapes reality with every note.",
+  "base_stats": {
+    "hp": 85,
+    "basic_attack": { "dice": 2, "sides": 10 },
+    "sanity_damage": 10,
+    "defense": 4,
+    "init": 1,
+    "effects": ["immune_charm", "resist_bleed", "weak_physical"]
+  },
+  "xp_reward": 250,
+  "abilities": [
+    {
+      "id": "hymn_of_unbeing",
+      "name": "Hymn of Unbeing",
+      "type": "sanity_attack",
+      "description": "The Chorister sings a mind-shattering note. Deals heavy sanity damage to all party members.",
+      "sanity_damage": { "dice": 2, "sides": 8 },
+      "chance": 0.45
+    },
+    {
+      "id": "litany_of_the_spawned",
+      "name": "Litany of the Spawned",
+      "type": "summon",
+      "description": "Rips open its own flesh to birth aberrant minions.",
+      "summon_ids": ["astral_creeper"],
+      "summon_count": { "min": 1, "max": 3 },
+      "chance": 1.0
+    },
+    {
+      "id": "erode_flesh",
+      "name": "Erode Flesh",
+      "type": "hp_attack",
+      "description": "A tendril lashes out, rotting tissue upon contact.",
+      "damage": { "dice": 1, "sides": 12 },
+      "effect": {
+        "type": "poison",
+        "chance": 0.40,
+        "duration": 3,
+        "damage_per_turn": 4
+      },
+      "chance": 0.30
+    }
+  ],
+  "ai_logic": {
+    "summon_if_no_minions": true,
+    "preferred_ability_order": [
+      "litany_of_the_spawned",
+      "hymn_of_unbeing",
+      "erode_flesh"
+    ]
+  },
+  "audio": {
+    "voice_hurt": "astral_summoner_hurt",
+    "voice_death": "astral_summoner_death",
+    "voice_combat_start": "astral_summoner_arrival"
+  }
+}
       ]
   }

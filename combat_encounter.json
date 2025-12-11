@@ -1,14 +1,12 @@
 {
-  "encounter_id": "temple_entrance",
-  "encounter_name": "Temple Entrance Ambush",
-  "background": "./assets/img/environment/dungeon1.png",
+  "encounter_id": "astral_sanctum",
+  "encounter_name": "The Astral Summoner's Sanctum",
+  "background": "./assets/img/environment/ComfyUI_00901_.png",
   "enemies": [
-    { "id": "priestess", "position": 1 },
-    { "id": "priestess", "position": 2 },
-    { "id": "cultist", "position": 3 }
+    { "id": "astral_summoner", "position": 1 }
   ],
   "loot": {
-    "gold": 50,
-    "items": ["healing_potion", "sanity_tonic"]
+    "gold": 250,
+    "items": ["healing_potion", "sanity_tonic", "elixir_of_fortitude"]
   }
 }

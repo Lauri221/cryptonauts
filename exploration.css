@@ -565,6 +565,24 @@
   z-index: 1000;
 }
 
+#start-menu {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(180, 140, 90, 0.25), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(90, 120, 180, 0.2), transparent 60%),
+    linear-gradient(180deg, rgba(6, 4, 12, 0.9) 0%, rgba(10, 4, 25, 0.92) 45%, rgba(5, 1, 12, 0.95) 100%),
+    url('assets/img/environment/crypt_entrance.png');
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  background-blend-mode: screen, screen, normal, normal;
+  overflow: hidden;
+}
+
+#start-menu .menu-container {
+  backdrop-filter: blur(4px) saturate(1.2);
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.9) 0%, rgba(15, 15, 26, 0.95) 100%);
+}
+
 /* Menu overlay (for pause/options) */
 .menu-overlay {
   position: fixed;

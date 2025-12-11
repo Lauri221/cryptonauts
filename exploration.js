@@ -79,7 +79,14 @@ let gameState = {
   flags: {},
   currentSanityState: SANITY_STATES.STABLE,
   geminiAvailable: true,
-  geminiFailCount: 0
+  geminiFailCount: 0,
+  adventureLog: [],
+  stats: {
+    roomsExplored: 0,
+    battlesFought: 0,
+    enemiesDefeated: 0,
+    itemsUsed: 0
+  }
 };
 
 let creationState = {
@@ -110,6 +117,87 @@ let charactersData = null;
 let inventoryCatalog = { items: [] };
 let autosaveInterval = null;
 let playerInitWarned = false;
+
+// ========================
+// Audio System
+// ========================
+let currentMusicTrack = null;
+
+function getRandomTrack(type) {
+  const rand = Math.random() < 0.5 ? 1 : 2;
+  return type === 'exploration' 
+    ? document.getElementById(`exploration-music-${rand}`)
+    : document.getElementById(`boss-music-${rand}`);
+}
+
+function playExplorationMusic() {
+  stopAllMusic();
+  const music = getRandomTrack('exploration');
+  if (!music) {
+    console.warn('[Exploration] Exploration music element not found');
+    return;
+  }
+  
+  const volume = (gameSettings.musicVolume || 60) / 100;
+  music.volume = volume;
+  currentMusicTrack = music;
+  
+  music.play().catch(e => {
+    console.log('[Exploration] Music autoplay blocked, will play on user interaction:', e);
+    document.addEventListener('click', function startMusic() {
+      if (currentMusicTrack) {
+        currentMusicTrack.play().catch(() => {});
+      }
+      document.removeEventListener('click', startMusic);
+    }, { once: true });
+  });
+  
+  console.log('[Exploration] Playing exploration music');
+}
+
+function playBossMusic() {
+  stopAllMusic();
+  const music = getRandomTrack('boss');
+  if (!music) {
+    console.warn('[Exploration] Boss music element not found');
+    return;
+  }
+  
+  const volume = (gameSettings.musicVolume || 60) / 100;
+  music.volume = volume;
+  currentMusicTrack = music;
+  
+  music.play().catch(e => {
+    console.log('[Exploration] Boss music autoplay blocked:', e);
+  });
+  
+  console.log('[Exploration] Playing boss music');
+}
+
+function stopAllMusic() {
+  const tracks = [
+    document.getElementById('exploration-music-1'),
+    document.getElementById('exploration-music-2'),
+    document.getElementById('boss-music-1'),
+    document.getElementById('boss-music-2')
+  ];
+  
+  tracks.forEach(track => {
+    if (track) {
+      track.pause();
+      track.currentTime = 0;
+    }
+  });
+  
+  currentMusicTrack = null;
+}
+
+function updateMusicVolume() {
+  const volume = (gameSettings.musicVolume || 60) / 100;
+  if (currentMusicTrack) {
+    currentMusicTrack.volume = volume;
+  }
+}
 
 function syncInventoryFromSystem() {
   if (typeof getInventoryState === 'function') {
@@ -339,6 +427,13 @@ function startGame(isFreshStart = false) {
   document.getElementById('options-modal').classList.add('hidden');
 
   startAutosave();
+  
+  // Start appropriate music based on game mode
+  if (gameState.mode === GameMode.BOSS) {
+    playBossMusic();
+  } else {
+    playExplorationMusic();
+  }
 
   if (isFreshStart) {
     logEvent('📜 Your expedition begins...', 'system');
@@ -372,6 +467,7 @@ function handleMainMenu() {
     () => {
       saveGameState();
       stopAutosave();
+      stopAllMusic();
       menuState.isPaused = false;
       document.getElementById('pause-menu').classList.add('hidden');
       window.location.href = 'start_screen.html';
@@ -558,9 +654,8 @@ function applySettings() {
   document.body.dataset.sanityEffects = gameSettings.sanityJitterEnabled ? 'enabled' : 'disabled';
   document.body.dataset.textScramble = gameSettings.textScrambleEnabled ? 'enabled' : 'disabled';
   
-  // TODO: Apply audio volume settings when audio system is implemented
-  // setMusicVolume(gameSettings.musicVolume / 100);
-  // setSfxVolume(gameSettings.sfxVolume / 100);
+  // Apply audio volume settings
+  updateMusicVolume();
 }
 
 function getGeminiConfig() {
@@ -853,6 +948,11 @@ async function enterRoom(roomId, softEntry = false) {
   // Only increment visit counter on fresh entries
   if (!softEntry) {
     gameState.roomsVisited[roomId] = (gameState.roomsVisited[roomId] || 0) + 1;
+    // Track rooms explored stat
+    if (!gameState.stats) gameState.stats = { roomsExplored: 0, battlesFought: 0, enemiesDefeated: 0, itemsUsed: 0 };
+    if (gameState.roomsVisited[roomId] === 1) {
+      gameState.stats.roomsExplored++;
+    }
   }
   
   // Update UI for new room
@@ -863,6 +963,7 @@ async function enterRoom(roomId, softEntry = false) {
   if (room.type === 'boss') {
     gameState.mode = GameMode.BOSS;
     logEvent('⚔️ You have reached the Sanctum of the Old One!', 'warning');
+    playBossMusic(); // Switch to boss music
   }
   
   // For soft entry (continuing game), just show the room with basic choices
@@ -1340,6 +1441,9 @@ function applyInventoryChange(itemId, delta, reason) {
       } else {
         gameState.inventory[itemId] = Math.max(0, before - removable);
       }
+      // Track items used stat
+      if (!gameState.stats) gameState.stats = { roomsExplored: 0, battlesFought: 0, enemiesDefeated: 0, itemsUsed: 0 };
+      gameState.stats.itemsUsed += removable;
     } else {
       console.warn(`[Inventory] Attempted to remove ${itemId} but none available.`);
     }
@@ -1548,6 +1652,13 @@ function logEvent(message, type = 'narration') {
   entry.textContent = `> ${message}`;
   logEl.appendChild(entry);
   logEl.scrollTop = logEl.scrollHeight;
+  
+  // Store in adventure log for post-mortem (limit to 100 entries)
+  if (!gameState.adventureLog) gameState.adventureLog = [];
+  gameState.adventureLog.push(message);
+  if (gameState.adventureLog.length > 100) {
+    gameState.adventureLog.shift();
+  }
 }
 
 function showLoading(show) {
@@ -1787,6 +1898,9 @@ function triggerCombatTransition(combatData) {
   
   logEvent(`⚔️ ${combatData.reason || 'Combat begins!'}`, 'warning');
   
+  // Stop exploration music when entering combat
+  stopAllMusic();
+  
   // Save current state before combat
   saveGameState();
   
@@ -1813,9 +1927,59 @@ function handleGameOver() {
   setNarration('The darkness claims you. Your journey ends here, another soul lost to the crypt\'s eternal hunger.');
   logEvent('💀 GAME OVER', 'damage');
   
-  document.getElementById('choice-buttons').innerHTML = `
-    <button class="choice-btn" onclick="restartGame()">Try Again</button>
-  `;
+  // Redirect to game end screen after brief delay
+  setTimeout(() => {
+    redirectToGameEnd('defeat');
+  }, 2500);
+}
+
+function handleBossVictory() {
+  gameState.mode = GameMode.VICTORY;
+  setNarration('Against all odds, you have triumphed! The Old One falls, and light returns to this forsaken place.');
+  logEvent('🏆 VICTORY! The expedition succeeds!', 'action');
+  
+  // Mark boss as defeated
+  gameState.flags[`boss_${gameState.currentRoomId}_defeated`] = true;
+  
+  // Redirect to game end screen after brief delay
+  setTimeout(() => {
+    redirectToGameEnd('victory');
+  }, 3000);
+}
+
+function redirectToGameEnd(outcome) {
+  // Stop exploration music before transition
+  stopAllMusic();
+  
+  // Prepare end state data
+  const endData = {
+    outcome: outcome,
+    player: gameState.player ? {
+      name: gameState.player.name,
+      hp: gameState.player.hp,
+      maxHp: gameState.player.maxHp,
+      portrait: gameState.player.portrait
+    } : null,
+    companion: gameState.companion ? {
+      name: gameState.companion.name,
+      hp: gameState.companion.hp,
+      maxHp: gameState.companion.maxHp,
+      portrait: gameState.companion.portrait
+    } : null,
+    stats: gameState.stats || {
+      roomsExplored: Object.keys(gameState.roomsVisited || {}).length,
+      battlesFought: 0,
+      enemiesDefeated: 0,
+      itemsUsed: 0
+    }
+  };
+  
+  // Store in sessionStorage
+  sessionStorage.setItem('gameEndOutcome', JSON.stringify(endData));
+  sessionStorage.setItem('adventureLog', JSON.stringify(gameState.adventureLog || []));
+  
+  // Navigate to game end screen
+  window.location.href = 'game_end.html';
 }
 
 function restartGame() {
@@ -1859,6 +2023,13 @@ function loadGameState() {
 async function handleCombatReturn(result) {
   console.log('[Exploration] Handling combat return:', result);
   
+  // Resume appropriate music after combat
+  if (gameState.mode === GameMode.BOSS) {
+    playBossMusic();
+  } else {
+    playExplorationMusic();
+  }
+  
   if (result.inventory) {
     setInventoryState(result.inventory);
   } else {
@@ -1881,9 +2052,35 @@ async function handleCombatReturn(result) {
   updateUI();
   updateSanityState();
   
+  // Track battle stats
+  if (!gameState.stats) gameState.stats = { roomsExplored: 0, battlesFought: 0, enemiesDefeated: 0, itemsUsed: 0 };
+  gameState.stats.battlesFought++;
+  
+  // Retrieve combat log from sessionStorage if available
+  const combatLogData = sessionStorage.getItem('combatLog');
+  if (combatLogData) {
+    try {
+      const combatEvents = JSON.parse(combatLogData);
+      // Merge important combat events into adventure log
+      combatEvents.forEach(event => {
+        if (!gameState.adventureLog) gameState.adventureLog = [];
+        gameState.adventureLog.push(`[Combat] ${event}`);
+      });
+    } catch (e) {
+      console.warn('[Exploration] Could not parse combat log');
+    }
+  }
+  
   if (result.victory) {
     gameState.explorationPhase = ExplorationPhase.AFTERMATH;
     logEvent('⚔️ Victory! The enemy falls.', 'action');
+    
+    // Track enemies defeated (estimate based on XP if available)
+    if (result.xpGained > 0) {
+      gameState.stats.enemiesDefeated += Math.max(1, Math.floor(result.xpGained / 10));
+    } else {
+      gameState.stats.enemiesDefeated++;
+    }
     
     // Award XP if any
     if (result.xpGained > 0) {
@@ -1892,6 +2089,14 @@ async function handleCombatReturn(result) {
     
     // Mark that combat occurred in this room
     gameState.flags[`combat_${gameState.currentRoomId}`] = true;
+    
+    // Check if this was a boss fight victory
+    const room = getRoomById(gameState.currentRoomId);
+    if (room && room.type === 'boss') {
+      gameState.flags[`boss_${room.id}_fought`] = true;
+      handleBossVictory();
+      return;
+    }
     
     // Call Gemini for aftermath narration
     showLoading(true);
@@ -1902,7 +2107,6 @@ async function handleCombatReturn(result) {
       handleGeminiResponse(response);
     } else {
       // Fallback aftermath
-      const room = getRoomById(gameState.currentRoomId);
       const aftermathNarrations = [
         'The battle is over. You stand victorious, though the victory feels hollow in this forsaken place. The echoes of combat fade into oppressive silence.',
         'Silence returns to the chamber. Your enemy lies defeated, but you know this place holds more horrors yet.',

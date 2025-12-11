@@ -126,6 +126,56 @@ body {
   max-width: 120px;
 }
 
+/* Boss enemy portrait - larger and more prominent */
+.portrait.enemy.boss {
+  max-width: 180px;
+  min-width: 150px;
+  flex: 0 0 auto;
+  background: linear-gradient(145deg, rgba(80, 0, 80, 0.9), rgba(150, 0, 50, 0.9));
+  border: 3px solid #ff00ff;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), 0 0 40px rgba(150, 0, 150, 0.3);
+  animation: bossGlow 3s ease-in-out infinite;
+}
+
+.portrait.enemy.boss img {
+  border: 3px solid #ff66ff;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.4);
+}
+
+.portrait.enemy.boss .character-name {
+  color: #ff99ff;
+  font-weight: bold;
+  text-shadow: 0 0 5px #ff00ff;
+}
+
+@keyframes bossGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), 0 0 40px rgba(150, 0, 150, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(255, 0, 255, 0.7), 0 0 60px rgba(150, 0, 150, 0.5); }
+}
+
+/* Minion enemy portrait - smaller summoned creatures */
+.portrait.enemy.minion {
+  max-width: 90px;
+  min-width: 70px;
+  flex: 0 0 auto;
+  background-color: rgba(100, 0, 100, 0.7);
+  border: 2px solid #9933cc;
+  animation: minionFadeIn 0.5s ease-out;
+}
+
+.portrait.enemy.minion img {
+  border-color: #9933cc;
+}
+
+.portrait.enemy.minion .stats {
+  font-size: clamp(8px, 1vmin, 12px);
+}
+
+@keyframes minionFadeIn {
+  0% { opacity: 0; transform: scale(0.5) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 /* Summon portrait styling */
 .portrait.summon {
   background-color: rgba(100, 50, 150, 0.8);

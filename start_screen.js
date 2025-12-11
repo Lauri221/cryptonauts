@@ -10,6 +10,373 @@ const CLASS_ICONS = {
   aberration: '👁️'
 };
 
+const CHARACTER_DATA_FALLBACK = {
+  "characters": [
+    {
+      "id": "monk",
+      "class": "Monk",
+      "base_stats": {
+        "hp": 30,
+        "sanity": 20,
+        "basic_attack": { "dice": 2, "sides": 4 },
+        "defense": 1,
+        "speed": 3,
+        "ability1": { "id": "calm", "name": "Calm", "description": "Restore party sanity." },
+        "ability2": { "id": "hypnotise", "name": "Hypnotize", "description": "Charm an enemy to fight for you." },
+        "resistance": "Sanity",
+        "weakness": "Natural"
+      },
+      "gender_variants": {
+        "m": {
+          "portrait": "assets/img/ally_portrait/monk_male.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_male_hurt_sounds",
+            "voice_death": "cryptonaut_male_death_sounds",
+            "voice_win": "cryptonaut_male_win_sounds",
+            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+            "voice_party_death": "party_death_male_sound"
+          }
+        },
+        "f": {
+          "portrait": "assets/img/ally_portrait/monk_female.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_female_hurt_sounds",
+            "voice_death": "cryptonaut_female_death_sounds",
+            "voice_win": "cryptonaut_female_win_sounds",
+            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+            "voice_party_death": "party_death_female_sound"
+          }
+        }
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "warrior",
+      "class": "Warrior",
+      "base_stats": {
+        "hp": 30,
+        "sanity": 20,
+        "basic_attack": { "dice": 2, "sides": 6 },
+        "defense": 2,
+        "speed": 2,
+        "ability1": {
+          "id": "parry",
+          "name": "Parry",
+          "description": "Brace for impact; when hit this round, immediately retaliate with a basic attack."
+        },
+        "ability2": {
+          "id": "shield_bash",
+          "name": "Shield Bash",
+          "description": "Strike the enemy with a heavy blow, with a chance to stun them for one turn."
+        },
+        "resistance": "Natural",
+        "weakness": "Sanity"
+      },
+      "gender_variants": {
+        "m": {
+          "portrait": "assets/img/ally_portrait/warrior_male.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_male_hurt_sounds",
+            "voice_death": "cryptonaut_male_death_sounds",
+            "voice_win": "cryptonaut_male_win_sounds",
+            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+            "voice_party_death": "party_death_male_sound"
+          }
+        },
+        "f": {
+          "portrait": "assets/img/ally_portrait/warrior_female.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_female_hurt_sounds",
+            "voice_death": "cryptonaut_female_death_sounds",
+            "voice_win": "cryptonaut_female_win_sounds",
+            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+            "voice_party_death": "party_death_female_sound"
+          }
+        }
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "alchemist",
+      "class": "Alchemist",
+      "base_stats": {
+        "hp": 24,
+        "sanity": 20,
+        "basic_attack": { "dice": 1, "sides": 8 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": {
+          "id": "brew_potion",
+          "name": "Brew Potion",
+          "description": "Concoct a restorative draught, adding a healing or soothing potion to the party's inventory."
+        },
+        "ability2": {
+          "id": "poison_cloud",
+          "name": "Poison Cloud",
+          "description": "Release a toxic cloud that damages and poisons all enemies for several rounds."
+        },
+        "resistance": "Poison",
+        "weakness": "Natural"
+      },
+      "gender_variants": {
+        "m": {
+          "portrait": "assets/img/ally_portrait/alchemist_male.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_male_hurt_sounds",
+            "voice_death": "cryptonaut_male_death_sounds",
+            "voice_win": "cryptonaut_male_win_sounds",
+            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+            "voice_party_death": "party_death_male_sound"
+          }
+        },
+        "f": {
+          "portrait": "assets/img/ally_portrait/alchemist_female.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_female_hurt_sounds",
+            "voice_death": "cryptonaut_female_death_sounds",
+            "voice_win": "cryptonaut_female_win_sounds",
+            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+            "voice_party_death": "party_death_female_sound"
+          }
+        }
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "cleric",
+      "class": "Cleric",
+      "base_stats": {
+        "hp": 24,
+        "sanity": 28,
+        "basic_attack": { "dice": 2, "sides": 4 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": {
+          "id": "heal",
+          "name": "Heal",
+          "description": "Channel sacred power to restore HP to a single ally during combat."
+        },
+        "ability2": {
+          "id": "fireblast",
+          "name": "Fireblast",
+          "description": "Unleash a blast of searing holy fire that damages all enemies."
+        },
+        "resistance": "Fire",
+        "weakness": "Poison"
+      },
+      "gender_variants": {
+        "m": {
+          "portrait": "assets/img/ally_portrait/cleric_male.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_male_hurt_sounds",
+            "voice_death": "cryptonaut_male_death_sounds",
+            "voice_win": "cryptonaut_male_win_sounds",
+            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+            "voice_party_death": "party_death_male_sound"
+          }
+        },
+        "f": {
+          "portrait": "assets/img/ally_portrait/cleric_female.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_female_hurt_sounds",
+            "voice_death": "cryptonaut_female_death_sounds",
+            "voice_win": "cryptonaut_female_win_sounds",
+            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+            "voice_party_death": "party_death_female_sound"
+          }
+        }
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "aberration",
+      "class": "Aberration",
+      "base_stats": {
+        "hp": 28,
+        "sanity": 14,
+        "basic_attack": { "dice": 2, "sides": 8 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": { "id": "savage", "name": "Savage", "description": "Unleash a brutal strike that deals very high damage to a single target." },
+        "ability2": { "id": "roar", "name": "Roar", "description": "Emit a horrifying roar that may paralyze all enemies with fear." },
+        "resistance": "Natural",
+        "weakness": "Fire"
+      },
+      "gender_variants": {
+        "m": {
+          "portrait": "assets/img/ally_portrait/monster_male.png",
+          "audio": {
+            "voice_hurt": "cryptonaut_male_hurt_sounds",
+            "voice_death": "cryptonaut_male_death_sounds",
+            "voice_win": "cryptonaut_male_win_sounds",
+            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+            "voice_party_death": "party_death_male_sound"
+          }
+        }
+      },
+      "starting_inventory": []
+    }
+  ],
+  "companions": [
+    {
+      "id": "eleanor",
+      "name": "Dr. Eleanor Marsh",
+      "class": "Alchemist",
+      "gender": "f",
+      "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your life—or end it.",
+      "portrait": "assets/img/ally_portrait/alchemist_female.png",
+      "base_stats": {
+        "hp": 24,
+        "sanity": 20,
+        "basic_attack": { "dice": 1, "sides": 8 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": {
+          "id": "brew_potion",
+          "name": "Brew Potion",
+          "description": "Concoct a restorative draught, adding a healing potion to inventory."
+        },
+        "ability2": {
+          "id": "poison_cloud",
+          "name": "Poison Cloud",
+          "description": "Release a toxic cloud that damages and poisons all enemies."
+        },
+        "resistance": "Poison",
+        "weakness": "Natural"
+      },
+      "audio": {
+        "voice_hurt": "cryptonaut_female_hurt_sounds",
+        "voice_death": "cryptonaut_female_death_sounds",
+        "voice_win": "cryptonaut_female_win_sounds",
+        "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+        "voice_party_death": "party_death_female_sound"
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "marcus",
+      "name": "Marcus Vale",
+      "class": "Warrior",
+      "gender": "m",
+      "backstory": "A veteran soldier haunted by what he witnessed in the trenches. His blade arm is steady, but his nightmares never cease.",
+      "portrait": "assets/img/ally_portrait/warrior_male.png",
+      "base_stats": {
+        "hp": 30,
+        "sanity": 20,
+        "basic_attack": { "dice": 2, "sides": 6 },
+        "defense": 2,
+        "speed": 2,
+        "ability1": {
+          "id": "parry",
+          "name": "Parry",
+          "description": "Brace for impact; when hit, immediately retaliate."
+        },
+        "ability2": {
+          "id": "shield_bash",
+          "name": "Shield Bash",
+          "description": "A heavy blow with a chance to stun."
+        },
+        "resistance": "Natural",
+        "weakness": "Sanity"
+      },
+      "audio": {
+        "voice_hurt": "cryptonaut_male_hurt_sounds",
+        "voice_death": "cryptonaut_male_death_sounds",
+        "voice_win": "cryptonaut_male_win_sounds",
+        "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+        "voice_party_death": "party_death_male_sound"
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "agatha",
+      "name": "Sister Agatha",
+      "class": "Cleric",
+      "gender": "f",
+      "backstory": "A nun who lost her faith after witnessing an exorcism gone wrong. She still channels divine power—but questions its source.",
+      "portrait": "assets/img/ally_portrait/cleric_female.png",
+      "base_stats": {
+        "hp": 24,
+        "sanity": 28,
+        "basic_attack": { "dice": 2, "sides": 4 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": {
+          "id": "heal",
+          "name": "Heal",
+          "description": "Channel sacred power to restore HP to an ally."
+        },
+        "ability2": {
+          "id": "fireblast",
+          "name": "Fireblast",
+          "description": "A blast of holy fire that damages all enemies."
+        },
+        "resistance": "Fire",
+        "weakness": "Poison"
+      },
+      "audio": {
+        "voice_hurt": "cryptonaut_female_hurt_sounds",
+        "voice_death": "cryptonaut_female_death_sounds",
+        "voice_win": "cryptonaut_female_win_sounds",
+        "voice_combat_start": "cryptonaut_female_combat_start_sounds",
+        "voice_party_death": "party_death_female_sound"
+      },
+      "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "chen",
+      "name": "Master Chen",
+      "class": "Monk",
+      "gender": "m",
+      "backstory": "A wandering mystic from distant lands who seeks to understand the cosmic truths hidden in madness. His calm is unsettling.",
+      "portrait": "assets/img/ally_portrait/monk_male.png",
+      "base_stats": {
+        "hp": 30,
+        "sanity": 20,
+        "basic_attack": { "dice": 2, "sides": 4 },
+        "defense": 1,
+        "speed": 3,
+        "ability1": {
+          "id": "calm",
+          "name": "Calm",
+          "description": "Restore sanity to the entire party."
+        },
+        "ability2": {
+          "id": "hypnotise",
+          "name": "Hypnotize",
+          "description": "Charm an enemy to fight for you."
+        },
+        "resistance": "Sanity",
+        "weakness": "Natural"
+      },
+      "audio": {
+        "voice_hurt": "cryptonaut_male_hurt_sounds",
+        "voice_death": "cryptonaut_male_death_sounds",
+        "voice_win": "cryptonaut_male_win_sounds",
+        "voice_combat_start": "cryptonaut_male_combat_start_sounds",
+        "voice_party_death": "party_death_male_sound"
+      },
+      "starting_inventory": ["herbal_tonic"]
+    }
+  ]
+};
+
+let characterDataErrorShown = false;
+
+function cloneCharacterData(data) {
+  if (!data) return null;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(data);
+    } catch (error) {
+      // Fallback to JSON technique below
+    }
+  }
+  return JSON.parse(JSON.stringify(data));
+}
+
+const LOCAL_SERVER_HINT = 'Run a local web server (for example: "python -m http.server 8000" or "npx http-server .") inside the project folder, then open http://localhost:8000/experimental/start_screen.html.';
+
 let charactersData = null;
 let creationState = {
   playerName: '',
@@ -31,25 +398,130 @@ const menuState = {
   pendingConfirmAction: null
 };
 
+function getEmbeddedCharacterData() {
+  const inlineEl = document.getElementById('characters-data');
+  if (inlineEl?.textContent?.trim()) {
+    try {
+      return JSON.parse(inlineEl.textContent);
+    } catch (error) {
+      console.warn('[StartScreen] Failed to parse inline character JSON:', error);
+    }
+  }
+
+  if (window.__CRYPTONAUTS_CHARACTER_DATA__) {
+    return cloneCharacterData(window.__CRYPTONAUTS_CHARACTER_DATA__);
+  }
+
+  if (typeof CHARACTER_DATA_FALLBACK !== 'undefined' && CHARACTER_DATA_FALLBACK) {
+    return cloneCharacterData(CHARACTER_DATA_FALLBACK);
+  }
+
+  return null;
+}
+
+function disableNewGameButton(reason) {
+  const btn = document.getElementById('btn-new-game');
+  if (btn) {
+    btn.disabled = true;
+    if (reason) {
+      btn.title = reason;
+    }
+  }
+}
+
+function showCharacterDataError(message) {
+  if (characterDataErrorShown) return;
+  characterDataErrorShown = true;
+  disableNewGameButton(message);
+  const overlay = document.createElement('div');
+  overlay.className = 'menu-overlay fatal-alert';
+  overlay.innerHTML = `
+    <div class="modal-container confirm-container">
+      <h3>Character Data Unavailable</h3>
+      <p>${message}</p>
+      <p>${LOCAL_SERVER_HINT}</p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
 // ========================
 // Initialization
 // ========================
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[StartScreen] Initializing...');
   loadSettings();
-  await loadCharacterData();
+  const charactersReady = await loadCharacterData();
   initStartScreen();
   updateContinueButton(checkForExistingSave());
+  if (!charactersReady) {
+    disableNewGameButton('Character data unavailable. See on-screen instructions.');
+  }
+  playMainScreenMusic();
 });
 
-async function loadCharacterData() {
-  try {
-    const response = await fetch('characters.json');
-    charactersData = await response.json();
-    console.log('[StartScreen] Loaded characters:', charactersData.characters.length, 'classes');
-  } catch (error) {
-    console.error('[StartScreen] Failed to load character data:', error);
+// ========================
+// Audio
+// ========================
+function playMainScreenMusic() {
+  const music = document.getElementById('main-screen-music');
+  if (!music) {
+    console.warn('[StartScreen] Main screen music element not found');
+    return;
   }
+  
+  // Apply volume from settings
+  const volume = (gameSettings.musicVolume || 70) / 100;
+  music.volume = volume;
+  
+  music.play().catch(e => {
+    console.log('[StartScreen] Music autoplay blocked, will play on user interaction:', e);
+    // Add click listener to start music on first user interaction
+    document.addEventListener('click', function startMusic() {
+      music.play().catch(() => {});
+      document.removeEventListener('click', startMusic);
+    }, { once: true });
+  });
+}
+
+function stopMainScreenMusic() {
+  const music = document.getElementById('main-screen-music');
+  if (music) {
+    music.pause();
+    music.currentTime = 0;
+  }
+}
+
+async function loadCharacterData() {
+  const isFileProtocol = window.location.protocol === 'file:';
+
+  if (!isFileProtocol) {
+    try {
+      const response = await fetch('characters.json', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      charactersData = await response.json();
+      console.log('[StartScreen] Loaded characters:', charactersData.characters.length, 'classes');
+      return true;
+    } catch (error) {
+      console.warn('[StartScreen] Fetch for character data failed, attempting embedded fallback:', error);
+    }
+  } else {
+    console.warn('[StartScreen] Detected file:// protocol; using embedded character data to avoid browser CORS restrictions.');
+  }
+
+  const embedded = getEmbeddedCharacterData();
+  if (embedded) {
+    charactersData = embedded;
+    console.log('[StartScreen] Loaded embedded character data:', charactersData.characters.length, 'classes');
+    return true;
+  }
+  
+  const errorMessage = 'Unable to load character data because the browser blocked local file requests.';
+  console.error('[StartScreen] ' + errorMessage);
+  showCharacterDataError(errorMessage);
+  return false;
 }
 
 function initStartScreen() {
@@ -127,6 +599,11 @@ function handleNewGame() {
 }
 
 function prepareCharacterCreation() {
+  if (!charactersData) {
+    showCharacterDataError('Character data is still loading. Please resolve the issue before starting a new expedition.');
+    return;
+  }
+
   creationState = {
     playerName: '',
     playerClassId: 'warrior',
@@ -260,6 +737,7 @@ function beginExpedition() {
   const playerName = creationState.playerName.trim() || `The ${classData.class}`;
   creationState.playerName = playerName;
   
+  stopMainScreenMusic();
   sessionStorage.setItem('cryptonautsNewGame', JSON.stringify(creationState));
   localStorage.removeItem('cryptonautsExplorationState');
   window.location.href = 'exploration.html?newGame=true';
@@ -267,6 +745,7 @@ function beginExpedition() {
 
 function handleContinue() {
   if (!checkForExistingSave()) return;
+  stopMainScreenMusic();
   window.location.href = 'exploration.html?continue=true';
 }
 
@@ -413,6 +892,12 @@ function applySettings() {
   }
   document.body.dataset.sanityEffects = gameSettings.sanityJitterEnabled ? 'enabled' : 'disabled';
   document.body.dataset.textScramble = gameSettings.textScrambleEnabled ? 'enabled' : 'disabled';
+  
+  // Update music volume
+  const music = document.getElementById('main-screen-music');
+  if (music) {
+    music.volume = (gameSettings.musicVolume || 70) / 100;
+  }
 }
 
 // ========================

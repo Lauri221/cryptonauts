@@ -240,6 +240,9 @@ let targetSelectionMode = false;
 // Array of all enemies in the current encounter
 let enemies = [];
 
+// Global storage for enemy templates (for mid-combat summoning)
+let enemyTemplates = [];
+
 // Array of all combatants (player, companion, enemies) sorted by initiative
 let combatants = [];
 
@@ -628,14 +631,102 @@ function flashLevelUp(character) {
   }
 }
 
+const AUDIO_SETTINGS_KEY = 'cryptonautsSettings';
+const DEFAULT_AUDIO_SETTINGS = {
+  musicVolume: 70,
+  sfxVolume: 80
+};
+
+let audioSettings = loadStoredAudioSettings();
+
+function loadStoredAudioSettings() {
+  const defaults = { ...DEFAULT_AUDIO_SETTINGS };
+  try {
+    const saved = localStorage.getItem(AUDIO_SETTINGS_KEY);
+    if (saved) {
+      return { ...defaults, ...JSON.parse(saved) };
+    }
+  } catch (error) {
+    console.warn('[Audio] Failed to load settings:', error);
+  }
+  return defaults;
+}
+
+function clampVolumePercentage(value, fallback) {
+  const numeric = typeof value === 'number' ? value : fallback;
+  if (!Number.isFinite(numeric)) {
+    return Math.min(1, Math.max(0, (fallback ?? 0) / 100));
+  }
+  return Math.min(1, Math.max(0, numeric / 100));
+}
+
+function getMusicVolume() {
+  return clampVolumePercentage(audioSettings.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume);
+}
+
+function getSfxVolume() {
+  return clampVolumePercentage(audioSettings.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume);
+}
+
+function applyAudioVolume(audio, type = 'sfx') {
+  if (!audio) return;
+  audio.volume = type === 'music' ? getMusicVolume() : getSfxVolume();
+}
+
+function applyVolumeToNodes(nodes, type = 'sfx') {
+  if (!nodes) return;
+  if (Array.isArray(nodes)) {
+    nodes.forEach(node => applyAudioVolume(node, type));
+    return;
+  }
+  applyAudioVolume(nodes, type);
+}
+
+function applyAudioSettingsToAllNodes() {
+  if (typeof musicCollections !== 'undefined') {
+    musicCollections.forEach(nodes => applyVolumeToNodes(nodes, 'music'));
+  }
+  if (typeof sfxCollections !== 'undefined') {
+    sfxCollections.forEach(nodes => applyVolumeToNodes(nodes, 'sfx'));
+  }
+}
+
+function refreshAudioSettings() {
+  audioSettings = loadStoredAudioSettings();
+  applyAudioSettingsToAllNodes();
+}
+
+function playSfxClip(audio, errorLabel = 'Sound error', { reset = true } = {}) {
+  if (!audio) return;
+  applyAudioVolume(audio, 'sfx');
+  if (reset) {
+    audio.currentTime = 0;
+  }
+  audio.play().catch(err => console.log(`[Audio] ${errorLabel}:`, err));
+}
+
+function playMusicTrack(audio, errorLabel = 'Music error', { reset = false } = {}) {
+  if (!audio) return;
+  applyAudioVolume(audio, 'music');
+  if (reset) {
+    audio.currentTime = 0;
+  }
+  audio.play().catch(err => console.log(`[Audio] ${errorLabel}:`, err));
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === AUDIO_SETTINGS_KEY) {
+      refreshAudioSettings();
+    }
+  });
+}
+
 /**
  * Play level up sound effect.
  */
 function playLevelUpSound() {
-  if (levelUpSound) {
-    levelUpSound.currentTime = 0;
-    levelUpSound.play().catch(err => console.log('Level up sound error:', err));
-  }
+  playSfxClip(levelUpSound, 'Level up sound error');
 }
 
 // Audio for victory jingle; loaded from relative path
@@ -992,7 +1083,7 @@ function executePlayerAction(actionId, selectedTarget = null) {
       actor.sanity = Math.min(sanityGainCap, actor.sanity + 5);
       const sanityGain = actor.sanity - sanityBefore;
       log(`${actorName} brace${actor === player ? '' : 's'}${sanityGain ? ` and regain${actor === player ? '' : 's'} ${sanityGain} sanity` : ''}.`);
-      defendSound.play().catch(err => console.log('Sound error:', err));
+      playSfxClip(defendSound, 'Defend sound error');
       return { action: 'defend', actor };
     }
     case 'element': {
@@ -1303,10 +1394,13 @@ let party_death_monster_sound = [
   new Audio('./sound/cryptonaut_monster_death_03.mp3')
 ];
 
-// Consolidated list of every audio buffer we need to unlock via user interaction
-const audioCollections = [
+const musicCollections = [
   [victorySound],
   [combatMusic],
+  [defeatMusic]
+];
+
+const sfxCollections = [
   [levelUpSound],
   attackSounds,
   [defendSound],
@@ -1340,6 +1434,11 @@ const audioCollections = [
   enemy_hurt_insect_sound
 ];
 
+// Consolidated list of every audio buffer we need to unlock via user interaction
+const audioCollections = [...musicCollections, ...sfxCollections];
+
+applyAudioSettingsToAllNodes();
+
 function getAllAudioNodes() {
   return audioCollections.flat().filter(Boolean);
 }
@@ -1370,8 +1469,7 @@ async function unlockAudioPlayback() {
 
 function startCombatMusic() {
   if (!combatMusic) return;
-  combatMusic.currentTime = 0;
-  combatMusic.play().catch(err => console.log('Combat music error:', err));
+  playMusicTrack(combatMusic, 'Combat music error', { reset: true });
   
   // Play a combat start voice 2 seconds after music begins
   setTimeout(() => {
@@ -2340,7 +2438,9 @@ function applyItemToTarget(itemId, target, completeAction = true) {
   
   if (result.success) {
     // Play potion/item sound
-    potion_sound?.play().catch(() => {});
+    if (potion_sound) {
+      playSfxClip(potion_sound, 'Item use sound error');
+    }
     
     if (completeAction) {
       finishItemUse();
@@ -2421,7 +2521,8 @@ document.addEventListener('DOMContentLoaded', setupRightClickCancel);
 function playRandomSound(soundArray) {
   if (!soundArray || soundArray.length === 0) return;
   const randomIndex = Math.floor(Math.random() * soundArray.length);
-  soundArray[randomIndex].play().catch(e => console.log("Sound error:", e));
+  const sound = soundArray[randomIndex];
+  playSfxClip(sound, 'Random sound error');
 }
 
 // ========================
@@ -2577,6 +2678,23 @@ async function loadCombatData() {
     // 3) Load the enemy templates file
     const enemyDataRes = await fetch('enemies.json');
     const enemyData = await enemyDataRes.json();
+
+    // Ensure portrait paths point to actual asset extensions (cache-safe overrides)
+    const portraitOverrides = {
+      astral_summoner: 'assets/img/enemy_portrait/astral_summoner.jpg',
+      astral_creeper: 'assets/img/enemy_portrait/astral_creeper.jpg'
+    };
+    if (Array.isArray(enemyData.enemies)) {
+      enemyData.enemies.forEach(enemy => {
+        const override = portraitOverrides[enemy.id];
+        if (override) {
+          enemy.portrait = override;
+        }
+      });
+    }
+    
+    // Store templates globally for mid-combat summoning
+    enemyTemplates = enemyData.enemies || [];
     
     console.log("Enemy templates loaded:", JSON.stringify(enemyData.enemies));
     
@@ -2657,10 +2775,17 @@ async function loadCombatData() {
         enemy_death_sound: template.enemy_death_sound || null,
         audio: template.audio ? { ...template.audio } : {},
         alive: true,
-        position: slot.position
+        position: slot.position,
+        // Boss-specific properties
+        threat_level: template.threat_level || 1,
+        abilities: template.abilities ? JSON.parse(JSON.stringify(template.abilities)) : null,
+        ai_logic: template.ai_logic ? { ...template.ai_logic } : null
       };
       
       console.log(`Created enemy: ${enemyInstance.name} with HP: ${enemyInstance.hp}, basic_attack:`, basicAttack);
+      if (enemyInstance.abilities) {
+        console.log(`  -> Has ${enemyInstance.abilities.length} abilities:`, enemyInstance.abilities.map(a => a.name));
+      }
       enemies.push(enemyInstance);
     });
     
@@ -3032,7 +3157,15 @@ function generateEnemyCards() {
   // Create a .portrait element for each enemy
   enemies.forEach((enemy, i) => {
     const card = document.createElement('div');
-    card.className = 'portrait enemy';
+    
+    // Determine card classes based on enemy type
+    let cardClasses = 'portrait enemy';
+    if (enemy.isSummonedMinion) {
+      cardClasses += ' minion';
+    } else if (enemy.threat_level >= 4 || (enemy.abilities && enemy.abilities.length > 0)) {
+      cardClasses += ' boss';
+    }
+    card.className = cardClasses;
     card.id = `enemy-portrait-${i}`;
     
     // Add a data attribute to track which enemy this is
@@ -3065,7 +3198,7 @@ function generateEnemyCards() {
     }
     enemy.cardElementId = card.id;
     
-    console.log(`Generated card for ${enemy.name} (id: ${enemy.id}) with HP: ${enemy.hp}, alive: ${enemy.alive}`);
+    console.log(`Generated card for ${enemy.name} (id: ${enemy.id}) with HP: ${enemy.hp}, alive: ${enemy.alive}, boss: ${cardClasses.includes('boss')}`);
   });
 }
 
@@ -3152,7 +3285,7 @@ function summonedNPCTurn(summon) {
       } else {
         log(`${summon.name}'s healing washes over ${label}, but there is no effect.`);
       }
-      potion_sound.play().catch(e => console.log('Sound error:', e));
+      playSfxClip(potion_sound, 'Summon heal sound error');
 
       saveGameState();
       updateUI();
@@ -3323,8 +3456,7 @@ function spawnSummon(summonId) {
   updateSummonUI();
   
   // Play summon sound effect
-  summon_sound.currentTime = 0;
-  summon_sound.play().catch(err => console.log('Summon sound error:', err));
+  playSfxClip(summon_sound, 'Summon sound error');
   
   log(`${summonInstance.name} appears to aid you! (${summonInstance.remainingDuration} turns)`);
   
@@ -3465,10 +3597,12 @@ function companionTurn() {
   // If either is low, apply a heal
   if (playerLow || companionLow) {
     const healTarget = playerLow ? player : companion;
-    const healAmt = Math.floor(Math.random() * (companion.support_power || 8) + 5);    healTarget.hp += healAmt;
+    const healAmt = Math.floor(Math.random() * (companion.support_power || 8) + 5);
+    healTarget.hp += healAmt;
     log(`${companion.name} heals ${healTarget === player ? "you" : companion.name} for ${healAmt} HP!`);
     // Play potion sound for healing
-    potion_sound.play().catch(e => console.log("Sound error:", e));  } else {
+    playSfxClip(potion_sound, 'Companion heal sound error');
+  } else {
     // Double-check that our target is actually valid before attacking
     if (!targetEnemy || targetEnemy.hp <= 0 || targetEnemy.alive === false) {
       console.log("Target enemy is invalid or already defeated - skipping companion attack");
@@ -3662,6 +3796,373 @@ function handleCharmedAllyTurn(ally) {
   }, 1000);
 }
 
+// ========================
+// Enemy Ability System (Boss Summoning, Special Attacks)
+// ========================
+
+/**
+ * Creates an enemy instance from a template and adds it to combat
+ * @param {string} enemyId - The ID of the enemy template to spawn
+ * @param {boolean} isSummon - If true, marks enemy as a summoned minion (smaller card)
+ * @returns {object|null} The spawned enemy instance or null if failed
+ */
+function spawnEnemyMinion(enemyId, isSummon = true) {
+  const template = enemyTemplates.find(e => e.id === enemyId);
+  if (!template) {
+    console.error(`[Summon] Enemy template not found for id: ${enemyId}`);
+    return null;
+  }
+  
+  // Extract base stats
+  const baseStats = template.base_stats || {};
+  const hp = baseStats.hp ?? template.hp ?? 10;
+  const init = baseStats.init ?? template.init ?? 5;
+  const sanityDamage = baseStats.sanity_damage ?? template.sanityDamage ?? 0;
+  const defense = baseStats.defense ?? template.defense ?? 0;
+  const basicAttack = baseStats.basic_attack ?? template.basic_attack ?? null;
+  
+  // Generate unique instance ID
+  const instanceId = `${enemyId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  
+  // Find the next available position
+  const usedPositions = enemies.filter(e => e.alive !== false).map(e => e.position || 0);
+  let nextPosition = 1;
+  while (usedPositions.includes(nextPosition)) nextPosition++;
+  
+  const enemyInstance = {
+    id: template.id,
+    instanceId: instanceId,
+    name: template.name,
+    gender: template.gender || 'o',
+    hp: hp,
+    maxHp: hp,
+    basic_attack: basicAttack,
+    sanityDamage: sanityDamage,
+    defense: defense,
+    init: init,
+    xp_reward: template.xp_reward ?? 0,
+    audio: template.audio ? { ...template.audio } : {},
+    alive: true,
+    position: nextPosition,
+    isSummonedMinion: isSummon, // Flag for smaller card styling
+    threat_level: template.threat_level || 1
+  };
+  
+  // Add to enemies array
+  enemies.push(enemyInstance);
+  
+  // Add to combatants array with initiative
+  const rollInit = init + (Math.floor(Math.random() * 7) - 3);
+  combatants.push({ type: 'enemy', data: enemyInstance, baseInit: init, rollInit: rollInit });
+  
+  // Re-sort combatants by initiative
+  combatants.sort((a, b) => b.rollInit - a.rollInit);
+  
+  console.log(`[Summon] Spawned ${enemyInstance.name} with HP: ${hp}, position: ${nextPosition}`);
+  
+  return enemyInstance;
+}
+
+/**
+ * Regenerates enemy cards in the DOM after spawning new enemies
+ */
+function regenerateEnemyCards() {
+  const enemyArea = document.getElementById("enemy-area");
+  if (!enemyArea) return;
+  
+  // Clear existing cards
+  enemyArea.innerHTML = '';
+  
+  // Regenerate all enemy cards
+  enemies.forEach((enemy, i) => {
+    if (enemy.alive === false || enemy.hp <= 0) return;
+    
+    const card = document.createElement('div');
+    
+    // Determine card classes based on enemy type
+    let cardClasses = 'portrait enemy';
+    if (enemy.isSummonedMinion) {
+      cardClasses += ' minion';
+    } else if (enemy.threat_level >= 4 || enemy.abilities?.length > 0) {
+      cardClasses += ' boss';
+    }
+    card.className = cardClasses;
+    card.id = `enemy-portrait-${i}`;
+    card.dataset.enemyId = enemy.id;
+    card.dataset.enemyIndex = i;
+    
+    const portraitPath = enemy.portrait || `assets/img/enemy_portrait/${enemy.id}.png`;
+    card.innerHTML = `
+      <img src="${portraitPath}" alt="${enemy.name}">
+      <div class="stats">
+        <div class="character-name"><span>${enemy.name}</span></div>
+        <div>HP: <span id="enemy-hp-${i}">${enemy.hp}</span></div>
+      </div>
+    `;
+    
+    card.addEventListener('click', () => {
+      handlePortraitClick({ type: 'enemy', data: enemy, index: i });
+    });
+    
+    enemyArea.appendChild(card);
+    
+    const img = card.querySelector('img');
+    if (img) {
+      img.dataset.originalSrc = portraitPath;
+    }
+    enemy.cardElementId = card.id;
+  });
+}
+
+/**
+ * Checks if any minions of specified types are alive
+ * @param {string[]} minionIds - Array of enemy IDs to check for
+ * @returns {boolean} True if at least one minion of the specified types is alive
+ */
+function hasLivingMinions(minionIds) {
+  return enemies.some(e => 
+    e.alive !== false && 
+    e.hp > 0 && 
+    minionIds.includes(e.id)
+  );
+}
+
+/**
+ * Handles enemy ability execution (summoning, special attacks)
+ * @param {object} enemy - The enemy executing the ability
+ * @returns {boolean} True if an ability was executed, false otherwise
+ */
+function handleEnemyAbilities(enemy) {
+  // Check if enemy has abilities defined
+  if (!enemy.abilities || !enemy.abilities.length) {
+    return false;
+  }
+  
+  const aiLogic = enemy.ai_logic || {};
+  
+  // Check summoning priority - if AI says summon when no minions
+  if (aiLogic.summon_if_no_minions) {
+    const summonAbility = enemy.abilities.find(a => a.type === 'summon');
+    if (summonAbility) {
+      const summonIds = summonAbility.summon_ids || [];
+      if (!hasLivingMinions(summonIds)) {
+        executeSummonAbility(enemy, summonAbility);
+        return true;
+      }
+    }
+  }
+  
+  // Use preferred ability order if defined
+  const preferredOrder = aiLogic.preferred_ability_order || enemy.abilities.map(a => a.id);
+  
+  for (const abilityId of preferredOrder) {
+    const ability = enemy.abilities.find(a => a.id === abilityId);
+    if (!ability) continue;
+    
+    // Skip summon if we already have minions (handled above)
+    if (ability.type === 'summon' && aiLogic.summon_if_no_minions) {
+      const summonIds = ability.summon_ids || [];
+      if (hasLivingMinions(summonIds)) continue;
+    }
+    
+    // Roll for ability chance
+    if (Math.random() > (ability.chance || 0.5)) continue;
+    
+    // Execute ability based on type
+    switch (ability.type) {
+      case 'summon':
+        executeSummonAbility(enemy, ability);
+        return true;
+      case 'sanity_attack':
+        executeSanityAttackAbility(enemy, ability);
+        return true;
+      case 'hp_attack':
+        executeHPAttackAbility(enemy, ability);
+        return true;
+      default:
+        console.log(`[Ability] Unknown ability type: ${ability.type}`);
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Executes a summon-type ability
+ */
+function executeSummonAbility(enemy, ability) {
+  const summonIds = ability.summon_ids || [];
+  const summonCount = ability.summon_count || { min: 1, max: 1 };
+  const count = Math.floor(Math.random() * (summonCount.max - summonCount.min + 1)) + summonCount.min;
+  
+  log(`🌀 ${enemy.name} uses ${ability.name}!`);
+  log(`📖 ${ability.description}`);
+  
+  // Play summon sound
+  if (summon_sound) {
+    playSfxClip(summon_sound, 'Summon sound error');
+  }
+  
+  setTimeout(() => {
+    const spawnedNames = [];
+    for (let i = 0; i < count; i++) {
+      const randomId = summonIds[Math.floor(Math.random() * summonIds.length)];
+      const spawned = spawnEnemyMinion(randomId, true);
+      if (spawned) {
+        spawnedNames.push(spawned.name);
+      }
+    }
+    
+    if (spawnedNames.length > 0) {
+      log(`👁️ ${spawnedNames.join(', ')} ${spawnedNames.length > 1 ? 'emerge' : 'emerges'} from the void!`);
+      regenerateEnemyCards();
+      updateUI();
+    }
+    
+    saveGameState();
+    setTimeout(nextTurn, 1500);
+  }, 1000);
+}
+
+/**
+ * Executes a sanity attack ability (hits all party members)
+ */
+function executeSanityAttackAbility(enemy, ability) {
+  log(`🌀 ${enemy.name} uses ${ability.name}!`);
+  log(`📖 ${ability.description}`);
+  
+  playAttackSound();
+  
+  setTimeout(() => {
+    const sanityDmg = ability.sanity_damage 
+      ? rollFromDiceSpec(ability.sanity_damage) 
+      : enemy.sanityDamage || 5;
+    
+    // Hit player
+    const playerSanityBefore = player.sanity;
+    player.sanity = Math.max(0, player.sanity - sanityDmg);
+    flashDamage('player-portrait');
+    
+    if (playerSanityBefore > 0 && player.sanity === 0) {
+      log(`🌀 Your mind shatters... but you fight on through the madness!`);
+      maybeAddPhantomLog(1.0);
+    }
+    
+    // Hit companion if alive
+    if (companion.alive && companion.hp > 0) {
+      companion.sanity = Math.max(0, (companion.sanity || 100) - sanityDmg);
+      flashDamage('ally-portrait');
+    }
+    
+    log(`💀 The ${ability.name} tears at your minds! Sanity -${sanityDmg} to all!`);
+    
+    updateSanityState();
+    
+    // Play hurt sounds
+    const playerSounds = player.gender === 'f' ? cryptonaut_female_hurt_sounds : 
+                        player.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
+    playRandomSound(playerSounds);
+    
+    updateUI();
+    saveGameState();
+    
+    if (!combatEnded) {
+      setTimeout(nextTurn, 2000);
+    }
+  }, 1000);
+}
+
+/**
+ * Executes an HP attack ability with optional status effects
+ */
+function executeHPAttackAbility(enemy, ability) {
+  log(`⚔️ ${enemy.name} uses ${ability.name}!`);
+  log(`📖 ${ability.description}`);
+  
+  playAttackSound();
+  
+  setTimeout(() => {
+    // Determine target (prioritize injured party members for "predator" feel)
+    const targetIsPlayer = !companion.alive || companion.hp <= 0 || Math.random() < 0.6;
+    const target = targetIsPlayer ? player : companion;
+    const targetName = targetIsPlayer ? 'you' : companion.name;
+    const portraitId = targetIsPlayer ? 'player-portrait' : 'ally-portrait';
+    
+    // Calculate damage
+    const dmg = ability.damage 
+      ? rollFromDiceSpec(ability.damage) 
+      : rollFromDiceSpec(enemy.basic_attack);
+    
+    const final = applyDamageToTarget(target, dmg, 'physical');
+    flashDamage(portraitId);
+    
+    log(`☠ The ${ability.name} strikes ${targetName} for ${final} damage (${dmg} raw)!`);
+    
+    // Apply status effect if defined
+    if (ability.effect && Math.random() < (ability.effect.chance || 0.5)) {
+      const effectType = ability.effect.type;
+      applyStatusEffect(target, effectType, ability.effect.duration || 3, ability.effect.damage_per_turn || 0);
+      log(`🩸 ${targetIsPlayer ? 'You are' : companion.name + ' is'} afflicted with ${effectType}!`);
+    }
+    
+    // Play hurt/death sounds
+    const hurtSounds = target.gender === 'f' ? cryptonaut_female_hurt_sounds : 
+                      target.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
+    const deathSounds = target.gender === 'f' ? party_death_female_sound : 
+                       target.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+    
+    if (target.hp <= 0) {
+      if (target.alive !== false) {
+        target.alive = false;
+        animateAllyDeath(portraitId);
+        playRandomSound(deathSounds);
+        
+        if (targetIsPlayer) {
+          stopCombatMusic();
+          combatEnded = true;
+          log("💀 You collapse from your injuries. Game over.");
+          disableActions();
+          playMusicTrack(defeatMusic, 'Defeat music error', { reset: true });
+          return;
+        } else {
+          log(`${companion.name} falls unconscious!`);
+          rebuildCombatants();
+        }
+      }
+    } else {
+      playRandomSound(hurtSounds);
+    }
+    
+    updateUI();
+    saveGameState();
+    
+    if (!combatEnded) {
+      setTimeout(nextTurn, 2000);
+    }
+  }, 1000);
+}
+
+/**
+ * Helper to apply status effects (poison, bleed, etc.)
+ */
+function applyStatusEffect(target, effectType, duration, damagePerTurn) {
+  if (!target.statusEffects) target.statusEffects = [];
+  
+  // Check if effect already exists
+  const existing = target.statusEffects.find(e => e.type === effectType);
+  if (existing) {
+    // Refresh duration
+    existing.duration = Math.max(existing.duration, duration);
+    existing.damagePerTurn = Math.max(existing.damagePerTurn || 0, damagePerTurn);
+  } else {
+    target.statusEffects.push({
+      type: effectType,
+      duration: duration,
+      damagePerTurn: damagePerTurn
+    });
+  }
+}
+
 function enemyTurn(enemy) {
   // If the enemy is not alive or has HP <= 0, skip the turn
   if (!enemy || !enemy.alive || enemy.hp <= 0) {
@@ -3683,6 +4184,15 @@ function enemyTurn(enemy) {
   if (isCharmed(enemy)) {
     handleCharmedEnemyTurn(enemy);
     return;
+  }
+  
+  // Check for special abilities first (summoning, special attacks)
+  if (enemy.abilities && enemy.abilities.length > 0) {
+    const usedAbility = handleEnemyAbilities(enemy);
+    if (usedAbility) {
+      // Ability was executed, it handles its own nextTurn call
+      return;
+    }
   }
   
   // Simple AI that sometimes targets the player more often if the player has low HP
@@ -3790,8 +4300,7 @@ function enemyTurn(enemy) {
       log("💀 You collapse from your injuries. Game over.");
       disableActions(); // Player can no longer act
       // Play defeat music
-      defeatMusic.currentTime = 0;
-      defeatMusic.play().catch(err => console.log('Defeat music error:', err));
+      playMusicTrack(defeatMusic, 'Defeat music error', { reset: true });
       return;
     }
   
@@ -3823,8 +4332,7 @@ function playAttackSound() {
   if (!attackSounds.length) return;
   const idx = Math.floor(Math.random() * attackSounds.length);
   const sound = attackSounds[idx];
-  sound.currentTime = 0;
-  sound.play().catch(err => console.log('Sound error:', err));
+  playSfxClip(sound, 'Attack sound error');
 }
 
 // ========================
@@ -3918,9 +4426,12 @@ function handleVictory() {
   log("🏆 Victory! All enemies have been defeated!");
   console.log("Combat victory triggered!");
   
+  // Save combat log for post-mortem
+  saveCombatLog();
+  
   disableActions(); // Stop the player from clicking actions
     // Play the victory sound
-  victorySound.play().catch(e => console.log("Sound error:", e));
+  playMusicTrack(victorySound, 'Victory sound error', { reset: true });
   
   // Save final game state
   saveGameState();
@@ -3931,14 +4442,17 @@ function handleVictory() {
     return;
   }
   
-  // Show victory screen
+  // Standalone combat victory - redirect to game end screen
   setTimeout(() => {
-    document.getElementById('victory-screen')?.classList.add('visible');
-  }, 1500);
+    redirectToGameEndFromCombat('victory');
+  }, 3000);
 }
 
 // Handle return to exploration after combat
 function handleExplorationReturn(victory) {
+  // Save combat log for post-mortem narrative
+  saveCombatLog();
+  
   // Store combat result for exploration to pick up
   const combatResult = {
     victory: victory,
@@ -3992,14 +4506,16 @@ function checkLossCondition() {
     log("💀 You collapse from your injuries. Game over.");
     disableActions();
     
+    // Save combat log for post-mortem
+    saveCombatLog();
+    
     // Play death sound
     const deathSounds = player.gender === 'f' ? party_death_female_sound :
                         player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
     playRandomSound(deathSounds);
     
     // Play defeat music
-    defeatMusic.currentTime = 0;
-    defeatMusic.play().catch(err => console.log('Defeat music error:', err));
+    playMusicTrack(defeatMusic, 'Defeat music error', { reset: true });
     
     // Check if returning to exploration (for game over handling)
     if (window.fromExploration) {
@@ -4007,10 +4523,45 @@ function checkLossCondition() {
       return true;
     }
     
-    // Could show a defeat screen here
+    // Standalone combat - redirect to game end screen
+    setTimeout(() => {
+      redirectToGameEndFromCombat('defeat');
+    }, 3000);
     return true;
   }
   return false;
+}
+
+// Redirect to game end screen from standalone combat
+function redirectToGameEndFromCombat(outcome) {
+  // Prepare end state data
+  const endData = {
+    outcome: outcome,
+    player: {
+      name: player.name || 'Cryptonaut',
+      hp: player.hp,
+      maxHp: player.maxHp,
+      portrait: player.portrait
+    },
+    companion: companion ? {
+      name: companion.name,
+      hp: companion.hp,
+      maxHp: companion.maxHp,
+      portrait: companion.portrait
+    } : null,
+    stats: {
+      roomsExplored: 0,
+      battlesFought: 1,
+      enemiesDefeated: enemies.filter(e => e.alive === false || e.hp <= 0).length,
+      itemsUsed: 0
+    }
+  };
+  
+  // Store in sessionStorage
+  sessionStorage.setItem('gameEndOutcome', JSON.stringify(endData));
+  
+  // Navigate to game end screen
+  window.location.href = 'game_end.html';
 }
 
 // ========================
@@ -4030,6 +4581,9 @@ function saveGameState() {
 // Logging Utility
 // ========================
 // Adds text to the 'combat-log' div at the bottom of the screen.
+// Also tracks combat events for post-mortem narrative.
+let combatEventLog = [];
+
 function log(text) {
   const logDiv = document.getElementById('combat-log');
   if (!logDiv) return; // If there's no log element, skip
@@ -4039,6 +4593,28 @@ function log(text) {
   
   logDiv.innerHTML += `<div>> ${displayText}</div>`; // Append a new line
   logDiv.scrollTop = logDiv.scrollHeight;     // Auto-scroll to bottom
+  
+  // Track important combat events for post-mortem (use original text, not scrambled)
+  if (text && !text.includes('Initiative') && !text.includes('turn')) {
+    combatEventLog.push(text);
+    // Limit to 50 events per combat
+    if (combatEventLog.length > 50) {
+      combatEventLog.shift();
+    }
+  }
+}
+
+function saveCombatLog() {
+  try {
+    sessionStorage.setItem('combatLog', JSON.stringify(combatEventLog));
+  } catch (e) {
+    console.warn('Could not save combat log:', e);
+  }
+}
+
+function clearCombatLog() {
+  combatEventLog = [];
+  sessionStorage.removeItem('combatLog');
 }
 
 // ========================

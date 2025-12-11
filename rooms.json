@@ -256,6 +256,6 @@
     "room_04_flooded_stair": ["mossleech", "leech_swarm", "drowned_acolyte"],
     "room_05_chanting_hall": ["cultist", "priestess", "drowned_acolyte"],
     "room_06_dreaming_vault": ["dream_eater", "flesh_golem"],
-    "room_boss_sanctum": ["dream_eater", "flesh_golem", "pit_butcher"]
+    "room_boss_sanctum": ["astral_summoner"]
   }
 }

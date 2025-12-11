@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptonauts - Journey's End</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="game_end.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23090a14'/%3E%3Cpath d='M8 8h16v16H8z' fill='%23c4a46b'/%3E%3C/svg%3E">
+</head>
+<body class="game-end-body">
+  <div id="game-end-screen">
+    <!-- Background overlay -->
+    <div id="end-backdrop"></div>
+    
+    <!-- Main content container -->
+    <div id="end-content">
+      <!-- Result header (Victory/Defeat) -->
+      <div id="end-header">
+        <h1 id="end-title">Journey's End</h1>
+        <p id="end-subtitle"></p>
+      </div>
+      
+      <!-- Party status display -->
+      <div id="party-status">
+        <div id="player-final" class="final-portrait">
+          <img id="player-final-img" src="" alt="Player">
+          <div class="final-name" id="player-final-name"></div>
+          <div class="final-status" id="player-final-status"></div>
+        </div>
+        <div id="companion-final" class="final-portrait">
+          <img id="companion-final-img" src="" alt="Companion">
+          <div class="final-name" id="companion-final-name"></div>
+          <div class="final-status" id="companion-final-status"></div>
+        </div>
+      </div>
+      
+      <!-- Post-mortem narrative section -->
+      <div id="narrative-section">
+        <h2 id="narrative-header">The Tale of Your Journey</h2>
+        <div id="narrative-loading" class="narrative-loading">
+          <div class="loading-spinner"></div>
+          <p>The chronicler pens your tale...</p>
+        </div>
+        <div id="narrative-content" class="narrative-content hidden">
+          <p id="narrative-text"></p>
+        </div>
+        <div id="narrative-error" class="narrative-error hidden">
+          <p>The chronicler's quill has run dry. Your tale remains untold.</p>
+        </div>
+      </div>
+      
+      <!-- Statistics summary -->
+      <div id="stats-section">
+        <h3>Expedition Statistics</h3>
+        <div id="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Rooms Explored</span>
+            <span class="stat-value" id="stat-rooms">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Battles Fought</span>
+            <span class="stat-value" id="stat-battles">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Enemies Defeated</span>
+            <span class="stat-value" id="stat-enemies">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Items Used</span>
+            <span class="stat-value" id="stat-items">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action buttons -->
+      <div id="end-actions">
+        <button id="btn-new-game" class="end-btn primary">New Expedition</button>
+        <button id="btn-main-menu" class="end-btn">Main Menu</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Audio elements -->
+  <audio id="end-screen-music" src="music/end_screen_music.mp3" preload="auto" loop></audio>
+  
+  <script src="item_system.js"></script>
+  <script src="inventory_state.js"></script>
+  <script src="game_end.js"></script>
+</body>
+</html>
