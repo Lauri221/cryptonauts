@@ -44,9 +44,9 @@
         "effects": ["bleeding", 0.25]
       },
       "audio": {
-        "voice_hurt": "enemy_monster_hurt",
-        "voice_death": "enemy_monster_death",
-        "voice_combat_start": "enemy_monster_combat_start"
+        "voice_hurt": "enemy_insect_hurt",
+        "voice_death": "enemy_insect_death",
+        "voice_combat_start": "enemy_insect_combat_start"
       },
       "xp_reward": 15
     },
@@ -146,7 +146,7 @@
       "audio": {
         "voice_hurt": "enemy_insect_hurt",
         "voice_death": "enemy_insect_death",
-        "voice_combat_start": "growl_combat_start"
+        "voice_combat_start": "enemy_insect_hurt"
       },
       "xp_reward": 10
     },
@@ -194,9 +194,9 @@
         "effects": []
       },
       "audio": {
-        "voice_hurt": "enemy_male_hurt",
-        "voice_death": "enemy_male_death",
-        "voice_combat_start": "enemy_male_combat_start"
+        "voice_hurt": "enemy_beast_hurt",
+        "voice_death": "enemy_beast_death",
+        "voice_combat_start": "enemy_beast_combat_start"
       },
       "xp_reward": 10
     },
@@ -244,9 +244,9 @@
         "effects": []
       },
       "audio": {
-        "voice_hurt": "enemy_icnset_hurt",
+        "voice_hurt": "enemy_insect_hurt",
         "voice_death": "enemy_insect_death",
-        "voice_combat_start": "enemy_insect_combat_start"
+        "voice_combat_start": "enemy_insect_hurt"
       },
       "xp_reward": 10
     },
@@ -296,7 +296,7 @@
       "audio": {
         "voice_hurt": "enemy_insect_hurt",
         "voice_death": "enemy_insect_death",
-        "voice_combat_start": "enemy_insect_combat_start"
+        "voice_combat_start": "enemy_insect_hurt"
       },
       "xp_reward": 30
     },

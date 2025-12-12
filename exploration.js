@@ -34,6 +34,17 @@ const SANITY_STATES = {
   BROKEN: 'broken'
 };
 
+const VALID_STATUS_EFFECT_IDS = [
+  'stun',
+  'poison',
+  'fire',
+  'bleeding',
+  'charmed',
+  'attack_up',
+  'defense_up',
+  'sanity_regen'
+];
+
 const ROOM_OPTION_COUNT = 8;
 const ROOM_SELECTION_LIMIT = 6;
 const ROOM_HISTORY_MAX_ENTRIES = 50;
@@ -74,7 +85,7 @@ Always respond with valid JSON matching this TypeScript type:
 interface GeminiExplorationResponse {
   narration: string;
   logMessages: string[];
-  choices: Array<{ id: string; label: string; type?: 'move' | 'action' | 'rest' | 'lore'; description?: string; targetRoom?: string }>;
+  choices: Array<{ id: string; label: string; type?: 'move' | 'action' | 'rest' | 'lore' | 'combat'; description?: string; targetRoom?: string }>;
   effects: {
     hpChanges?: Array<{ target: 'player' | 'companion' | 'party'; amount: number; reason?: string }>;
     sanityChanges?: Array<{ target: 'player' | 'companion' | 'party'; amount: number; reason?: string }>;
@@ -292,6 +303,12 @@ const explorationOptionSounds = OPTION_SFX_FILES.map(path => {
   return audio;
 });
 
+const combatEventSound = (() => {
+  const audio = new Audio('./sound/event_combat.mp3');
+  audio.preload = 'auto';
+  return audio;
+})();
+
 function playExplorationSfx(audio) {
   if (!audio) return;
   const volume = (gameSettings.sfxVolume || 60) / 100;
@@ -304,6 +321,10 @@ function playRandomExplorationOptionSound() {
   if (!explorationOptionSounds.length) return;
   const clip = explorationOptionSounds[Math.floor(Math.random() * explorationOptionSounds.length)];
   playExplorationSfx(clip);
+}
+
+function playCombatEventSfx() {
+  playExplorationSfx(combatEventSound);
 }
 
 function updateMusicVolume() {
@@ -1265,6 +1286,7 @@ function buildGeminiPrompt(phase, choiceId, room) {
   prompt += `Current room:\n${JSON.stringify(roomContext, null, 2)}\n\n`;
   prompt += `Valid item IDs: ${JSON.stringify(roomsData.validItemIds)}\n`;
   prompt += `Valid enemy IDs: ${JSON.stringify(roomsData.validEnemyIds)}\n\n`;
+  prompt += `Valid status effect IDs: ${JSON.stringify(VALID_STATUS_EFFECT_IDS)}\n\n`;
   prompt += `The UI will present 8 options per room. Provide as many rich, distinct choices as possible (we will pad if needed) and ensure at least one option could plausibly trigger combat (use type "combat" when appropriate). Each option is single-use per visit, so vary the intent and stakes.\n\n`;
   
   if (phase === 'ROOM_ENTRY') {
@@ -1321,6 +1343,24 @@ function validateGeminiResponse(response, room) {
       }
       return true;
     });
+  }
+
+  if (response.effects.statusEffects) {
+    response.effects.statusEffects = response.effects.statusEffects
+      .map(entry => {
+        if (!entry || !entry.effectId) {
+          return null;
+        }
+        if (!VALID_STATUS_EFFECT_IDS.includes(entry.effectId)) {
+          console.warn(`[Exploration] Invalid status effect: ${entry.effectId}`);
+          return null;
+        }
+        const action = (entry.addOrRemove || entry.action || 'add').toLowerCase() === 'remove'
+          ? 'remove'
+          : 'add';
+        return { ...entry, action, addOrRemove: action };
+      })
+      .filter(Boolean);
   }
   
   // Ensure at least one choice exists
@@ -1467,29 +1507,40 @@ function generateFallbackChoices(room) {
 // ========================
 // Effect Application
 // ========================
+function normalizeEffectDelta(entry) {
+  if (!entry) return 0;
+  const raw = entry.delta ?? entry.amount ?? entry.value ?? 0;
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 function applyEffects(effects) {
   if (!effects) return;
   
   // HP changes
   if (effects.hpChanges) {
     effects.hpChanges.forEach(change => {
-      applyHpChange(change.target, change.delta, change.reason);
+      const delta = normalizeEffectDelta(change);
+      if (delta !== 0) {
+        applyHpChange(change.target, delta, change.reason);
+      }
     });
   }
   
   // Sanity changes
   if (effects.sanityChanges) {
     effects.sanityChanges.forEach(change => {
-      applySanityChange(change.target, change.delta, change.reason);
+      const delta = normalizeEffectDelta(change);
+      if (delta !== 0) {
+        applySanityChange(change.target, delta, change.reason);
+      }
     });
   }
   
   // Inventory changes
   if (effects.inventoryChanges) {
     effects.inventoryChanges.forEach(change => {
-      const delta = (typeof change.delta === 'number')
-        ? change.delta
-        : (typeof change.amount === 'number' ? change.amount : 0);
+      const delta = normalizeEffectDelta(change);
       if (change.itemId && delta !== 0) {
         applyInventoryChange(change.itemId, delta, change.reason);
       }
@@ -1499,7 +1550,8 @@ function applyEffects(effects) {
   // Status effects
   if (effects.statusEffects) {
     effects.statusEffects.forEach(change => {
-      applyStatusEffect(change.target, change.effectId, change.addOrRemove, change.reason);
+      const action = change.addOrRemove || change.action || 'add';
+      applyStatusEffect(change.target, change.effectId, action, change.reason);
     });
   }
   
@@ -1597,8 +1649,15 @@ function applyInventoryChange(itemId, delta, reason) {
 }
 
 function applyStatusEffect(target, effectId, addOrRemove, reason) {
+  if (!effectId || !VALID_STATUS_EFFECT_IDS.includes(effectId)) {
+    console.warn(`[Exploration] Ignoring unsupported status effect: ${effectId}`);
+    return;
+  }
   const targets = getTargets(target);
   targets.forEach(char => {
+    if (!Array.isArray(char.statusEffects)) {
+      char.statusEffects = [];
+    }
     if (addOrRemove === 'add') {
       if (!char.statusEffects.includes(effectId)) {
         char.statusEffects.push(effectId);
@@ -2330,6 +2389,7 @@ function triggerCombatTransition(combatData) {
   transitionEl.classList.remove('hidden');
   
   logEvent(`⚔️ ${combatData.reason || 'Combat begins!'}`, 'warning');
+  playCombatEventSfx();
   
   // Stop exploration music when entering combat
   stopAllMusic();

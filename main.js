@@ -426,7 +426,7 @@ let combatEnded = false;
 // Default action set in case a character JSON omits custom moves
 const DEFAULT_ACTIONS = ['attack', 'defend', 'element', 'item'];
 
-const DEATH_CARD_IMAGE = 'assets/img/death.png';
+const DEATH_CARD_IMAGE = 'assets/img/enemy_portrait/death.png';
 
 // Tracks whether the player has already clicked to begin combat/audio
 let combatInitialized = false;
@@ -908,6 +908,28 @@ let defendSound = new Audio('./sound/shield.mp3');
 let potion_sound = new Audio('./sound/potion.mp3');
 let summon_sound = new Audio('./sound/summon.mp3');
 
+let spellAttackSounds = [
+  new Audio('./sound/attack_spell.mp3'),
+  new Audio('./sound/fire_blast.mp3')
+];
+
+let poisonAttackSounds = [
+  new Audio('./sound/poison.mp3')
+];
+
+let healSpellSounds = [
+  new Audio('./sound/heal.mp3')
+];
+
+let sanityRestoreSounds = [
+  new Audio('./sound/ting.mp3')
+];
+
+let sanityAttackSounds = [
+  new Audio('./sound/curse.mp3'),
+  new Audio('./sound/cat_hiss.mp3')
+];
+
 // Enemy death sound effects
 let enemy_death_male_sound = [
   new Audio('./sound/enemy_male_death_01.mp3'),
@@ -1069,6 +1091,12 @@ function attemptFlee() {
       redirectToGameEndFromCombat('defeat');
     }, 1500);
   }
+}
+
+function returnToMainMenu() {
+  stopCombatMusic();
+  disableActions();
+  window.location.href = 'start_screen.html';
 }
 
 function applyFleePenaltyToParty() {
@@ -1632,8 +1660,13 @@ const musicCollections = [
 const sfxCollections = [
   [levelUpSound],
   attackSounds,
+  spellAttackSounds,
+  poisonAttackSounds,
   [defendSound],
   [potion_sound],
+  healSpellSounds,
+  sanityRestoreSounds,
+  sanityAttackSounds,
   [summon_sound],
   cryptonaut_male_hurt_sounds,
   cryptonaut_female_hurt_sounds,
@@ -1770,20 +1803,6 @@ function renderActionButtons(actionList = []) {
     button.addEventListener('click', () => chooseAction(action.id));
     container.appendChild(button);
   });
-
-  appendFleeButton(container);
-}
-
-function appendFleeButton(container) {
-  if (!container) return;
-  const fleeButton = document.createElement('button');
-  fleeButton.type = 'button';
-  fleeButton.dataset.action = 'flee';
-  fleeButton.textContent = 'Flee';
-  fleeButton.title = 'Retreat from combat, losing 50% of current HP and sanity.';
-  fleeButton.classList.add('flee-action-btn');
-  fleeButton.addEventListener('click', () => chooseAction('flee'));
-  container.appendChild(fleeButton);
 }
 
 function getLivingEnemies() {
@@ -1941,6 +1960,7 @@ function getLevelRule(ability, characterLevel) {
 function applyEffect(effect, caster, targets, levelRule) {
   const targetArray = Array.isArray(targets) ? targets : [targets];
   const results = [];
+  let effectAudioPlayed = false;
   
   // Calculate adjusted chance
   let chance = effect.chance || 1.0;
@@ -1977,6 +1997,10 @@ function applyEffect(effect, caster, targets, levelRule) {
         const applied = applyDamageToTarget(target, magnitude, dmgType);
         results.push({ target, success: true, type: 'damage', amount: applied, raw: magnitude });
         log(`${target.name} takes ${applied} ${dmgType} damage (raw ${magnitude})!`);
+        if (!effectAudioPlayed && dmgType !== 'physical') {
+          playMagicDamageSound(dmgType);
+          effectAudioPlayed = true;
+        }
         break;
       }
       
@@ -1988,6 +2012,10 @@ function applyEffect(effect, caster, targets, levelRule) {
         const healed = target[resource] - before;
         results.push({ target, success: true, type: 'heal', resource, amount: healed });
         log(`${target.name} recovers ${healed} ${resource}!`);
+        if (!effectAudioPlayed && healed > 0) {
+          playHealingSound(resource);
+          effectAudioPlayed = true;
+        }
         break;
       }
       
@@ -2031,6 +2059,13 @@ function applyEffect(effect, caster, targets, levelRule) {
         }
         
         results.push({ target, success: true, type: 'status', status: effect.status_id });
+        if (!effectAudioPlayed) {
+          const elementalType = statusDef.damage_type;
+          if (elementalType && elementalType !== 'physical') {
+            playMagicDamageSound(elementalType);
+            effectAudioPlayed = true;
+          }
+        }
         break;
       }
 
@@ -2777,12 +2812,40 @@ function playRandomSound(soundArray) {
   playSfxClip(sound, 'Random sound error');
 }
 
+const SANITY_DAMAGE_TYPES = new Set(['sanity', 'psychic', 'mind', 'mental']);
+
+function getMagicSoundPool(damageType) {
+  const normalized = (damageType || 'magic').toString().toLowerCase();
+  if (SANITY_DAMAGE_TYPES.has(normalized)) {
+    return sanityAttackSounds;
+  }
+  if (normalized === 'poison') {
+    return poisonAttackSounds;
+  }
+  return spellAttackSounds;
+}
+
+function playMagicDamageSound(damageType) {
+  playRandomSound(getMagicSoundPool(damageType));
+}
+
+function playHealingSound(resource = 'hp') {
+  const normalized = (resource || 'hp').toString().toLowerCase();
+  const pool = normalized === 'sanity' ? sanityRestoreSounds : healSpellSounds;
+  playRandomSound(pool);
+}
+
+function playSanityAttackSound() {
+  playRandomSound(sanityAttackSounds);
+}
+
 // ========================
 // Initial Setup
 // ========================
 // Wait for the DOM to load, then wire up the combat start overlay/button.
 document.addEventListener("DOMContentLoaded", () => {
   setupCombatStartOverlay();
+  setupCombatControls();
   setupItemSelectionUI();
   checkExplorationParams();
 });
@@ -2802,25 +2865,44 @@ function checkExplorationParams() {
 }
 
 function setupCombatStartOverlay() {
-  const startButton = document.getElementById('start-combat-button');
   const overlay = document.getElementById('combat-start-overlay');
-  if (!startButton) {
+  if (!overlay) {
     loadCombatData();
     return;
   }
-  startButton.addEventListener('click', async () => {
+
+  const beginCombat = async () => {
     if (combatInitialized) return;
     combatInitialized = true;
-    startButton.disabled = true;
     await unlockAudioPlayback();
-    if (overlay) {
-      overlay.style.opacity = '0';
-      overlay.style.pointerEvents = 'none';
-      overlay.setAttribute('aria-hidden', 'true');
-      setTimeout(() => overlay.remove(), 400);
-    }
+    overlay.setAttribute('aria-hidden', 'true');
+    setTimeout(() => overlay.remove(), 500);
     loadCombatData();
+  };
+
+  overlay.addEventListener('click', beginCombat);
+  overlay.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      beginCombat();
+    }
   });
+}
+
+function setupCombatControls() {
+  const fleeButton = document.getElementById('btn-combat-flee');
+  if (fleeButton) {
+    fleeButton.addEventListener('click', () => chooseAction('flee'));
+  }
+
+  const mainMenuButton = document.getElementById('btn-main-menu');
+  if (mainMenuButton) {
+    mainMenuButton.addEventListener('click', () => {
+      const confirmed = confirm('Leave combat and return to the main menu? Current encounter progress will be lost.');
+      if (!confirmed) return;
+      returnToMainMenu();
+    });
+  }
 }
 
 function setupItemSelectionUI() {
@@ -4300,7 +4382,7 @@ function executeSanityAttackAbility(enemy, ability) {
   log(`🌀 ${enemy.name} uses ${ability.name}!`);
   log(`📖 ${ability.description}`);
   
-  playAttackSound();
+  playSanityAttackSound();
   
   setTimeout(() => {
     const sanityDmg = ability.sanity_damage 
@@ -4484,8 +4566,12 @@ function enemyTurn(enemy) {
     // Otherwise 60% chance to attack player
     targetIsPlayer = (Math.random() < 0.6);
   }
-    // Play attack sound for enemy
-  playAttackSound();
+  const attackIncludesSanityDrain = (enemy.sanityDamage || 0) > 0;
+  if (attackIncludesSanityDrain) {
+    playSanityAttackSound();
+  } else {
+    playAttackSound();
+  }
   
   // Calculate damage for the attack using dice spec if available
   let dmg;

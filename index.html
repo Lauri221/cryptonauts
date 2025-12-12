@@ -9,18 +9,24 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23090a14'/%3E%3Cpath d='M8 8h16v16H8z' fill='%23c4a46b'/%3E%3C/svg%3E">
 </head>
 <body>
-  <div id="combat-start-overlay" class="combat-start-overlay" aria-hidden="false">
-    <div class="combat-start-message">
-      <h2>Prepare For Battle</h2>
-      <p>Click the button below to begin combat and enable audio.</p>
-      <button id="start-combat-button" type="button">Begin Combat</button>
+  <div id="combat-start-overlay" class="combat-start-overlay" aria-hidden="false" role="button" tabindex="0">
+    <div class="combat-start-inner">
+      <p class="overlay-prelude">something approaches...</p>
+      <h2>⚔️ Fight ⚔️</h2>
+      <p class="overlay-subtext">Click anywhere to begin the encounter.</p>
     </div>
   </div>
 
   <div id="combat-screen">
     <!-- Simplified title area -->
     <div id="battle-header">
-      <h1 id="encounter-title">Loading encounter...</h1>
+      <div class="header-left">
+        <h1 id="encounter-title">Loading encounter...</h1>
+      </div>
+      <div id="header-controls">
+        <button id="btn-main-menu" type="button" class="ghost-btn">Main Menu</button>
+        <button id="btn-combat-flee" type="button" class="flee-action-btn">Flee</button>
+      </div>
     </div>
 
     <div id="battle-area">
