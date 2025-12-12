@@ -13,6 +13,52 @@ let inventoryState = {};
 // Special effect handlers for items with complex behavior
 const effectHandlers = {};
 
+function cloneData(data) {
+  if (!data) return null;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(data);
+    } catch (error) {
+      // Fallback to JSON method below
+    }
+  }
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch (error) {
+    return null;
+  }
+}
+
+function getInventoryFallbackData() {
+  const scope = typeof window !== 'undefined' ? window : globalThis;
+  const fallback = scope?.__CRYPTONAUTS_FALLBACKS__?.inventory;
+  return cloneData(fallback);
+}
+
+function buildItemMap(rawData) {
+  if (!rawData) return {};
+
+  if (Array.isArray(rawData)) {
+    return rawData.reduce((map, item) => {
+      if (item?.item_id) {
+        map[item.item_id] = item;
+      }
+      return map;
+    }, {});
+  }
+
+  if (rawData.items && Array.isArray(rawData.items)) {
+    return rawData.items.reduce((map, item) => {
+      if (item?.item_id) {
+        map[item.item_id] = item;
+      }
+      return map;
+    }, {});
+  }
+
+  return rawData;
+}
+
 // ========================
 // Initialization
 // ========================
@@ -23,37 +69,33 @@ const effectHandlers = {};
  * @returns {Promise<Object>} - The loaded ItemDB
  */
 async function loadItemDatabase(jsonPath = './inventory.json') {
+  const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
+
   try {
+    if (isFileProtocol) {
+      throw new Error('File protocol detected; browser blocked fetch.');
+    }
     const response = await fetch(jsonPath);
     if (!response.ok) {
       throw new Error(`Failed to load item database from ${jsonPath}`);
     }
     const rawData = await response.json();
     
-    // Convert array to map keyed by item_id
-    if (Array.isArray(rawData)) {
-      ItemDB = rawData.reduce((map, item) => {
-        if (item?.item_id) {
-          map[item.item_id] = item;
-        }
-        return map;
-      }, {});
-    } else if (rawData.items && Array.isArray(rawData.items)) {
-      ItemDB = rawData.items.reduce((map, item) => {
-        if (item?.item_id) {
-          map[item.item_id] = item;
-        }
-        return map;
-      }, {});
-    } else {
-      ItemDB = rawData;
-    }
+    ItemDB = buildItemMap(rawData);
     
     console.log('Item database loaded:', Object.keys(ItemDB).length, 'items');
     return ItemDB;
   } catch (error) {
-    console.error('Error loading item database:', error);
-    return {};
+    console.warn('Error loading item database, attempting embedded fallback:', error);
+    const fallbackData = getInventoryFallbackData();
+    if (fallbackData) {
+      ItemDB = buildItemMap(fallbackData);
+      console.log('Item database loaded from embedded fallback:', Object.keys(ItemDB).length, 'items');
+      return ItemDB;
+    }
+    console.error('No inventory fallback data available. Item actions will be limited.');
+    ItemDB = {};
+    return ItemDB;
   }
 }
 

@@ -1,30 +1,53 @@
 {
-  "player": {
-    "hp": 50,
-    "sanity": 40,
-    "alive": true
+  "save_slot": "default",
+  "meta": {
+    "label": "Demo Slot",
+    "last_updated": "2025-12-12T00:00:00Z",
+    "notes": "Initial party with shared monk archetype"
   },
-  "ally": {
-    "hp": 30,
-    "sanity": 25,
-    "alive": true
-  },
-  "encounters": [
+  "party": [
     {
-      "id": "cultist_attack",
-      "backdrop": "combat",
-      "enemies": [
-        { "type": "cultist", "hp": 30, "alive": true }
-      ]
+      "slot": "player",
+      "name": "Cryptonaut",
+      "gender": "m",
+      "character_file": "characters.json",
+      "character_id": "monk",
+      "level": 0,
+      "xp": 0,
+      "xpToNextLevel": 50,
+      "hp": 30,
+      "sanity": 20,
+      "inventory": ["herbal_tonic"]
     },
     {
-      "id": "temple_entrance",
-      "backdrop": "forest",
-      "enemies": [
-        { "type": "priestess", "hp": 45, "alive": true },
-        { "type": "cultist", "hp": 30, "alive": true }
-      ]
+      "slot": "companion",
+      "name": "Lydia",
+      "gender": "f",
+      "character_file": "characters.json",
+      "character_id": "monk",
+      "level": 0,
+      "xp": 0,
+      "xpToNextLevel": 50,
+      "hp": 30,
+      "sanity": 20,
+      "inventory": ["herbal_tonic"]
     }
   ],
-  "currentEncounter": 0
+  "inventory": {
+    "vial_vital_humours": 2,
+    "tincture_of_lucidity": 1,
+    "herbal_tonic": 3
+  },
+  "encounter": {
+    "encounter_id": "astral_sanctum",
+    "encounter_name": "The Astral Summoner's Sanctum",
+    "background": "./assets/img/environment/ComfyUI_00901_.png",
+    "enemies": [
+      { "id": "astral_summoner", "position": 1 }
+    ],
+    "loot": {
+      "gold": 250,
+      "items": ["healing_potion", "sanity_tonic", "elixir_of_fortitude"]
+    }
+  }
 }

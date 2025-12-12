@@ -265,14 +265,159 @@ function cloneData(data) {
   }
 }
 
-const initialGameStateFromFile = (typeof window !== 'undefined' && window.initialGameState)
-  ? window.initialGameState
-  : null;
-if (initialGameStateFromFile) {
-  const clonedState = cloneData(initialGameStateFromFile);
-  if (clonedState) {
-    gameState = clonedState;
+const LOCAL_SERVER_HINT = 'Run a local web server (for example: "python -m http.server 8000") from the project folder, then open http://localhost:8000/index.html to avoid browser file restrictions.';
+
+function getEmbeddedFallbackData(key) {
+  if (!key) return null;
+  const scope = typeof window !== 'undefined' ? window : globalThis;
+  const bundle = scope?.__CRYPTONAUTS_FALLBACKS__;
+  if (!bundle || !bundle[key]) {
+    return null;
   }
+  return cloneData(bundle[key]);
+}
+
+let combatDataErrorShown = false;
+
+function showFatalDataError(message) {
+  if (combatDataErrorShown || typeof document === 'undefined') {
+    return;
+  }
+  combatDataErrorShown = true;
+  const overlay = document.createElement('div');
+  overlay.className = 'combat-start-overlay data-error-overlay';
+  overlay.setAttribute('role', 'alertdialog');
+
+  const container = document.createElement('div');
+  container.className = 'combat-start-message';
+  const heading = document.createElement('h2');
+  heading.textContent = 'Data Unavailable';
+  const body = document.createElement('p');
+  body.textContent = message;
+  const hint = document.createElement('p');
+  hint.textContent = LOCAL_SERVER_HINT;
+  container.append(heading, body, hint);
+  overlay.appendChild(container);
+  document.body.appendChild(overlay);
+}
+
+async function loadJsonResource(path, fallbackKey, { required = false, label = null } = {}) {
+  const descriptor = label || path;
+  const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
+
+  if (!isFileProtocol) {
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.warn(`[Combat] Failed to fetch ${path}, attempting fallback:`, error);
+    }
+  } else {
+    console.warn(`[Combat] file:// context detected, attempting fallback for ${path}.`);
+  }
+
+  const fallback = getEmbeddedFallbackData(fallbackKey);
+  if (fallback) {
+    console.log(`[Combat] Loaded ${descriptor} from embedded fallback.`);
+    return fallback;
+  }
+
+  if (required) {
+    showFatalDataError(`Critical data missing: ${descriptor}.`);
+  }
+
+  return null;
+}
+
+const DEFAULT_PARTY_CONFIGS = {
+  player: {
+    slot: 'player',
+    name: 'Cryptonaut',
+    gender: 'm',
+    character_file: 'characters.json',
+    character_id: 'monk'
+  },
+  companion: {
+    slot: 'companion',
+    name: 'Lydia',
+    gender: 'f',
+    character_file: 'characters.json',
+    character_id: 'monk'
+  }
+};
+
+async function loadFileSaveSlot(path = 'game-state.json') {
+  const data = await loadJsonResource(path, 'gameState', { label: 'game state file' });
+  if (!data) {
+    console.warn(`[Combat] Falling back to defaults; save slot unavailable at ${path}.`);
+  }
+  return data;
+}
+
+function loadLocalSaveState(key = 'gameState') {
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.warn('[Combat] Failed to parse stored gameState:', error);
+    return null;
+  }
+}
+
+function getPartyMemberFromSave(party = [], slotName, fallbackIndex = 0) {
+  if (!Array.isArray(party)) {
+    return null;
+  }
+  const bySlot = slotName ? party.find(member => member?.slot === slotName) : null;
+  if (bySlot) {
+    return cloneData(bySlot);
+  }
+  return cloneData(party[fallbackIndex]) || null;
+}
+
+function snapshotCharacterForSave(character, fallbackSlot) {
+  if (!character) {
+    return null;
+  }
+  const slot = character.slot || fallbackSlot;
+  if (!slot) {
+    return null;
+  }
+  const hp = Math.max(0, Math.floor(character.hp ?? character.maxHp ?? 0));
+  const sanity = Math.max(0, Math.floor(character.sanity ?? character.maxSanity ?? 0));
+  return {
+    slot,
+    name: character.name || '',
+    gender: character.gender || 'm',
+    character_file: character.character_file || 'characters.json',
+    character_id: character.character_id || character.class || null,
+    level: character.level || 0,
+    xp: character.xp || 0,
+    xpToNextLevel: character.xpToNextLevel || calculateXpToNextLevel(character.level || 0),
+    hp,
+    sanity,
+    inventory: Array.isArray(character.inventory)
+      ? character.inventory.map(item => item?.id).filter(Boolean)
+      : []
+  };
+}
+
+function mergePartySnapshots(existing = [], updates = []) {
+  const merged = new Map();
+  (existing || []).forEach(member => {
+    if (member?.slot) {
+      merged.set(member.slot, { ...member });
+    }
+  });
+  (updates || []).forEach(member => {
+    if (member?.slot) {
+      merged.set(member.slot, { ...member });
+    }
+  });
+  return Array.from(merged.values());
 }
 
 // Flag to indicate whether the combat is over (victory or loss)
@@ -301,11 +446,15 @@ async function getCharacterSpec(characterFile, characterId) {
   }
 
   if (!characterSpecCache[characterFile]) {
-    const response = await fetch(characterFile);
-    if (!response.ok) {
+    const fallbackKey = characterFile.endsWith('characters.json') ? 'characters' : null;
+    const specData = await loadJsonResource(characterFile, fallbackKey, {
+      required: true,
+      label: `${characterFile} data`
+    });
+    if (!specData) {
       throw new Error(`Unable to load character data from ${characterFile}`);
     }
-    characterSpecCache[characterFile] = await response.json();
+    characterSpecCache[characterFile] = specData;
   }
 
   const specFile = characterSpecCache[characterFile];
@@ -459,18 +608,21 @@ async function hydratePartyMember(rawConfig = {}) {
   const sanityMultiplier = 1 + (0.15 * level);
   const scaledHp = Math.floor(baseHp * hpMultiplier);
   const scaledSanity = Math.floor(baseSanity * sanityMultiplier);
+  const currentHp = rawConfig.hp != null ? Math.min(rawConfig.hp, scaledHp) : scaledHp;
+  const currentSanity = rawConfig.sanity != null ? Math.min(rawConfig.sanity, scaledSanity) : scaledSanity;
 
   const hydrated = {
     ...rawConfig,
     character_id: spec.id,
+    character_file: rawConfig.character_file || 'characters.json',
     class: spec.class,
     base_stats: baseStats,
     level,
     xp,
     xpToNextLevel,
-    hp: scaledHp,
+    hp: currentHp,
     maxHp: scaledHp,
-    sanity: scaledSanity,
+    sanity: currentSanity,
     maxSanity: scaledSanity,
     defense: baseStats.defense ?? rawConfig.defense ?? 0,
     speed: baseStats.speed ?? rawConfig.speed ?? 0,
@@ -482,7 +634,8 @@ async function hydratePartyMember(rawConfig = {}) {
     inventory,
     actions,
     portrait,
-    audioProfile
+    audioProfile,
+    alive: currentHp > 0
   };
 
   return hydrated;
@@ -862,6 +1015,11 @@ function chooseAction(actionId) {
     return;
   }
 
+  if (actionId === 'flee') {
+    attemptFlee();
+    return;
+  }
+
   // Check if action needs target selection
   if (actionId === 'defend') {
     // Defend doesn't need a target
@@ -872,6 +1030,77 @@ function chooseAction(actionId) {
   
   // Enter target selection mode for actions that need targets
   startActionTargeting(actionId);
+}
+
+function attemptFlee() {
+  if (combatEnded) return;
+
+  cancelTargetSelection();
+  if (itemSelectionOpen) {
+    hideItemSelection();
+  }
+
+  log('🏃 You break from the fight, sacrificing blood and sanity to escape!');
+  const fleeSummary = applyFleePenaltyToParty();
+  if (fleeSummary.length) {
+    fleeSummary.forEach(entry => {
+      const hpSegment = entry.hpLost > 0 ? `${entry.hpLost} HP` : null;
+      const sanitySegment = entry.sanityLost > 0 ? `${entry.sanityLost} sanity` : null;
+      const detail = [hpSegment, sanitySegment].filter(Boolean).join(' & ');
+      if (detail) {
+        log(`⚠️ ${entry.name} loses ${detail} while fleeing.`);
+      }
+    });
+  } else {
+    log('⚠️ You are already on the brink; there is little left to lose.');
+  }
+
+  stopCombatMusic();
+  disableActions();
+  combatEnded = true;
+  updateSanityState();
+  updateUI();
+  saveGameState();
+
+  if (window.fromExploration) {
+    handleExplorationReturn(false, { fled: true, fleeSummary });
+  } else {
+    setTimeout(() => {
+      redirectToGameEndFromCombat('defeat');
+    }, 1500);
+  }
+}
+
+function applyFleePenaltyToParty() {
+  const impacted = [];
+  [player, companion].forEach(member => {
+    if (!member || member.hp <= 0) {
+      return;
+    }
+    const startingHp = member.hp;
+    const startingSanity = member.sanity ?? 0;
+    const hpLoss = startingHp > 1 ? Math.max(1, Math.ceil(startingHp * 0.5)) : 0;
+    const sanityLoss = startingSanity > 0 ? Math.max(1, Math.ceil(startingSanity * 0.5)) : 0;
+
+    if (hpLoss > 0) {
+      member.hp = Math.max(1, startingHp - hpLoss);
+    }
+    if (sanityLoss > 0) {
+      member.sanity = Math.max(0, startingSanity - sanityLoss);
+    }
+
+    const actualHpLoss = startingHp - member.hp;
+    const actualSanityLoss = startingSanity - member.sanity;
+    if (actualHpLoss > 0 || actualSanityLoss > 0) {
+      impacted.push({
+        name: member.name || 'Cryptonaut',
+        hpLost: actualHpLoss,
+        sanityLost: actualSanityLoss
+      });
+    }
+  });
+
+  return impacted;
 }
 
 function startActionTargeting(actionId) {
@@ -1541,6 +1770,20 @@ function renderActionButtons(actionList = []) {
     button.addEventListener('click', () => chooseAction(action.id));
     container.appendChild(button);
   });
+
+  appendFleeButton(container);
+}
+
+function appendFleeButton(container) {
+  if (!container) return;
+  const fleeButton = document.createElement('button');
+  fleeButton.type = 'button';
+  fleeButton.dataset.action = 'flee';
+  fleeButton.textContent = 'Flee';
+  fleeButton.title = 'Retreat from combat, losing 50% of current HP and sanity.';
+  fleeButton.classList.add('flee-action-btn');
+  fleeButton.addEventListener('click', () => chooseAction('flee'));
+  container.appendChild(fleeButton);
 }
 
 function getLivingEnemies() {
@@ -1609,32 +1852,41 @@ let statusEffectCatalog = {};
  */
 async function loadAbilitiesAndEffects() {
   try {
-    const [abilitiesRes, effectsRes] = await Promise.all([
-      fetch('abilities.json'),
-      fetch('status_effects.json')
-    ]);
-    
-    if (abilitiesRes.ok) {
-      const abilitiesData = await abilitiesRes.json();
-      const rawAbilities = abilitiesData.abilities || [];
+    const abilitiesData = await loadJsonResource('abilities.json', 'abilities', {
+      required: true,
+      label: 'abilities list'
+    });
+    const effectsData = await loadJsonResource('status_effects.json', 'statusEffects', {
+      required: true,
+      label: 'status effects list'
+    });
+
+    abilityCatalog = {};
+    statusEffectCatalog = {};
+
+    if (abilitiesData) {
+      const rawAbilities = abilitiesData.abilities || abilitiesData;
       const abilitiesArray = Array.isArray(rawAbilities)
         ? rawAbilities
         : Object.values(rawAbilities);
       abilityCatalog = abilitiesArray.reduce((map, ability) => {
-        map[ability.id] = ability;
+        if (ability?.id) {
+          map[ability.id] = ability;
+        }
         return map;
       }, {});
       console.log('Loaded abilities:', Object.keys(abilityCatalog));
     }
-    
-    if (effectsRes.ok) {
-      const effectsData = await effectsRes.json();
-      const rawEffects = effectsData.status_effects || [];
+
+    if (effectsData) {
+      const rawEffects = effectsData.status_effects || effectsData;
       const effectsArray = Array.isArray(rawEffects)
         ? rawEffects
         : Object.values(rawEffects);
       statusEffectCatalog = effectsArray.reduce((map, effect) => {
-        map[effect.id] = effect;
+        if (effect?.id) {
+          map[effect.id] = effect;
+        }
         return map;
       }, {});
       console.log('Loaded status effects:', Object.keys(statusEffectCatalog));
@@ -2624,10 +2876,9 @@ function applyExplorationOverrides(baseConfig, partyState) {
 // Data Loading Function
 // ========================
 // This async function fetches multiple external JSON files:
-//  - player.json
-//  - companion.json
-//  - enemies.json
-//  - combat_encounter.json
+//  - game-state.json (save slot defining party/inventory/encounter)
+//  - enemies.json (enemy templates)
+//  - inventory.json (item definitions)
 // After fetching all data, it sets up the user interface and starts combat.
 async function loadCombatData() {
   try {
@@ -2641,43 +2892,56 @@ async function loadCombatData() {
     await loadSummonTemplates();
     
     const explorationCombatState = getExplorationCombatState();
+    const fileSaveState = await loadFileSaveSlot();
+    const storedSaveState = loadLocalSaveState();
+    const effectiveSaveState = storedSaveState || fileSaveState || {};
+    gameState = cloneData(effectiveSaveState) || {};
+    const partyConfigs = Array.isArray(gameState.party) ? gameState.party : [];
 
     // Initialize inventory state with starting items (can be loaded from save later)
-    const defaultInventorySeed = (typeof window !== 'undefined' && window.initialInventoryState)
-      ? cloneData(window.initialInventoryState)
-      : {
-          vial_vital_humours: 2,
-          tincture_of_lucidity: 1,
-          herbal_tonic: 3
-        };
+    const fallbackInventorySeed = {
+      vial_vital_humours: 2,
+      tincture_of_lucidity: 1,
+      herbal_tonic: 3
+    };
+    const baseInventorySeed = gameState.inventory
+      ? cloneData(gameState.inventory)
+      : cloneData(fallbackInventorySeed);
     const inventorySeed = explorationCombatState?.inventory
       ? cloneData(explorationCombatState.inventory)
-      : defaultInventorySeed;
+      : baseInventorySeed;
     initInventoryState(inventorySeed || {});
     
     // Load inventory definitions used to hydrate party inventories (legacy support)
-    const inventoryRes = await fetch('inventory.json');
-    const inventoryRaw = await inventoryRes.json();
+    const inventoryRaw = await loadJsonResource('inventory.json', 'inventory', {
+      label: 'inventory definitions'
+    });
     inventoryCatalog = normalizeInventoryCatalog(inventoryRaw);
 
     // 1) Load player data
-    const playerRes = await fetch('player.json'); // Fetch local file
-    const rawPlayerConfig = await playerRes.json();  // Convert the response to JS object
-    const playerConfig = applyExplorationOverrides(rawPlayerConfig, explorationCombatState?.player);
+    const rawPlayerConfig = getPartyMemberFromSave(partyConfigs, 'player', 0)
+      || cloneData(DEFAULT_PARTY_CONFIGS.player);
+    const playerConfig = applyExplorationOverrides(rawPlayerConfig, explorationCombatState?.player || null);
+    playerConfig.slot = playerConfig.slot || 'player';
     player = await hydratePartyMember(playerConfig);
+    player.slot = playerConfig.slot;
     player.alive = player.hp > 0;                 // Mark player as alive if HP > 0
     renderActionButtons(player.actions);
     
     // 2) Load companion data
-    const companionRes = await fetch('companion.json');
-    const rawCompanionConfig = await companionRes.json();
-    const companionConfig = applyExplorationOverrides(rawCompanionConfig, explorationCombatState?.companion);
+    const rawCompanionConfig = getPartyMemberFromSave(partyConfigs, 'companion', 1)
+      || cloneData(DEFAULT_PARTY_CONFIGS.companion);
+    const companionConfig = applyExplorationOverrides(rawCompanionConfig, explorationCombatState?.companion || null);
+    companionConfig.slot = companionConfig.slot || 'companion';
     companion = await hydratePartyMember(companionConfig);
+    companion.slot = companionConfig.slot;
     companion.alive = companion.hp > 0;           // Mark companion as alive if HP > 0
     
     // 3) Load the enemy templates file
-    const enemyDataRes = await fetch('enemies.json');
-    const enemyData = await enemyDataRes.json();
+    const enemyData = (await loadJsonResource('enemies.json', 'enemies', {
+      required: true,
+      label: 'enemy templates'
+    })) || { enemies: [] };
 
     // Ensure portrait paths point to actual asset extensions (cache-safe overrides)
     const portraitOverrides = {
@@ -2728,9 +2992,17 @@ async function loadCombatData() {
         console.log(`[Combat] Applied exploration state - Player HP: ${player.hp}, Sanity: ${player.sanity}`);
       }
     } else {
-      // Standard encounter from file
-      const encRes = await fetch('combat_encounter.json');
-      encounter = await encRes.json();
+      // Standard encounter from save slot or fallback template
+      if (gameState?.encounter) {
+        encounter = cloneData(gameState.encounter);
+      } else {
+        console.warn('[Combat] Missing encounter data in save file, using default astral_summoner encounter.');
+        encounter = {
+          encounter_name: 'Unknown Encounter',
+          background: 'assets/img/environment/dungeon1.png',
+          enemies: [{ id: 'astral_summoner', position: 1 }]
+        };
+      }
     }
     
     // If the encounter JSON has a background or encounter name, set them here
@@ -3382,13 +3654,10 @@ async function loadSummonTemplates() {
   if (summonTemplates) return summonTemplates;
   
   try {
-    const response = await fetch('npc_summon.json');
-    if (!response.ok) {
-      console.error('Failed to load summon templates');
-      return null;
-    }
-    const data = await response.json();
-    summonTemplates = data.summons || [];
+    const data = await loadJsonResource('npc_summon.json', 'summons', {
+      label: 'summon templates'
+    });
+    summonTemplates = data?.summons || [];
     console.log('Summon templates loaded:', summonTemplates.length);
     return summonTemplates;
   } catch (err) {
@@ -4449,13 +4718,16 @@ function handleVictory() {
 }
 
 // Handle return to exploration after combat
-function handleExplorationReturn(victory) {
+function handleExplorationReturn(victory, options = {}) {
+  const { fled = false, fleeSummary = [] } = options;
   // Save combat log for post-mortem narrative
   saveCombatLog();
   
   // Store combat result for exploration to pick up
   const combatResult = {
     victory: victory,
+    fled: fled,
+    fleeSummary,
     player: {
       hp: player.hp,
       maxHp: player.maxHp,
@@ -4481,7 +4753,13 @@ function handleExplorationReturn(victory) {
   
   // Redirect back to exploration
   setTimeout(() => {
-    log(victory ? "🚶 Returning to exploration..." : "💀 Your journey ends here...");
+    let returnMessage = '💀 Your journey ends here...';
+    if (victory) {
+      returnMessage = '🚶 Returning to exploration...';
+    } else if (fled) {
+      returnMessage = '🏃 You stumble back into the corridors...';
+    }
+    log(returnMessage);
     setTimeout(() => {
       window.location.href = 'exploration.html';
     }, 1500);
@@ -4570,8 +4848,27 @@ function redirectToGameEndFromCombat(outcome) {
 // Writes some data to localStorage for quick saving. 
 function saveGameState() {
   try {
-    localStorage.setItem('player', JSON.stringify(player));
-    localStorage.setItem('companion', JSON.stringify(companion));
+    if (!gameState || typeof gameState !== 'object') {
+      gameState = {};
+    }
+
+    const partyUpdates = [];
+    const playerSnapshot = snapshotCharacterForSave(player, 'player');
+    if (playerSnapshot) {
+      partyUpdates.push(playerSnapshot);
+    }
+    const companionSnapshot = snapshotCharacterForSave(companion, 'companion');
+    if (companionSnapshot) {
+      partyUpdates.push(companionSnapshot);
+    }
+
+    gameState.party = mergePartySnapshots(gameState.party || [], partyUpdates);
+
+    if (typeof getInventoryState === 'function') {
+      gameState.inventory = getInventoryState();
+    }
+
+    localStorage.setItem('gameState', JSON.stringify(gameState));
   } catch (err) {
     console.error("Save failed:", err);
   }

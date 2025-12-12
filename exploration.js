@@ -34,6 +34,25 @@ const SANITY_STATES = {
   BROKEN: 'broken'
 };
 
+const ROOM_OPTION_COUNT = 8;
+const ROOM_SELECTION_LIMIT = 6;
+const ROOM_HISTORY_MAX_ENTRIES = 50;
+const BACKTRACK_CHOICE_ID = 'retreat_previous_room';
+const FORCED_COMBAT_FLAG_PREFIX = 'forcedCombatResolved_';
+const FORCED_COMBAT_ROOMS = {
+  room_02_gallery: { enemyId: 'astral_creeper', reason: 'The gallery guardians ambush you!' },
+  room_04_flooded_stair: { enemyId: 'drowned_acolyte', reason: 'The waters churn with hostile shapes!' },
+  room_06_dreaming_vault: { enemyId: 'astral_summoner', reason: 'The vault warden awakens immediately!' }
+};
+
+const SUPPLEMENTAL_CHOICE_BLUEPRINTS = [
+  { id: 'observe_shadows', label: 'Observe the shifting shadows', type: 'lore', description: 'Watch for subtle movement in the dark.' },
+  { id: 'check_wards', label: 'Inspect warding sigils', type: 'action', description: 'Examine any remaining protective runes.' },
+  { id: 'study_floor', label: 'Study the floor markings', type: 'lore', description: 'Look for footprints or ritual circles.' },
+  { id: 'listen_silence', label: 'Listen to the silence', type: 'lore', description: 'Hold still to hear distant echoes.' },
+  { id: 'map_route', label: 'Sketch a quick map', type: 'action', description: 'Record the chamber to avoid getting lost.' }
+];
+
 const AUTOSAVE_INTERVAL_MS = 60000;
 
 // Optional overrides for bespoke backgrounds; defaults fall back to room.image
@@ -67,16 +86,20 @@ interface GeminiExplorationResponse {
   };
 }`;
 
+const LOCAL_SERVER_HINT = 'Run a local web server (for example: "python -m http.server 8000") from the project folder, then open http://localhost:8000/start_screen.html to play without browser file restrictions.';
+
 let gameState = {
   mode: GameMode.EXPLORATION,
   explorationPhase: ExplorationPhase.ROOM_ENTRY,
   currentRoomId: 'room_01_entrance',
   depth: 1,
   roomsVisited: {},
+  roomHistory: [],
   player: null,
   companion: null,
   inventory: {},
   flags: {},
+  roomActionTracker: {},
   currentSanityState: SANITY_STATES.STABLE,
   geminiAvailable: true,
   geminiFailCount: 0,
@@ -117,6 +140,71 @@ let charactersData = null;
 let inventoryCatalog = { items: [] };
 let autosaveInterval = null;
 let playerInitWarned = false;
+
+function cloneData(data) {
+  if (!data) return null;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(data);
+    } catch (error) {
+      // Fall back to JSON method below
+    }
+  }
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch (error) {
+    return null;
+  }
+}
+
+function getEmbeddedFallbackData(key) {
+  const scope = typeof window !== 'undefined' ? window : globalThis;
+  const fallback = scope?.__CRYPTONAUTS_FALLBACKS__?.[key];
+  return cloneData(fallback);
+}
+
+function showDataLoadError(message) {
+  if (document.querySelector('.fatal-alert')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'menu-overlay fatal-alert';
+  const container = document.createElement('div');
+  container.className = 'modal-container confirm-container';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Data Unavailable';
+  const body = document.createElement('p');
+  body.textContent = message;
+  const hint = document.createElement('p');
+  hint.textContent = LOCAL_SERVER_HINT;
+  container.append(heading, body, hint);
+  overlay.appendChild(container);
+  document.body.appendChild(overlay);
+}
+
+async function loadJsonResource(path, fallbackKey) {
+  const isFileProtocol = window.location.protocol === 'file:';
+
+  if (!isFileProtocol) {
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.warn(`[Exploration] Failed to fetch ${path}, falling back if possible:`, error);
+    }
+  } else {
+    console.warn(`[Exploration] Running via file://, using embedded fallback for ${path} if available.`);
+  }
+
+  const fallback = getEmbeddedFallbackData(fallbackKey);
+  if (fallback) {
+    console.log(`[Exploration] Loaded ${fallbackKey} data from embedded fallback`);
+    return fallback;
+  }
+
+  return null;
+}
 
 // ========================
 // Audio System
@@ -192,6 +280,32 @@ function stopAllMusic() {
   currentMusicTrack = null;
 }
 
+const OPTION_SFX_FILES = [
+  './sound/door_open_1.mp3',
+  './sound/door_open_2.mp3',
+  './sound/door_open_3.mp3',
+  './sound/door_open_4.mp3'
+];
+const explorationOptionSounds = OPTION_SFX_FILES.map(path => {
+  const audio = new Audio(path);
+  audio.preload = 'auto';
+  return audio;
+});
+
+function playExplorationSfx(audio) {
+  if (!audio) return;
+  const volume = (gameSettings.sfxVolume || 60) / 100;
+  audio.volume = volume;
+  audio.currentTime = 0;
+  audio.play().catch(err => console.warn('[Exploration] Failed to play SFX:', err));
+}
+
+function playRandomExplorationOptionSound() {
+  if (!explorationOptionSounds.length) return;
+  const clip = explorationOptionSounds[Math.floor(Math.random() * explorationOptionSounds.length)];
+  playExplorationSfx(clip);
+}
+
 function updateMusicVolume() {
   const volume = (gameSettings.musicVolume || 60) / 100;
   if (currentMusicTrack) {
@@ -229,7 +343,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loadSettings();
   initGameUI();
-  await loadGameData();
+  const dataReady = await loadGameData();
+  if (!dataReady) {
+    setNarration('Unable to load essential expedition data. Please check the console for details.');
+    return;
+  }
 
   const params = new URLSearchParams(window.location.search);
   const isNewGame = params.get('newGame') === 'true';
@@ -691,10 +809,12 @@ function resetGameState() {
     currentRoomId: 'room_01_entrance',
     depth: 1,
     roomsVisited: {},
+    roomHistory: [],
     player: null,
     companion: null,
     inventory: {},
     flags: {},
+    roomActionTracker: {},
     currentSanityState: SANITY_STATES.STABLE,
     geminiAvailable: true,
     geminiFailCount: 0
@@ -744,22 +864,16 @@ function showAutosaveIndicator(customText) {
 
 async function loadGameData() {
   try {
-    // Load rooms
-    const roomsResponse = await fetch('rooms.json');
-    roomsData = await roomsResponse.json();
-    console.log('[Exploration] Loaded rooms:', roomsData.rooms.length);
-    
-    // Load enemies (for combat transitions)
-    const enemiesResponse = await fetch('enemies.json');
-    enemiesData = await enemiesResponse.json();
-    console.log('[Exploration] Loaded enemies data');
-    
-    // Load characters (player classes and companion presets)
-    const charactersResponse = await fetch('characters.json');
-    charactersData = await charactersResponse.json();
-    console.log('[Exploration] Loaded characters:', charactersData.characters.length, 'classes,', charactersData.companions.length, 'companions');
-    
-    // Load inventory catalog via shared item system
+    roomsData = await loadJsonResource('rooms.json', 'rooms');
+    enemiesData = await loadJsonResource('enemies.json', 'enemies');
+    charactersData = await loadJsonResource('characters.json', 'characters');
+
+    if (!roomsData || !enemiesData || !charactersData) {
+      showDataLoadError('Unable to load essential data files.');
+      logEvent('⚠️ Failed to load exploration data files', 'warning');
+      return false;
+    }
+
     try {
       const itemDb = await loadItemDatabase('inventory.json');
       const itemsArray = Object.values(itemDb || {});
@@ -769,9 +883,14 @@ async function loadGameData() {
       console.warn('[Exploration] Failed to load inventory catalog, using empty set');
       inventoryCatalog = { items: [] };
     }
+
+    console.log('[Exploration] Game data ready (rooms, enemies, characters loaded)');
+    return true;
   } catch (error) {
     console.error('[Exploration] Failed to load game data:', error);
+    showDataLoadError('A fatal error occurred while loading expedition data.');
     logEvent('⚠️ Error loading game data', 'warning');
+    return false;
   }
 }
 
@@ -932,18 +1051,21 @@ function updateGeminiStatus(available, text) {
 // ========================
 // Room Navigation
 // ========================
-async function enterRoom(roomId, softEntry = false) {
+async function enterRoom(roomId, softEntry = false, options = {}) {
+  const { fromHistory = false } = options;
   const room = getRoomById(roomId);
   if (!room) {
     console.error(`[Exploration] Room not found: ${roomId}`);
     logEvent(`⚠️ Unknown path ahead...`, 'warning');
     return;
   }
+  recordRoomHistoryTransition(roomId, { softEntry, fromHistory });
   
   gameState.mode = GameMode.EXPLORATION;
   gameState.explorationPhase = ExplorationPhase.ROOM_ENTRY;
   gameState.currentRoomId = roomId;
   gameState.depth = room.depth;
+  ensureRoomActionTracker(roomId, softEntry);
   
   // Only increment visit counter on fresh entries
   if (!softEntry) {
@@ -964,6 +1086,18 @@ async function enterRoom(roomId, softEntry = false) {
     gameState.mode = GameMode.BOSS;
     logEvent('⚔️ You have reached the Sanctum of the Old One!', 'warning');
     playBossMusic(); // Switch to boss music
+  }
+
+  if (!softEntry && shouldTriggerImmediateCombat(roomId)) {
+    const combatConfig = FORCED_COMBAT_ROOMS[roomId];
+    if (combatConfig) {
+      gameState.flags[FORCED_COMBAT_FLAG_PREFIX + roomId] = true;
+      triggerCombatTransition({
+        enemyId: combatConfig.enemyId,
+        reason: combatConfig.reason
+      });
+      return;
+    }
   }
   
   // For soft entry (continuing game), just show the room with basic choices
@@ -1131,6 +1265,7 @@ function buildGeminiPrompt(phase, choiceId, room) {
   prompt += `Current room:\n${JSON.stringify(roomContext, null, 2)}\n\n`;
   prompt += `Valid item IDs: ${JSON.stringify(roomsData.validItemIds)}\n`;
   prompt += `Valid enemy IDs: ${JSON.stringify(roomsData.validEnemyIds)}\n\n`;
+  prompt += `The UI will present 8 options per room. Provide as many rich, distinct choices as possible (we will pad if needed) and ensure at least one option could plausibly trigger combat (use type "combat" when appropriate). Each option is single-use per visit, so vary the intent and stakes.\n\n`;
   
   if (phase === 'ROOM_ENTRY') {
     prompt += `Phase: ROOM_ENTRY\n`;
@@ -1615,34 +1750,44 @@ function setNarration(text) {
   narrationEl.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
 }
 
-function renderChoices(choices) {
+function renderChoices(choices = []) {
   const container = document.getElementById('choice-buttons');
   container.innerHTML = '';
-  
-  choices.forEach(choice => {
+
+  const room = getRoomById(gameState.currentRoomId);
+  const preparedChoices = normalizeRoomChoices(choices, room);
+  const usage = getRoomActionUsage(gameState.currentRoomId);
+  const limitReached = usage.totalSelections >= ROOM_SELECTION_LIMIT;
+
+  preparedChoices.forEach(choice => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    
-    // Add type-based styling
+
     if (choice.type) {
       btn.classList.add(`choice-${choice.type}`);
     }
-    
+
     btn.textContent = choice.label;
     btn.dataset.choiceId = choice.id;
-    
+
     if (choice.description) {
       btn.title = choice.description;
     }
-    
-    // Handle move choices with target room
+
     if (choice.targetRoom) {
       btn.dataset.targetRoom = choice.targetRoom;
     }
-    
+
+    const alreadyUsed = usage.usedChoices.includes(choice.id);
+    if (alreadyUsed || limitReached) {
+      btn.disabled = true;
+      btn.classList.add('choice-used');
+    }
+
     btn.addEventListener('click', () => onChoiceClicked(choice));
     container.appendChild(btn);
   });
+
 }
 
 function logEvent(message, type = 'narration') {
@@ -1669,16 +1814,306 @@ function showLoading(show) {
 // ========================
 // Choice Handling
 // ========================
+function ensureRoomActionTracker(roomId, preserveExisting = true) {
+  if (!gameState.roomActionTracker) {
+    gameState.roomActionTracker = {};
+  }
+  const existing = gameState.roomActionTracker[roomId];
+  if (!existing || !preserveExisting) {
+    gameState.roomActionTracker[roomId] = {
+      usedChoices: [],
+      totalSelections: 0
+    };
+  }
+  return gameState.roomActionTracker[roomId];
+}
+
+function shouldTriggerImmediateCombat(roomId) {
+  if (!FORCED_COMBAT_ROOMS[roomId]) {
+    return false;
+  }
+  return !gameState.flags?.[FORCED_COMBAT_FLAG_PREFIX + roomId];
+}
+
+function getRoomHistoryStack() {
+  if (!Array.isArray(gameState.roomHistory)) {
+    gameState.roomHistory = [];
+  }
+  return gameState.roomHistory;
+}
+
+function getPreviousRoomFromHistory() {
+  const stack = getRoomHistoryStack();
+  if (stack.length === 0) {
+    return null;
+  }
+  return stack[stack.length - 1];
+}
+
+function recordRoomHistoryTransition(nextRoomId, options = {}) {
+  const { softEntry = false, fromHistory = false } = options;
+  if (softEntry) {
+    return;
+  }
+
+  const stack = getRoomHistoryStack();
+  const previousRoomId = gameState.currentRoomId;
+
+  if (fromHistory) {
+    if (stack.length === 0) {
+      return;
+    }
+    const popped = stack.pop();
+    if (popped !== nextRoomId) {
+      const fallbackIndex = stack.lastIndexOf(nextRoomId);
+      if (fallbackIndex >= 0) {
+        stack.splice(fallbackIndex, 1);
+      }
+    }
+    return;
+  }
+
+  if (!previousRoomId || previousRoomId === nextRoomId) {
+    return;
+  }
+
+  stack.push(previousRoomId);
+
+  if (stack.length > ROOM_HISTORY_MAX_ENTRIES) {
+    gameState.roomHistory = stack.slice(-ROOM_HISTORY_MAX_ENTRIES);
+  }
+}
+
+function isChoiceAlreadyUsed(roomId, choiceId) {
+  const tracker = ensureRoomActionTracker(roomId);
+  return tracker.usedChoices?.includes(choiceId);
+}
+
+function markChoiceUsed(roomId, choiceId) {
+  const tracker = ensureRoomActionTracker(roomId);
+  const previousCount = tracker.totalSelections || 0;
+  if (!tracker.usedChoices.includes(choiceId)) {
+    tracker.usedChoices.push(choiceId);
+  }
+  const updatedCount = previousCount + 1;
+  tracker.totalSelections = Math.min(ROOM_SELECTION_LIMIT, updatedCount);
+  return previousCount < ROOM_SELECTION_LIMIT && tracker.totalSelections >= ROOM_SELECTION_LIMIT;
+}
+
+function roomSelectionLimitReached(roomId) {
+  const tracker = ensureRoomActionTracker(roomId);
+  return (tracker.totalSelections || 0) >= ROOM_SELECTION_LIMIT;
+}
+
+function getRoomActionUsage(roomId) {
+  const tracker = ensureRoomActionTracker(roomId);
+  return {
+    usedChoices: tracker.usedChoices || [],
+    totalSelections: tracker.totalSelections || 0
+  };
+}
+
+function normalizeChoiceId(baseId, seen) {
+  let safeId = baseId || 'choice_option';
+  safeId = safeId.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+  if (!safeId) {
+    safeId = 'choice_option';
+  }
+  let suffix = 1;
+  let uniqueId = safeId;
+  while (seen.has(uniqueId)) {
+    suffix += 1;
+    uniqueId = `${safeId}_${suffix}`;
+  }
+  return uniqueId;
+}
+
+function normalizeRoomChoices(rawChoices = [], room = null) {
+  const prepared = [];
+  const seen = new Set();
+  rawChoices.forEach((choice, index) => {
+    if (!choice) return;
+    const candidate = { ...choice };
+    let candidateId = candidate.id;
+    if (!candidateId) {
+      const baseId = candidate.label || `choice_${index + 1}`;
+      candidateId = normalizeChoiceId(baseId, seen);
+    } else if (seen.has(candidateId)) {
+      candidateId = normalizeChoiceId(candidateId, seen);
+    }
+    candidate.id = candidateId;
+    if (seen.has(candidate.id) || prepared.length >= ROOM_OPTION_COUNT) {
+      return;
+    }
+    seen.add(candidate.id);
+    prepared.push(candidate);
+  });
+
+  maybeAddBacktrackChoice(prepared, seen);
+
+  if (!prepared.some(isCombatChoice)) {
+    const combatChoice = generateCombatChoice(room);
+    if (!seen.has(combatChoice.id)) {
+      prepared.push(combatChoice);
+      seen.add(combatChoice.id);
+    }
+  }
+
+  let supplementalIndex = 0;
+  while (prepared.length < ROOM_OPTION_COUNT && supplementalIndex < SUPPLEMENTAL_CHOICE_BLUEPRINTS.length) {
+    const blueprint = SUPPLEMENTAL_CHOICE_BLUEPRINTS[supplementalIndex++];
+    if (!blueprint) break;
+    if (seen.has(blueprint.id)) continue;
+    prepared.push({ ...blueprint });
+    seen.add(blueprint.id);
+  }
+
+  while (prepared.length < ROOM_OPTION_COUNT) {
+    const fillerIndex = prepared.length + 1;
+    const fillerChoice = generateSupplementalChoice(fillerIndex);
+    if (seen.has(fillerChoice.id)) {
+      continue;
+    }
+    prepared.push(fillerChoice);
+    seen.add(fillerChoice.id);
+  }
+
+  if (prepared.length > ROOM_OPTION_COUNT) {
+    const combatIndex = prepared.findIndex(isCombatChoice);
+    const trimmed = prepared.slice(0, ROOM_OPTION_COUNT);
+    if (combatIndex >= ROOM_OPTION_COUNT && combatIndex >= 0) {
+      trimmed[ROOM_OPTION_COUNT - 1] = prepared[combatIndex];
+    }
+    return trimmed;
+  }
+
+  return prepared;
+}
+
+function isCombatChoice(choice) {
+  return choice?.type === 'combat' || choice?.meta?.forcesCombat;
+}
+
+function generateCombatChoice(room) {
+  const label = room?.type === 'boss'
+    ? 'Confront the looming horror'
+    : 'Flush out whatever stalks you';
+  return {
+    id: 'forced_combat_option',
+    label,
+    type: 'combat',
+    description: 'Force the hidden threat to reveal itself.',
+    meta: { forcesCombat: true }
+  };
+}
+
+function generateSupplementalChoice(index) {
+  const fillerId = `supplemental_${index}`;
+  return {
+    id: fillerId,
+    label: 'Maintain vigilance',
+    type: 'lore',
+    description: 'Keep watch for anything unusual.'
+  };
+}
+
+function maybeAddBacktrackChoice(prepared, seen) {
+  const targetRoomId = getPreviousRoomFromHistory();
+  if (!targetRoomId) {
+    return;
+  }
+  const alreadyPresent = prepared.some(choice => choice.meta?.backtrack);
+  if (alreadyPresent) {
+    return;
+  }
+
+  let retreatChoice = buildBacktrackChoice(targetRoomId);
+  if (seen.has(retreatChoice.id)) {
+    const uniqueId = normalizeChoiceId(retreatChoice.id, seen);
+    retreatChoice = { ...retreatChoice, id: uniqueId };
+  }
+  prepared.unshift(retreatChoice);
+  seen.add(retreatChoice.id);
+}
+
+function buildBacktrackChoice(targetRoomId) {
+  const previousRoom = getRoomById(targetRoomId);
+  const roomName = previousRoom?.name || 'the previous chamber';
+  return {
+    id: BACKTRACK_CHOICE_ID,
+    label: `Retreat to ${roomName}`,
+    type: 'move',
+    description: 'Fall back to regroup in safer ground.',
+    targetRoom: targetRoomId,
+    meta: { backtrack: true }
+  };
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateChoiceButtonsState() {
+  const roomId = gameState.currentRoomId;
+  const usage = getRoomActionUsage(roomId);
+  const limitReached = usage.totalSelections >= ROOM_SELECTION_LIMIT;
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    const choiceId = btn.dataset.choiceId;
+    const alreadyUsed = usage.usedChoices.includes(choiceId);
+    if (alreadyUsed || limitReached) {
+      btn.disabled = true;
+      btn.classList.add('choice-used');
+    } else {
+      btn.classList.remove('choice-used');
+      btn.disabled = false;
+    }
+  });
+}
+
 async function onChoiceClicked(choice) {
-  // Disable all choices during processing
+  const roomId = gameState.currentRoomId;
+  if (roomSelectionLimitReached(roomId)) {
+    logEvent('You cannot take any more actions in this room.', 'warning');
+    updateChoiceButtonsState();
+    return;
+  }
+  if (isChoiceAlreadyUsed(roomId, choice.id)) {
+    logEvent('That option has already been resolved in this room.', 'warning');
+    updateChoiceButtonsState();
+    return;
+  }
+
   document.querySelectorAll('.choice-btn').forEach(btn => btn.disabled = true);
   gameState.explorationPhase = ExplorationPhase.PROCESSING;
-  
   logEvent(`You chose: ${choice.label}`, 'action');
-  
-  // Handle special fallback choices
+
+  playRandomExplorationOptionSound();
+  await wait(2000);
+
+  const limitReachedNow = markChoiceUsed(roomId, choice.id);
+  updateChoiceButtonsState();
+  if (limitReachedNow) {
+    logEvent('You cannot take any more actions in this room.', 'warning');
+  }
+
+  const currentRoom = getRoomById(roomId);
+
+  if (choice.meta?.forcesCombat) {
+    const enemyId = getRandomEnemyForRoom(currentRoom) || 'cultist';
+    triggerCombatTransition({
+      enemyId,
+      reason: choice.description || 'You call out the lurking foe!'
+    });
+    return;
+  }
+
   if (choice.id === 'rest_here') {
     handleRest();
+    return;
+  }
+
+  if (choice.meta?.backtrack && choice.targetRoom) {
+    await enterRoom(choice.targetRoom, false, { fromHistory: true });
     return;
   }
   
@@ -1687,7 +2122,6 @@ async function onChoiceClicked(choice) {
     return;
   }
   
-  // Call Gemini for choice resolution
   showLoading(true);
   const response = await callGeminiExploration('AWAITING_CHOICE', choice.id);
   showLoading(false);
@@ -1695,7 +2129,6 @@ async function onChoiceClicked(choice) {
   if (response) {
     handleGeminiResponse(response);
   } else {
-    // Fallback choice handling
     handleFallbackChoice(choice);
   }
   
@@ -2013,6 +2446,19 @@ function loadGameState() {
       // Merge with defaults to handle new fields
       gameState = { ...gameState, ...parsed };
       setInventoryState(gameState.inventory || {});
+      if (!gameState.roomActionTracker) {
+        gameState.roomActionTracker = {};
+      }
+      if (!Array.isArray(gameState.roomHistory)) {
+        gameState.roomHistory = [];
+      } else {
+        gameState.roomHistory = gameState.roomHistory
+          .filter(id => typeof id === 'string' && id)
+          .slice(-ROOM_HISTORY_MAX_ENTRIES);
+      }
+      if (!gameState.flags) {
+        gameState.flags = {};
+      }
       console.log('[Save] Loaded saved state from:', new Date(parsed.savedAt || 0).toLocaleString());
     }
   } catch (e) {
@@ -2022,6 +2468,7 @@ function loadGameState() {
 
 async function handleCombatReturn(result) {
   console.log('[Exploration] Handling combat return:', result);
+  const currentRoom = getRoomById(gameState.currentRoomId);
   
   // Resume appropriate music after combat
   if (gameState.mode === GameMode.BOSS) {
@@ -2091,9 +2538,8 @@ async function handleCombatReturn(result) {
     gameState.flags[`combat_${gameState.currentRoomId}`] = true;
     
     // Check if this was a boss fight victory
-    const room = getRoomById(gameState.currentRoomId);
-    if (room && room.type === 'boss') {
-      gameState.flags[`boss_${room.id}_fought`] = true;
+    if (currentRoom && currentRoom.type === 'boss') {
+      gameState.flags[`boss_${currentRoom.id}_fought`] = true;
       handleBossVictory();
       return;
     }
@@ -2114,13 +2560,47 @@ async function handleCombatReturn(result) {
         'The threat is ended, for now. You take stock of your wounds and steel yourself for what lies ahead.'
       ];
       setNarration(aftermathNarrations[Math.floor(Math.random() * aftermathNarrations.length)]);
-      handleFallbackRoomEntry(room);
+      if (currentRoom) {
+        handleFallbackRoomEntry(currentRoom);
+      }
     }
+  } else if (result.fled) {
+    handleFleeReturn(currentRoom, result);
   } else {
     handleGameOver();
   }
   
   saveGameState();
+}
+
+function handleFleeReturn(room, result) {
+  const safeRoom = room || getRoomById(gameState.currentRoomId);
+  gameState.explorationPhase = ExplorationPhase.AWAITING_CHOICE;
+  const retreatNarrations = [
+    'You stagger back into the corridor, hearts hammering as the echoes of pursuit fade.',
+    'Flight triumphs over valor this once; blood drips with every hurried step.',
+    'You slam a rusted gate behind you and lean against the stone, breath ragged and mind fraying.'
+  ];
+  const narration = retreatNarrations[Math.floor(Math.random() * retreatNarrations.length)];
+  setNarration(narration);
+  logEvent('🏃 You flee the confrontation, battered and ashamed.', 'warning');
+
+  (result.fleeSummary || []).forEach(entry => {
+    if (!entry) return;
+    const hpChunk = entry.hpLost > 0 ? `${entry.hpLost} HP` : null;
+    const sanityChunk = entry.sanityLost > 0 ? `${entry.sanityLost} sanity` : null;
+    const detail = [hpChunk, sanityChunk].filter(Boolean).join(' & ');
+    if (detail) {
+      logEvent(`⚠️ ${entry.name} loses ${detail} while escaping.`, 'warning');
+    }
+  });
+
+  if (safeRoom) {
+    const choices = generateFallbackChoices(safeRoom);
+    renderChoices(choices);
+  } else {
+    renderChoices([]);
+  }
 }
 
 // ========================

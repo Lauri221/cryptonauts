@@ -10,356 +10,7 @@ const CLASS_ICONS = {
   aberration: '👁️'
 };
 
-const CHARACTER_DATA_FALLBACK = {
-  "characters": [
-    {
-      "id": "monk",
-      "class": "Monk",
-      "base_stats": {
-        "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
-        "speed": 3,
-        "ability1": { "id": "calm", "name": "Calm", "description": "Restore party sanity." },
-        "ability2": { "id": "hypnotise", "name": "Hypnotize", "description": "Charm an enemy to fight for you." },
-        "resistance": "Sanity",
-        "weakness": "Natural"
-      },
-      "gender_variants": {
-        "m": {
-          "portrait": "assets/img/ally_portrait/monk_male.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
-          }
-        },
-        "f": {
-          "portrait": "assets/img/ally_portrait/monk_female.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_female_hurt_sounds",
-            "voice_death": "cryptonaut_female_death_sounds",
-            "voice_win": "cryptonaut_female_win_sounds",
-            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-            "voice_party_death": "party_death_female_sound"
-          }
-        }
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "warrior",
-      "class": "Warrior",
-      "base_stats": {
-        "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 6 },
-        "defense": 2,
-        "speed": 2,
-        "ability1": {
-          "id": "parry",
-          "name": "Parry",
-          "description": "Brace for impact; when hit this round, immediately retaliate with a basic attack."
-        },
-        "ability2": {
-          "id": "shield_bash",
-          "name": "Shield Bash",
-          "description": "Strike the enemy with a heavy blow, with a chance to stun them for one turn."
-        },
-        "resistance": "Natural",
-        "weakness": "Sanity"
-      },
-      "gender_variants": {
-        "m": {
-          "portrait": "assets/img/ally_portrait/warrior_male.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
-          }
-        },
-        "f": {
-          "portrait": "assets/img/ally_portrait/warrior_female.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_female_hurt_sounds",
-            "voice_death": "cryptonaut_female_death_sounds",
-            "voice_win": "cryptonaut_female_win_sounds",
-            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-            "voice_party_death": "party_death_female_sound"
-          }
-        }
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "alchemist",
-      "class": "Alchemist",
-      "base_stats": {
-        "hp": 24,
-        "sanity": 20,
-        "basic_attack": { "dice": 1, "sides": 8 },
-        "defense": 1,
-        "speed": 2,
-        "ability1": {
-          "id": "brew_potion",
-          "name": "Brew Potion",
-          "description": "Concoct a restorative draught, adding a healing or soothing potion to the party's inventory."
-        },
-        "ability2": {
-          "id": "poison_cloud",
-          "name": "Poison Cloud",
-          "description": "Release a toxic cloud that damages and poisons all enemies for several rounds."
-        },
-        "resistance": "Poison",
-        "weakness": "Natural"
-      },
-      "gender_variants": {
-        "m": {
-          "portrait": "assets/img/ally_portrait/alchemist_male.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
-          }
-        },
-        "f": {
-          "portrait": "assets/img/ally_portrait/alchemist_female.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_female_hurt_sounds",
-            "voice_death": "cryptonaut_female_death_sounds",
-            "voice_win": "cryptonaut_female_win_sounds",
-            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-            "voice_party_death": "party_death_female_sound"
-          }
-        }
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "cleric",
-      "class": "Cleric",
-      "base_stats": {
-        "hp": 24,
-        "sanity": 28,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
-        "speed": 2,
-        "ability1": {
-          "id": "heal",
-          "name": "Heal",
-          "description": "Channel sacred power to restore HP to a single ally during combat."
-        },
-        "ability2": {
-          "id": "fireblast",
-          "name": "Fireblast",
-          "description": "Unleash a blast of searing holy fire that damages all enemies."
-        },
-        "resistance": "Fire",
-        "weakness": "Poison"
-      },
-      "gender_variants": {
-        "m": {
-          "portrait": "assets/img/ally_portrait/cleric_male.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
-          }
-        },
-        "f": {
-          "portrait": "assets/img/ally_portrait/cleric_female.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_female_hurt_sounds",
-            "voice_death": "cryptonaut_female_death_sounds",
-            "voice_win": "cryptonaut_female_win_sounds",
-            "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-            "voice_party_death": "party_death_female_sound"
-          }
-        }
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "aberration",
-      "class": "Aberration",
-      "base_stats": {
-        "hp": 28,
-        "sanity": 14,
-        "basic_attack": { "dice": 2, "sides": 8 },
-        "defense": 1,
-        "speed": 2,
-        "ability1": { "id": "savage", "name": "Savage", "description": "Unleash a brutal strike that deals very high damage to a single target." },
-        "ability2": { "id": "roar", "name": "Roar", "description": "Emit a horrifying roar that may paralyze all enemies with fear." },
-        "resistance": "Natural",
-        "weakness": "Fire"
-      },
-      "gender_variants": {
-        "m": {
-          "portrait": "assets/img/ally_portrait/monster_male.png",
-          "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
-          }
-        }
-      },
-      "starting_inventory": []
-    }
-  ],
-  "companions": [
-    {
-      "id": "eleanor",
-      "name": "Dr. Eleanor Marsh",
-      "class": "Alchemist",
-      "gender": "f",
-      "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your life—or end it.",
-      "portrait": "assets/img/ally_portrait/alchemist_female.png",
-      "base_stats": {
-        "hp": 24,
-        "sanity": 20,
-        "basic_attack": { "dice": 1, "sides": 8 },
-        "defense": 1,
-        "speed": 2,
-        "ability1": {
-          "id": "brew_potion",
-          "name": "Brew Potion",
-          "description": "Concoct a restorative draught, adding a healing potion to inventory."
-        },
-        "ability2": {
-          "id": "poison_cloud",
-          "name": "Poison Cloud",
-          "description": "Release a toxic cloud that damages and poisons all enemies."
-        },
-        "resistance": "Poison",
-        "weakness": "Natural"
-      },
-      "audio": {
-        "voice_hurt": "cryptonaut_female_hurt_sounds",
-        "voice_death": "cryptonaut_female_death_sounds",
-        "voice_win": "cryptonaut_female_win_sounds",
-        "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-        "voice_party_death": "party_death_female_sound"
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "marcus",
-      "name": "Marcus Vale",
-      "class": "Warrior",
-      "gender": "m",
-      "backstory": "A veteran soldier haunted by what he witnessed in the trenches. His blade arm is steady, but his nightmares never cease.",
-      "portrait": "assets/img/ally_portrait/warrior_male.png",
-      "base_stats": {
-        "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 6 },
-        "defense": 2,
-        "speed": 2,
-        "ability1": {
-          "id": "parry",
-          "name": "Parry",
-          "description": "Brace for impact; when hit, immediately retaliate."
-        },
-        "ability2": {
-          "id": "shield_bash",
-          "name": "Shield Bash",
-          "description": "A heavy blow with a chance to stun."
-        },
-        "resistance": "Natural",
-        "weakness": "Sanity"
-      },
-      "audio": {
-        "voice_hurt": "cryptonaut_male_hurt_sounds",
-        "voice_death": "cryptonaut_male_death_sounds",
-        "voice_win": "cryptonaut_male_win_sounds",
-        "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-        "voice_party_death": "party_death_male_sound"
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "agatha",
-      "name": "Sister Agatha",
-      "class": "Cleric",
-      "gender": "f",
-      "backstory": "A nun who lost her faith after witnessing an exorcism gone wrong. She still channels divine power—but questions its source.",
-      "portrait": "assets/img/ally_portrait/cleric_female.png",
-      "base_stats": {
-        "hp": 24,
-        "sanity": 28,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
-        "speed": 2,
-        "ability1": {
-          "id": "heal",
-          "name": "Heal",
-          "description": "Channel sacred power to restore HP to an ally."
-        },
-        "ability2": {
-          "id": "fireblast",
-          "name": "Fireblast",
-          "description": "A blast of holy fire that damages all enemies."
-        },
-        "resistance": "Fire",
-        "weakness": "Poison"
-      },
-      "audio": {
-        "voice_hurt": "cryptonaut_female_hurt_sounds",
-        "voice_death": "cryptonaut_female_death_sounds",
-        "voice_win": "cryptonaut_female_win_sounds",
-        "voice_combat_start": "cryptonaut_female_combat_start_sounds",
-        "voice_party_death": "party_death_female_sound"
-      },
-      "starting_inventory": ["herbal_tonic"]
-    },
-    {
-      "id": "chen",
-      "name": "Master Chen",
-      "class": "Monk",
-      "gender": "m",
-      "backstory": "A wandering mystic from distant lands who seeks to understand the cosmic truths hidden in madness. His calm is unsettling.",
-      "portrait": "assets/img/ally_portrait/monk_male.png",
-      "base_stats": {
-        "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
-        "speed": 3,
-        "ability1": {
-          "id": "calm",
-          "name": "Calm",
-          "description": "Restore sanity to the entire party."
-        },
-        "ability2": {
-          "id": "hypnotise",
-          "name": "Hypnotize",
-          "description": "Charm an enemy to fight for you."
-        },
-        "resistance": "Sanity",
-        "weakness": "Natural"
-      },
-      "audio": {
-        "voice_hurt": "cryptonaut_male_hurt_sounds",
-        "voice_death": "cryptonaut_male_death_sounds",
-        "voice_win": "cryptonaut_male_win_sounds",
-        "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-        "voice_party_death": "party_death_male_sound"
-      },
-      "starting_inventory": ["herbal_tonic"]
-    }
-  ]
-};
+const CHARACTER_DATA_FALLBACK = window.__CRYPTONAUTS_FALLBACKS__?.characters || null;
 
 let characterDataErrorShown = false;
 
@@ -397,6 +48,53 @@ let gameSettings = {
 const menuState = {
   pendingConfirmAction: null
 };
+
+function isMonsterClass(classOrId) {
+  const id = typeof classOrId === 'string' ? classOrId : classOrId?.id;
+  return id === 'aberration' || Boolean(classOrId?.tags?.includes?.('monster'));
+}
+
+function getCurrentClassData() {
+  if (!charactersData?.characters) return null;
+  return charactersData.characters.find(c => c.id === creationState.playerClassId) || null;
+}
+
+function getAvailableGenders(classData) {
+  if (!classData?.gender_variants) return [];
+  return Object.keys(classData.gender_variants);
+}
+
+function refreshGenderControls() {
+  const classData = getCurrentClassData();
+  if (!classData) return;
+  const availableGenders = getAvailableGenders(classData);
+  if (availableGenders.length === 0) {
+    creationState.playerGender = 'm';
+  } else if (!availableGenders.includes(creationState.playerGender)) {
+    creationState.playerGender = availableGenders[0];
+  }
+
+  const monsterLock = isMonsterClass(classData);
+  document.querySelectorAll('.gender-btn').forEach(btn => {
+    const isAllowed = availableGenders.includes(btn.dataset.gender);
+    const shouldDisable = monsterLock || !isAllowed;
+    btn.disabled = shouldDisable;
+    btn.classList.toggle('disabled', shouldDisable);
+    btn.classList.toggle('selected', btn.dataset.gender === creationState.playerGender);
+    if (monsterLock) {
+      btn.title = 'Monstrous forms heed no mortal genders.';
+    } else if (!isAllowed) {
+      btn.title = 'Unavailable for this class.';
+    } else {
+      btn.title = '';
+    }
+  });
+
+  const lockNote = document.getElementById('gender-lock-note');
+  if (lockNote) {
+    lockNote.textContent = monsterLock ? 'Monstrous forms heed no mortal genders.' : '';
+  }
+}
 
 function getEmbeddedCharacterData() {
   const inlineEl = document.getElementById('characters-data');
@@ -617,6 +315,7 @@ function prepareCharacterCreation() {
   });
   
   populateClassSelector();
+  refreshGenderControls();
   populateCompanionSelector();
   updatePlayerPreview();
   updateCompanionPreview();
@@ -636,7 +335,7 @@ function populateClassSelector() {
   const container = document.getElementById('player-class-select');
   container.innerHTML = '';
   
-  const availableClasses = charactersData.characters.filter(c => c.id !== 'aberration');
+  const availableClasses = charactersData?.characters || [];
   availableClasses.forEach(charClass => {
     const card = document.createElement('div');
     card.className = 'class-card' + (charClass.id === creationState.playerClassId ? ' selected' : '');
@@ -675,14 +374,21 @@ function selectClass(classId) {
   document.querySelectorAll('.class-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.classId === classId);
   });
+  refreshGenderControls();
   updatePlayerPreview();
 }
 
 function selectGender(gender) {
+  const classData = getCurrentClassData();
+  if (!classData || isMonsterClass(classData)) {
+    return;
+  }
+  const available = getAvailableGenders(classData);
+  if (!available.includes(gender)) {
+    return;
+  }
   creationState.playerGender = gender;
-  document.querySelectorAll('.gender-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.gender === gender);
-  });
+  refreshGenderControls();
   updatePlayerPreview();
 }
 
@@ -695,22 +401,32 @@ function selectCompanion(companionId) {
 }
 
 function updatePlayerPreview() {
-  const classData = charactersData.characters.find(c => c.id === creationState.playerClassId);
+  const classData = getCurrentClassData();
   if (!classData) return;
-  const genderData = classData.gender_variants[creationState.playerGender];
-  
-  document.getElementById('player-preview-portrait').src = genderData?.portrait || 'assets/img/ally_portrait/default.png';
-  const stats = classData.base_stats;
-  document.getElementById('preview-player-hp').textContent = stats.hp;
-  document.getElementById('preview-player-sanity').textContent = stats.sanity;
-  document.getElementById('preview-player-attack').textContent = `${stats.basic_attack.dice}d${stats.basic_attack.sides}`;
-  document.getElementById('preview-player-defense').textContent = stats.defense;
+  const variants = classData.gender_variants || {};
+  const variantKeys = Object.keys(variants);
+  const genderData = variants[creationState.playerGender] || variants[variantKeys[0]] || null;
+  const portraitSrc = genderData?.portrait || 'assets/img/ally_portrait/warrior_male.png';
+  document.getElementById('player-preview-portrait').src = portraitSrc;
+
+  const stats = classData.base_stats || {};
+  const basicAttack = stats.basic_attack || {};
+  const attackText = (basicAttack.dice && basicAttack.sides)
+    ? `${basicAttack.dice}d${basicAttack.sides}`
+    : '—';
+  document.getElementById('preview-player-hp').textContent = stats.hp ?? '—';
+  document.getElementById('preview-player-sanity').textContent = stats.sanity ?? '—';
+  document.getElementById('preview-player-attack').textContent = attackText;
+  document.getElementById('preview-player-defense').textContent = stats.defense ?? '—';
+
+  const abilityOne = stats.ability1 || { name: 'Ability 1', description: '—' };
+  const abilityTwo = stats.ability2 || { name: 'Ability 2', description: '—' };
   document.getElementById('player-preview-abilities').innerHTML = `
     <div class="ability">
-      <span class="ability-name">${stats.ability1.name}:</span> ${stats.ability1.description}
+      <span class="ability-name">${abilityOne.name}:</span> ${abilityOne.description}
     </div>
     <div class="ability">
-      <span class="ability-name">${stats.ability2.name}:</span> ${stats.ability2.description}
+      <span class="ability-name">${abilityTwo.name}:</span> ${abilityTwo.description}
     </div>
   `;
 }

@@ -389,6 +389,41 @@
         "voice_party_death": "party_death_male_sound"
       },
       "starting_inventory": ["herbal_tonic"]
+    },
+    {
+      "id": "aberrant_thrall",
+      "name": "Bound Aberration",
+      "class": "Aberration",
+      "gender": "m",
+      "backstory": "A chained horror, shackled by sigils to obey your commands—for now.",
+      "portrait": "assets/img/ally_portrait/monster_male.png",
+      "base_stats": {
+        "hp": 28,
+        "sanity": 14,
+        "basic_attack": { "dice": 2, "sides": 8 },
+        "defense": 1,
+        "speed": 2,
+        "ability1": {
+          "id": "savage",
+          "name": "Savage",
+          "description": "Unleash a brutal strike that deals very high damage to a single target."
+        },
+        "ability2": {
+          "id": "roar",
+          "name": "Roar",
+          "description": "Emit a horrifying roar that may paralyze all enemies with fear."
+        },
+        "resistance": "Natural",
+        "weakness": "Fire"
+      },
+      "audio": {
+        "voice_hurt": "cryptonaut_monster_hurt_sounds",
+        "voice_death": "cryptonaut_monster_death_sounds",
+        "voice_win": "cryptonaut_monster_win_sounds",
+        "voice_combat_start": "cryptonaut_monster_combat_start_sounds",
+        "voice_party_death": "party_death_monster_sound"
+      },
+      "starting_inventory": []
     }
   ]
 }
