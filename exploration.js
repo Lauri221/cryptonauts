@@ -45,10 +45,9 @@ const VALID_STATUS_EFFECT_IDS = [
   'sanity_regen'
 ];
 
-const ROOM_OPTION_COUNT = 8;
-const ROOM_SELECTION_LIMIT = 6;
+const ROOM_OPTION_COUNT = 6;
+const ROOM_SELECTION_LIMIT = 4;
 const ROOM_HISTORY_MAX_ENTRIES = 50;
-const BACKTRACK_CHOICE_ID = 'retreat_previous_room';
 const FORCED_COMBAT_FLAG_PREFIX = 'forcedCombatResolved_';
 const FORCED_COMBAT_ROOMS = {
   room_02_gallery: { enemyId: 'astral_creeper', reason: 'The gallery guardians ambush you!' },
@@ -151,6 +150,7 @@ let charactersData = null;
 let inventoryCatalog = { items: [] };
 let autosaveInterval = null;
 let playerInitWarned = false;
+let navigationLocked = false;
 
 function cloneData(data) {
   if (!data) return null;
@@ -1436,7 +1436,7 @@ function generateFallbackNarration(room) {
     'chamber': 'The weight of countless dead seems to press down from above.',
     'corridor': 'Water drips in unseen corners, each drop counting down to something unspeakable.',
     'ritual_hall': 'The air itself seems to vibrate with residual power from rituals long past.',
-    'antechamber': 'Reality feels thin here, like parchment stretched too tight.',
+    'antechamber': 'Reality feels thin here, ready to break and spill forth true madness.',
     'boss': 'The darkness here is alive, pulsing with malevolent intent.'
   };
   
@@ -1475,31 +1475,12 @@ function generateFallbackChoices(room) {
     });
   }
   
-  // Rest option (if room allows)
-  if (room.allowRest) {
-    choices.push({
-      id: 'rest_here',
-      label: 'Rest and recover',
-      type: 'rest',
-      description: 'Take a moment to regain your strength'
-    });
-  }
-  
-  // Movement options to next rooms
-  if (room.nextRooms && room.nextRooms.length > 0) {
-    room.nextRooms.forEach((nextId, index) => {
-      const nextRoom = getRoomById(nextId);
-      const isSideRoom = nextRoom && nextRoom.type === 'side_room';
-      
-      choices.push({
-        id: `move_${nextId}`,
-        label: isSideRoom ? `Investigate ${nextRoom?.name || 'side passage'}` : `Proceed to ${nextRoom?.name || 'the next area'}`,
-        type: 'move',
-        description: nextRoom ? `Depth ${nextRoom.depth}` : '',
-        targetRoom: nextId
-      });
-    });
-  }
+  choices.push({
+    id: 'rest_here',
+    label: 'Rest and recover',
+    type: 'rest',
+    description: 'Take a moment to regain your strength'
+  });
   
   return choices;
 }
@@ -1758,6 +1739,14 @@ function updateUI() {
   document.getElementById('explorer-player-maxhp').textContent = gameState.player.maxHp;
   document.getElementById('explorer-player-sanity').textContent = gameState.player.sanity;
   document.getElementById('explorer-player-maxsanity').textContent = gameState.player.maxSanity;
+  const playerPortraitImg = document.querySelector('#player-card img');
+  if (playerPortraitImg) {
+    const portraitSrc = gameState.player.portrait || 'assets/img/ally_portrait/warrior_male.png';
+    if (playerPortraitImg.getAttribute('src') !== portraitSrc) {
+      playerPortraitImg.setAttribute('src', portraitSrc);
+    }
+    playerPortraitImg.setAttribute('alt', gameState.player.name || 'Player');
+  }
   
   const playerStatusEl = document.getElementById('explorer-player-status');
   playerStatusEl.textContent = gameState.player.statusEffects.join(', ') || '';
@@ -1769,6 +1758,14 @@ function updateUI() {
     document.getElementById('explorer-companion-maxhp').textContent = gameState.companion.maxHp;
     document.getElementById('explorer-companion-sanity').textContent = gameState.companion.sanity;
     document.getElementById('explorer-companion-maxsanity').textContent = gameState.companion.maxSanity;
+    const companionPortraitImg = document.querySelector('#companion-card img');
+    if (companionPortraitImg) {
+      const companionSrc = gameState.companion.portrait || 'assets/img/ally_portrait/warrior_male.png';
+      if (companionPortraitImg.getAttribute('src') !== companionSrc) {
+        companionPortraitImg.setAttribute('src', companionSrc);
+      }
+      companionPortraitImg.setAttribute('alt', gameState.companion.name || 'Companion');
+    }
     
     const companionStatusEl = document.getElementById('explorer-companion-status');
     companionStatusEl.textContent = gameState.companion.statusEffects.join(', ') || '';
@@ -1776,6 +1773,7 @@ function updateUI() {
   
   // Inventory
   renderInventory();
+  renderNavigationControls();
   
   // Sanity state visual
   document.getElementById('exploration-screen').dataset.sanityState = gameState.currentSanityState;
@@ -1800,6 +1798,85 @@ function renderInventory() {
     `;
     listEl.appendChild(itemEl);
   });
+}
+
+function renderNavigationControls() {
+  const room = getRoomById(gameState.currentRoomId);
+  if (!room) {
+    return;
+  }
+
+  const backGroup = document.getElementById('nav-backtrack-group');
+  const backBtn = document.getElementById('nav-back-btn');
+  const previousRoomId = getPreviousRoomFromHistory();
+  if (backGroup) {
+    backGroup.classList.toggle('hidden', !previousRoomId);
+  }
+  if (backBtn) {
+    if (previousRoomId) {
+      const previousRoom = getRoomById(previousRoomId);
+      backBtn.textContent = `Return to ${previousRoom?.name || 'the previous room'}`;
+      backBtn.onclick = () => handleNavigationBack(previousRoomId);
+    } else {
+      backBtn.onclick = null;
+    }
+  }
+
+  const forwardContainer = document.getElementById('nav-forward-buttons');
+  if (!forwardContainer) {
+    return;
+  }
+  forwardContainer.innerHTML = '';
+
+  const nextRooms = Array.isArray(room.nextRooms) ? room.nextRooms : [];
+  if (!nextRooms.length) {
+    const emptyMessage = document.createElement('div');
+    emptyMessage.className = 'nav-empty-message';
+    emptyMessage.textContent = 'No routes onward.';
+    forwardContainer.appendChild(emptyMessage);
+    return;
+  }
+
+  nextRooms.forEach(nextRoomId => {
+    if (!nextRoomId) return;
+    const nextRoom = getRoomById(nextRoomId);
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn';
+    btn.textContent = nextRoom ? `Advance to ${nextRoom.name}` : 'Proceed onward';
+    if (nextRoom?.depth) {
+      btn.title = `Depth ${nextRoom.depth}`;
+    }
+    btn.addEventListener('click', () => handleNavigationForward(nextRoomId));
+    forwardContainer.appendChild(btn);
+  });
+}
+
+async function handleNavigationForward(nextRoomId) {
+  if (!nextRoomId || navigationLocked) {
+    return;
+  }
+  navigationLocked = true;
+  const nextRoom = getRoomById(nextRoomId);
+  logEvent(`🚶 You press onward toward ${nextRoom?.name || 'the next chamber'}.`, 'action');
+  try {
+    await enterRoom(nextRoomId);
+  } finally {
+    navigationLocked = false;
+  }
+}
+
+async function handleNavigationBack(targetRoomId) {
+  if (!targetRoomId || navigationLocked) {
+    return;
+  }
+  navigationLocked = true;
+  const previousRoom = getRoomById(targetRoomId);
+  logEvent(`↩️ You retrace your steps toward ${previousRoom?.name || 'familiar ground'}.`, 'action');
+  try {
+    await enterRoom(targetRoomId, false, { fromHistory: true });
+  } finally {
+    navigationLocked = false;
+  }
 }
 
 function setNarration(text) {
@@ -1992,6 +2069,9 @@ function normalizeRoomChoices(rawChoices = [], room = null) {
   const seen = new Set();
   rawChoices.forEach((choice, index) => {
     if (!choice) return;
+    if (choice.type === 'move' || choice.meta?.backtrack) {
+      return;
+    }
     const candidate = { ...choice };
     let candidateId = candidate.id;
     if (!candidateId) {
@@ -2008,7 +2088,20 @@ function normalizeRoomChoices(rawChoices = [], room = null) {
     prepared.push(candidate);
   });
 
-  maybeAddBacktrackChoice(prepared, seen);
+  if (!prepared.some(choice => choice?.type === 'rest')) {
+    let restId = 'rest_here';
+    if (seen.has(restId)) {
+      restId = normalizeChoiceId(restId, seen);
+    }
+    const restChoice = {
+      id: restId,
+      label: 'Rest and recover',
+      type: 'rest',
+      description: 'Take a moment to regain your strength'
+    };
+    prepared.push(restChoice);
+    seen.add(restId);
+  }
 
   if (!prepared.some(isCombatChoice)) {
     const combatChoice = generateCombatChoice(room);
@@ -2038,11 +2131,26 @@ function normalizeRoomChoices(rawChoices = [], room = null) {
   }
 
   if (prepared.length > ROOM_OPTION_COUNT) {
-    const combatIndex = prepared.findIndex(isCombatChoice);
     const trimmed = prepared.slice(0, ROOM_OPTION_COUNT);
-    if (combatIndex >= ROOM_OPTION_COUNT && combatIndex >= 0) {
-      trimmed[ROOM_OPTION_COUNT - 1] = prepared[combatIndex];
-    }
+    const ensureChoiceIncluded = (predicate) => {
+      const requiredIndex = prepared.findIndex(predicate);
+      if (requiredIndex < 0 || requiredIndex < ROOM_OPTION_COUNT) {
+        return;
+      }
+      if (trimmed.some(predicate)) {
+        return;
+      }
+      for (let i = trimmed.length - 1; i >= 0; i--) {
+        if (!predicate(trimmed[i])) {
+          trimmed[i] = prepared[requiredIndex];
+          return;
+        }
+      }
+    };
+
+    ensureChoiceIncluded(choice => choice?.type === 'rest');
+    ensureChoiceIncluded(isCombatChoice);
+
     return trimmed;
   }
 
@@ -2073,38 +2181,6 @@ function generateSupplementalChoice(index) {
     label: 'Maintain vigilance',
     type: 'lore',
     description: 'Keep watch for anything unusual.'
-  };
-}
-
-function maybeAddBacktrackChoice(prepared, seen) {
-  const targetRoomId = getPreviousRoomFromHistory();
-  if (!targetRoomId) {
-    return;
-  }
-  const alreadyPresent = prepared.some(choice => choice.meta?.backtrack);
-  if (alreadyPresent) {
-    return;
-  }
-
-  let retreatChoice = buildBacktrackChoice(targetRoomId);
-  if (seen.has(retreatChoice.id)) {
-    const uniqueId = normalizeChoiceId(retreatChoice.id, seen);
-    retreatChoice = { ...retreatChoice, id: uniqueId };
-  }
-  prepared.unshift(retreatChoice);
-  seen.add(retreatChoice.id);
-}
-
-function buildBacktrackChoice(targetRoomId) {
-  const previousRoom = getRoomById(targetRoomId);
-  const roomName = previousRoom?.name || 'the previous chamber';
-  return {
-    id: BACKTRACK_CHOICE_ID,
-    label: `Retreat to ${roomName}`,
-    type: 'move',
-    description: 'Fall back to regroup in safer ground.',
-    targetRoom: targetRoomId,
-    meta: { backtrack: true }
   };
 }
 
@@ -2170,16 +2246,6 @@ async function onChoiceClicked(choice) {
     handleRest();
     return;
   }
-
-  if (choice.meta?.backtrack && choice.targetRoom) {
-    await enterRoom(choice.targetRoom, false, { fromHistory: true });
-    return;
-  }
-  
-  if (choice.id.startsWith('move_') && choice.targetRoom) {
-    await enterRoom(choice.targetRoom);
-    return;
-  }
   
   showLoading(true);
   const response = await callGeminiExploration('AWAITING_CHOICE', choice.id);
@@ -2202,9 +2268,6 @@ function handleFallbackChoice(choice) {
     handleFallbackSearch(room);
   } else if (choice.id === 'examine_feature') {
     handleFallbackExamine(room, choice.feature);
-  } else if (choice.id.startsWith('move_')) {
-    // Movement is handled elsewhere
-    return;
   } else {
     setNarration('You proceed cautiously, senses alert for danger...');
   }
@@ -2356,26 +2419,48 @@ function getRandomEncounterReason() {
   return reasons[Math.floor(Math.random() * reasons.length)];
 }
 
-function handleRest() {
-  const room = getRoomById(gameState.currentRoomId);
-  
-  if (!room.allowRest) {
-    logEvent('This place is too unsettling to rest.', 'warning');
-    handleFallbackRoomEntry(room);
+function applyRestRecovery(targetKey, hpPercent, sanityPercent, hpReason, sanityReason) {
+  const target = targetKey === 'player' ? gameState.player : gameState.companion;
+  if (!target) {
     return;
   }
-  
-  // Restore HP and sanity
-  const hpRestore = Math.floor(gameState.player.maxHp * 0.3);
-  const sanityRestore = Math.floor(gameState.player.maxSanity * 0.2);
-  
-  applyHpChange('party', hpRestore, 'Resting');
-  applySanityChange('party', sanityRestore, 'Moment of peace');
-  
-  setNarration('You find a shadowed alcove and take a moment to catch your breath. The darkness presses in, but for now, you are safe.');
-  
+  const hpDelta = Math.ceil(target.maxHp * hpPercent);
+  if (hpDelta > 0) {
+    applyHpChange(targetKey, hpDelta, hpReason);
+  }
+  const sanityDelta = Math.ceil(target.maxSanity * sanityPercent);
+  if (sanityDelta > 0) {
+    applySanityChange(targetKey, sanityDelta, sanityReason);
+  }
+}
+
+function handleRest() {
+  const room = getRoomById(gameState.currentRoomId);
+  syncInventoryFromSystem();
+  const incenseCount = gameState.inventory?.dreamless_incense || 0;
+  const usedIncense = incenseCount > 0;
+  const hpPercent = usedIncense ? 1 : 0.5;
+  const sanityPercent = usedIncense ? 1 : 0.5;
+  const hpReason = usedIncense ? 'Incense-fueled restoration' : 'Resting';
+  const sanityReason = usedIncense ? 'Incense-fueled calm' : 'Moment of peace';
+
+  if (usedIncense) {
+    applyInventoryChange('dreamless_incense', -1, 'Used during rest');
+    logEvent('🕯️ Dreamless incense burns away, washing you in soothing smoke.', 'item');
+  }
+
+  applyRestRecovery('player', hpPercent, sanityPercent, hpReason, sanityReason);
+  applyRestRecovery('companion', hpPercent, sanityPercent, hpReason, sanityReason);
+
+  const narration = usedIncense
+    ? 'You ignite the dreamless incense. A rush of warmth seals every wound and stills every intrusive whisper.'
+    : 'You steal a quiet moment to bind wounds and steady your breathing. Strength and clarity return by halves, but it is enough.';
+  setNarration(narration);
+
   updateUI();
-  handleFallbackRoomEntry(room);
+  if (room) {
+    handleFallbackRoomEntry(room);
+  }
 }
 
 // ========================

@@ -83,6 +83,8 @@ function applySanityStateEffects() {
     // Mild effects for shaken state
     maybeAddPhantomLog(0.15);
   }
+
+  applyInsanityEffectsToActionButtons();
 }
 
 /**
@@ -181,7 +183,52 @@ function resetButtonPositions() {
   const buttons = actionsContainer.querySelectorAll('button');
   buttons.forEach(btn => {
     btn.style.transform = '';
+    btn.style.order = '';
   });
+}
+
+function generateInsanityGlyphString(length = 4) {
+  const glyphCount = Math.max(3, length);
+  let result = '';
+  for (let i = 0; i < glyphCount; i++) {
+    const glyph = INSANITY_GLYPHS[Math.floor(Math.random() * INSANITY_GLYPHS.length)] || '*';
+    result += glyph;
+  }
+  return result;
+}
+
+function applyInsanityEffectsToActionButtons() {
+  const actionsContainer = document.getElementById('actions');
+  if (!actionsContainer) return;
+
+  const buttons = actionsContainer.querySelectorAll('button');
+  buttons.forEach(btn => {
+    const baseLabel = btn.dataset.baseLabel || btn.textContent || '';
+    btn.dataset.baseLabel = baseLabel;
+    btn.setAttribute('aria-label', baseLabel);
+
+    if (currentSanityState === SANITY_STATES.STABLE) {
+      btn.textContent = baseLabel;
+      btn.style.order = '';
+      btn.classList.remove('insanity-glyph');
+      return;
+    }
+
+    if (currentSanityState === SANITY_STATES.BROKEN) {
+      btn.textContent = generateInsanityGlyphString(baseLabel.length);
+      btn.classList.add('insanity-glyph');
+    } else {
+      btn.textContent = renderInsanityText(baseLabel, 0.25);
+      btn.classList.remove('insanity-glyph');
+    }
+
+    const orderRange = currentSanityState === SANITY_STATES.BROKEN ? 12 : 6;
+    btn.style.order = Math.floor(Math.random() * orderRange);
+  });
+
+  if (currentSanityState === SANITY_STATES.BROKEN) {
+    shuffleActionButtons();
+  }
 }
 
 /**
@@ -232,6 +279,13 @@ let summonedNPCs = [];
 
 // Tracks which character the player is currently controlling ('player' or 'companion')
 let activeControlledCharacter = 'player';
+
+function getCurrentControlledActor() {
+  if (activeControlledCharacter === 'companion') {
+    return companion;
+  }
+  return player;
+}
 
 // Tracks pending action awaiting target selection
 let pendingAction = null;
@@ -1380,9 +1434,13 @@ function executePlayerAction(actionId, selectedTarget = null) {
         return null;
       }
       const abilityId = actor.ability1.id;
-      if (abilityId && getAbilityById(abilityId)) {
+      const definedAbility = abilityId ? getAbilityById(abilityId) : null;
+      if (abilityId && definedAbility) {
         // Use the new ability resolution system
-        const targets = selectedTarget || getLivingEnemies()[0] || actor; // Use selected target
+        let targets = selectedTarget || getLivingEnemies()[0] || actor; // Use selected target
+        if (abilityId === 'parry') {
+          targets = (selectedTarget && isFriendlyCharacter(selectedTarget)) ? selectedTarget : actor;
+        }
         const result = resolveAbilityUse(abilityId, actor, targets);
         return { action: 'ability1', abilityResult: result, actor };
       }
@@ -1798,29 +1856,63 @@ function formatActionLabel(action = '') {
   return action.replace(/_/g, ' ').replace(/(^|\s)\w/g, (m) => m.toUpperCase());
 }
 
-function renderActionButtons(actionList = []) {
+function renderActionButtons(actionList = [], actorContext = null) {
   const container = document.getElementById('actions');
   if (!container) return;
+  const context = actorContext || getCurrentControlledActor() || player;
   const list = (Array.isArray(actionList) && actionList.length)
     ? actionList
-    : buildCharacterActions();
+    : buildCharacterActions(context || {});
   container.innerHTML = '';
+  const resolveLabel = (action) => {
+    if (!action) return '';
+    if (action.label) return action.label;
+    if (action.id === 'ability1' && context?.ability1?.name) {
+      return context.ability1.name;
+    }
+    if (action.id === 'ability2' && context?.ability2?.name) {
+      return context.ability2.name;
+    }
+    return formatActionLabel(action.id);
+  };
+
   list.forEach(action => {
     if (!action?.id) return;
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.action = action.id;
-    button.textContent = action.label || formatActionLabel(action.id);
+    const buttonLabel = resolveLabel(action);
+    button.dataset.baseLabel = buttonLabel;
+    button.textContent = buttonLabel;
+    button.setAttribute('aria-label', buttonLabel);
     if (action.description) {
       button.title = action.description;
     }
     button.addEventListener('click', () => chooseAction(action.id));
     container.appendChild(button);
   });
+
+  applyInsanityEffectsToActionButtons();
+}
+
+function refreshActiveCharacterActions(actorOverride = null) {
+  const actor = actorOverride || getCurrentControlledActor();
+  if (!actor) return;
+  renderActionButtons(null, actor);
 }
 
 function getLivingEnemies() {
   return enemies.filter(e => e.alive !== false && e.hp > 0);
+}
+
+function isFriendlyCharacter(character) {
+  if (!character) return false;
+  if (character === player || character === companion) return true;
+  if (character.slot === 'player' || character.slot === 'companion') return true;
+  if (character.isSummon) {
+    return character.faction !== 'enemy';
+  }
+  return false;
 }
 
 function rollFromDiceSpec(spec) {
@@ -2243,6 +2335,12 @@ function resolveAbilityUse(abilityId, caster, targets) {
   const characterLevel = caster.level || 1;
   const levelRule = getLevelRule(ability, characterLevel);
   const casterName = caster?.name || 'Someone';
+  const friendlyCaster = isFriendlyCharacter(caster);
+
+  if (ability.id === 'parry' && !friendlyCaster) {
+    log(`${casterName} attempts to use ${ability.name}, but that defensive technique only responds to allied hands.`);
+    return { success: false, reason: 'restricted_to_allies' };
+  }
   
   // Determine actual targets based on level rule target override
   let actualTargets = targets;
@@ -3093,6 +3191,7 @@ function positionTooltip(tooltip, event) {
   tooltip.style.left = `${left}px`;
   tooltip.style.top = `${top}px`;
   tooltip.style.visibility = 'visible';
+  tooltip.style.display = '';
 }
 
 /**
@@ -3108,10 +3207,16 @@ function updateTooltipPosition(event) {
  */
 function hideCharacterTooltip() {
   if (!characterTooltipEl) return;
+  if (tooltipHideTimeout) {
+    clearTimeout(tooltipHideTimeout);
+  }
   
   // Small delay to prevent flicker when moving between elements
   tooltipHideTimeout = setTimeout(() => {
     characterTooltipEl.classList.remove('visible');
+    characterTooltipEl.style.visibility = 'hidden';
+    characterTooltipEl.style.display = '';
+    tooltipHideTimeout = null;
   }, 100);
 }
 
@@ -3371,7 +3476,7 @@ async function loadCombatData() {
     player = await hydratePartyMember(playerConfig);
     player.slot = playerConfig.slot;
     player.alive = player.hp > 0;                 // Mark player as alive if HP > 0
-    renderActionButtons(player.actions);
+    refreshActiveCharacterActions(player);
     
     // 2) Load companion data
     const rawCompanionConfig = getPartyMemberFromSave(partyConfigs, 'companion', 1)
@@ -3693,6 +3798,7 @@ function nextTurn() {
       return;
     }
     activeControlledCharacter = 'player';
+    refreshActiveCharacterActions(player);
     log("Your turn! Choose an action...");
     enableActions(); // Allows user to click Attack / Defend / etc.
   } else if (current.type === 'companion') {
@@ -3713,6 +3819,7 @@ function nextTurn() {
       return setTimeout(nextTurn, 1000);
     }
     activeControlledCharacter = 'companion';
+    refreshActiveCharacterActions(companion);
     log(`${companion.name}'s turn! Choose an action...`);
     enableActions(); // Player controls the companion too
   } else if (current.type === 'summon') {
@@ -5034,17 +5141,9 @@ function enemyTurn(enemy) {
       flashDamage('player-portrait');
         
       const playerSounds = player.gender === 'f' ? cryptonaut_female_hurt_sounds : 
-                          player.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
-      const playerDeathSounds = player.gender === 'f' ? party_death_female_sound : 
-                               player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+              player.gender === 'm' ? cryptonaut_male_hurt_sounds : cryptonaut_monster_hurt_sounds;
 
-      if (player.hp <= 0) {
-        if (player.alive) {
-          player.alive = false; // Mark as dead once to avoid repeated sounds
-          animateAllyDeath('player-portrait');
-          playRandomSound(playerDeathSounds);
-        }
-      } else {
+      if (player.hp > 0) {
         playRandomSound(playerSounds);
       }
     } else {
@@ -5073,33 +5172,27 @@ function enemyTurn(enemy) {
     }
     
     updateUI();
-    
-    // Check if the player got defeated here (HP only - sanity 0 = peak insanity, not defeat)
-    if (player.hp <= 0) {
-      stopCombatMusic();
-      combatEnded = true;
-      log("💀 You collapse from your injuries. Game over.");
-      disableActions(); // Player can no longer act
-      // Play defeat music
-      playMusicTrack(defeatMusic, 'Defeat music error', { reset: true });
+
+    const lossTriggered = checkLossCondition();
+    if (lossTriggered) {
       return;
     }
-  
-  if (companion.hp <= 0 && companion.alive) {
-    companion.alive = false;
-    animateAllyDeath('ally-portrait');
-    log(`${companion.name} falls unconscious!`);
-    rebuildCombatants();
-    
-    // Check if all enemies are defeated after rebuilding combatants
-    if (!enemies.some(e => e.alive !== false && e.hp > 0)) {
-      console.log("All enemies are defeated after companion falls");
-      handleVictory();
-      return;
+
+    if (companion.hp <= 0 && companion.alive) {
+      companion.alive = false;
+      animateAllyDeath('ally-portrait');
+      log(`${companion.name} falls unconscious!`);
+      rebuildCombatants();
+      
+      // Check if all enemies are defeated after rebuilding combatants
+      if (!enemies.some(e => e.alive !== false && e.hp > 0)) {
+        console.log("All enemies are defeated after companion falls");
+        handleVictory();
+        return;
+      }
+      
+      if (currentTurn >= combatants.length) currentTurn = 0;
     }
-    
-    if (currentTurn >= combatants.length) currentTurn = 0;
-  }
   
     saveGameState();    // Save updated HP for player/companion
     // Only proceed to next turn if combat hasn't ended, 2s after hit sounds
@@ -5287,7 +5380,8 @@ function checkLossCondition() {
   // Check if player is dead (HP only - sanity 0 means peak insanity, not defeat)
   if (player.hp <= 0) {
     if (combatEnded) return;
-    if (player.alive !== false) {
+    const firstDeathFrame = player.alive !== false;
+    if (firstDeathFrame) {
       player.alive = false;
       animateAllyDeath('player-portrait');
     }
@@ -5299,10 +5393,11 @@ function checkLossCondition() {
     // Save combat log for post-mortem
     saveCombatLog();
     
-    // Play death sound
-    const deathSounds = player.gender === 'f' ? party_death_female_sound :
-                        player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
-    playRandomSound(deathSounds);
+    if (firstDeathFrame) {
+      const deathSounds = player.gender === 'f' ? party_death_female_sound :
+                          player.gender === 'm' ? party_death_male_sound : party_death_monster_sound;
+      playRandomSound(deathSounds);
+    }
     
     // Play defeat music
     playMusicTrack(defeatMusic, 'Defeat music error', { reset: true });
@@ -5436,13 +5531,13 @@ function enableActions() {
   
   // Apply insanity effects to buttons when enabled
   if (currentSanityState === SANITY_STATES.BROKEN) {
-    shuffleActionButtons();
     jitterActionButtons();
   } else if (currentSanityState === SANITY_STATES.SHAKEN) {
     jitterActionButtons();
   } else {
     resetButtonPositions();
   }
+  applyInsanityEffectsToActionButtons();
 }
 function disableActions() {
   document.querySelectorAll("#actions button").forEach(b => b.disabled = true);

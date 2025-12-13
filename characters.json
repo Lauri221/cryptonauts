@@ -8,7 +8,7 @@
         "sanity": 20,
         "basic_attack": {
           "dice": 2,
-          "sides": 4
+          "sides": 6
         },
         "defense": 1,
         "speed": 3,
@@ -56,11 +56,11 @@
       "id": "warrior",
       "class": "Warrior",
       "base_stats": {
-        "hp": 30,
+        "hp": 38,
         "sanity": 20,
         "basic_attack": {
           "dice": 2,
-          "sides": 6
+          "sides": 12
         },
         "defense": 2,
         "speed": 2,
@@ -160,11 +160,11 @@
       "id": "cleric",
       "class": "Cleric",
       "base_stats": {
-        "hp": 24,
-        "sanity": 28,
+        "hp": 30,
+        "sanity": 30,
         "basic_attack": {
           "dice": 2,
-          "sides": 4
+          "sides": 8
         },
         "defense": 1,
         "speed": 2,
@@ -212,11 +212,11 @@
       "id": "aberration",
       "class": "Aberration",
       "base_stats": {
-        "hp": 28,
+        "hp": 45,
         "sanity": 14,
         "basic_attack": {
           "dice": 2,
-          "sides": 8
+          "sides": 16
         },
         "defense": 1,
         "speed": 2,

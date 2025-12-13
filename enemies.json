@@ -23,7 +23,7 @@
         "voice_death": "enemy_female_death",
         "voice_combat_start": "enemy_female_combat_start"
       },
-      "xp_reward": 20
+      "xp_reward": 30
     },
     {
       "id": "mossleech",
@@ -48,7 +48,7 @@
         "voice_death": "enemy_insect_death",
         "voice_combat_start": "enemy_insect_combat_start"
       },
-      "xp_reward": 15
+      "xp_reward": 30
     },
     {
       "id": "cultist",
@@ -73,7 +73,7 @@
         "voice_death": "enemy_female_death",
         "voice_combat_start": "enemy_female_combat_start"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
         {
       "id": "aberrant_beast",
@@ -98,7 +98,7 @@
         "voice_death": "enemy_beast_death",
         "voice_combat_start": "enemy_beast_combat_start"
       },
-      "xp_reward": 16
+      "xp_reward": 30
     },
     {
       "id": "rat_man",
@@ -123,7 +123,7 @@
         "voice_death": "enemy_monster_death",
         "voice_combat_start": "enemy_monster_combat_start"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
     {
       "id": "sewer_centipede",
@@ -148,7 +148,7 @@
         "voice_death": "enemy_insect_death",
         "voice_combat_start": "enemy_insect_hurt"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
         {
       "id": "male_grave_robber",
@@ -173,7 +173,7 @@
         "voice_death": "enemy_male_death",
         "voice_combat_start": "enemy_male_combat_start"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
             {
       "id": "corpse_eater",
@@ -198,7 +198,7 @@
         "voice_death": "enemy_beast_death",
         "voice_combat_start": "enemy_beast_combat_start"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
             {
       "id": "female_grave_robber",
@@ -223,7 +223,7 @@
         "voice_death": "enemy_female_death",
         "voice_combat_start": "enemy_female_combat_start"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
                 {
       "id": "flesh_eating_vines",
@@ -248,7 +248,7 @@
         "voice_death": "enemy_insect_death",
         "voice_combat_start": "enemy_insect_hurt"
       },
-      "xp_reward": 10
+      "xp_reward": 30
     },
         {
       "id": "drowned_acolyte",
@@ -273,7 +273,7 @@
         "voice_death": "enemy_female_death",
         "voice_combat_start": "enemy_female_combat_start"
       },
-      "xp_reward": 30
+      "xp_reward": 60
     },
       {
       "id": "leech_swarm",
@@ -298,7 +298,7 @@
         "voice_death": "enemy_insect_death",
         "voice_combat_start": "enemy_insect_hurt"
       },
-      "xp_reward": 30
+      "xp_reward": 60
     },
       {
       "id": "flesh_golem",
@@ -323,7 +323,7 @@
         "voice_death": "enemy_beast_death",
         "voice_combat_start": "enemy_beast_combat_start"
       },
-      "xp_reward": 75
+      "xp_reward": 100
     },    
           {
       "id": "pit_butcher",
@@ -348,7 +348,7 @@
         "voice_death": "enemy_male_death",
         "voice_combat_start": "enemy_male_combat_start"
       },
-          "xp_reward": 75
+          "xp_reward": 100
         },
       
         {
@@ -374,12 +374,12 @@
         "voice_death": "enemy_beast_death",
         "voice_combat_start": "enemy_beast_combat_start"
       },
-          "xp_reward": 75
+          "xp_reward": 100
         },
         {
   "id": "astral_creeper",
   "name": "Astral Creeper",
-  "threat_level": 4,
+  "threat_level": 1,
   "portrait": "assets/img/enemy_portrait/astral_creeper.png",
   "description": "The Malaligned Young of the Astral Summoner.",
   "base_stats": {
@@ -410,7 +410,7 @@
     "init": 1,
     "effects": ["immune_charm", "resist_bleed", "weak_physical"]
   },
-  "xp_reward": 250,
+  "xp_reward": 500,
   "abilities": [
     {
       "id": "hymn_of_unbeing",
