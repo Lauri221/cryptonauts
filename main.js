@@ -1332,6 +1332,9 @@ function executePlayerAction(actionId, selectedTarget = null) {
       const final = applyDamageToTarget(targetEnemy, damage, 'physical');
       log(`${actorName} attack${actor === player ? '' : 's'} ${targetEnemy.name} for ${final} damage (${damage} raw).`);
       playAttackSound();
+      // Show floating damage number
+      const cardId = targetEnemy.cardElementId || `enemy-portrait-${enemies.indexOf(targetEnemy)}`;
+      showDamageNumber(cardId, final, damage >= 12);
       return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'attack', actor };
     }
     case 'defend': {
@@ -1341,6 +1344,11 @@ function executePlayerAction(actionId, selectedTarget = null) {
       const sanityGain = actor.sanity - sanityBefore;
       log(`${actorName} brace${actor === player ? '' : 's'}${sanityGain ? ` and regain${actor === player ? '' : 's'} ${sanityGain} sanity` : ''}.`);
       playSfxClip(defendSound, 'Defend sound error');
+      // Show floating sanity heal
+      if (sanityGain > 0) {
+        const defenderCardId = actor === player ? 'player-portrait' : 'ally-portrait';
+        showSanityHealNumber(defenderCardId, sanityGain);
+      }
       return { action: 'defend', actor };
     }
     case 'element': {
@@ -1358,6 +1366,12 @@ function executePlayerAction(actionId, selectedTarget = null) {
       
       log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${final} damage dealt (raw ${damage}), sanity -5.`);
       playAttackSound();
+      // Show floating damage number on enemy
+      const enemyCardId = targetEnemy.cardElementId || `enemy-portrait-${enemies.indexOf(targetEnemy)}`;
+      showDamageNumber(enemyCardId, final, damage >= 15);
+      // Show sanity cost on actor
+      const actorCardId = actor === player ? 'player-portrait' : 'ally-portrait';
+      showSanityDamageNumber(actorCardId, 5);
       return { enemy: targetEnemy, damage: final, rawDamage: damage, action: 'element', actor };
     }
     case 'ability1': {
@@ -1984,6 +1998,9 @@ function applyEffect(effect, caster, targets, levelRule) {
     const roll = Math.random();
     if (roll > chance) {
       results.push({ target, success: false, reason: 'missed' });
+      // Show miss indicator
+      const cardId = getCardIdForCharacter(target);
+      if (cardId) showCombatNumber(cardId, 0, 'miss');
       continue;
     }
     
@@ -1997,6 +2014,12 @@ function applyEffect(effect, caster, targets, levelRule) {
         const applied = applyDamageToTarget(target, magnitude, dmgType);
         results.push({ target, success: true, type: 'damage', amount: applied, raw: magnitude });
         log(`${target.name} takes ${applied} ${dmgType} damage (raw ${magnitude})!`);
+        // Show floating damage number
+        const cardId = getCardIdForCharacter(target);
+        if (cardId) {
+          showDamageNumber(cardId, applied, magnitude >= 15);
+          flashDamage(cardId);
+        }
         if (!effectAudioPlayed && dmgType !== 'physical') {
           playMagicDamageSound(dmgType);
           effectAudioPlayed = true;
@@ -2012,6 +2035,15 @@ function applyEffect(effect, caster, targets, levelRule) {
         const healed = target[resource] - before;
         results.push({ target, success: true, type: 'heal', resource, amount: healed });
         log(`${target.name} recovers ${healed} ${resource}!`);
+        // Show floating heal number
+        const cardId = getCardIdForCharacter(target);
+        if (cardId && healed > 0) {
+          if (resource === 'sanity') {
+            showSanityHealNumber(cardId, healed);
+          } else {
+            showHealNumber(cardId, healed);
+          }
+        }
         if (!effectAudioPlayed && healed > 0) {
           playHealingSound(resource);
           effectAudioPlayed = true;
@@ -2294,6 +2326,7 @@ function processStatusEffects(combatant) {
   }
   
   const effectsToRemove = [];
+  const cardId = getCardIdForCharacter(combatant);
   
   for (const activeEffect of combatant.status_effects) {
     const statusDef = getStatusEffectById(activeEffect.id);
@@ -2311,6 +2344,11 @@ function processStatusEffects(combatant) {
       const totalDmg = tickDmg * stacks;
       combatant.hp -= totalDmg;
       log(`${combatant.name} takes ${totalDmg} ${statusDef.name} damage!`);
+      // Show floating DoT damage
+      if (cardId) {
+        showDamageNumber(cardId, totalDmg, false);
+        flashDamage(cardId);
+      }
     }
     
     // Handle tick_heal (HoT like regeneration)
@@ -2322,6 +2360,8 @@ function processStatusEffects(combatant) {
       const healed = combatant.hp - before;
       if (healed > 0) {
         log(`${combatant.name} regenerates ${healed} HP.`);
+        // Show floating HoT heal
+        if (cardId) showHealNumber(cardId, healed);
       }
     }
     
@@ -2803,6 +2843,328 @@ function setupRightClickCancel() {
 // Initialize right-click cancel on page load
 document.addEventListener('DOMContentLoaded', setupRightClickCancel);
 
+// ========================
+// Character Tooltip System
+// ========================
+
+let characterTooltipEl = null;
+let tooltipHideTimeout = null;
+
+/**
+ * Create the tooltip element if it doesn't exist.
+ */
+function createCharacterTooltip() {
+  if (characterTooltipEl) return characterTooltipEl;
+  
+  characterTooltipEl = document.createElement('div');
+  characterTooltipEl.className = 'character-tooltip';
+  characterTooltipEl.id = 'character-tooltip';
+  document.body.appendChild(characterTooltipEl);
+  
+  return characterTooltipEl;
+}
+
+/**
+ * Format a dice spec object or string for display.
+ */
+function formatAttackDice(attack) {
+  if (!attack) return '—';
+  if (typeof attack === 'string') return attack;
+  if (typeof attack === 'object' && attack.dice && attack.sides) {
+    return `${attack.dice}d${attack.sides}`;
+  }
+  return '—';
+}
+
+/**
+ * Build the tooltip HTML content for a character.
+ */
+function buildTooltipContent(character, type) {
+  if (!character) return '';
+  
+  const isAlly = type === 'player' || type === 'companion' || type === 'summon';
+  const isEnemy = type === 'enemy';
+  
+  // Basic info
+  const name = character.name || 'Unknown';
+  const charClass = character.class || character.character_id || '';
+  const level = character.level > 0 ? `Lv.${character.level}` : '';
+  
+  // Stats
+  const hp = character.hp ?? 0;
+  const maxHp = character.maxHp ?? hp;
+  const hpPercent = maxHp > 0 ? Math.round((hp / maxHp) * 100) : 0;
+  
+  const sanity = character.sanity ?? 0;
+  const maxSanity = character.maxSanity ?? sanity;
+  const sanityPercent = maxSanity > 0 ? Math.round((sanity / maxSanity) * 100) : 0;
+  const hasSanity = maxSanity > 0;
+  
+  const defense = character.defense ?? 0;
+  const attack = formatAttackDice(character.basic_attack);
+  
+  // Build HTML
+  let html = `
+    <div class="tooltip-header">
+      <h4 class="tooltip-name">${name}</h4>
+      <span class="tooltip-class">${charClass}${level ? ` ${level}` : ''}</span>
+    </div>
+    
+    <div class="health-bar-container">
+      <div class="bar-label">HP: ${hp} / ${maxHp}</div>
+      <div class="health-bar">
+        <div class="health-bar-fill" style="width: ${hpPercent}%"></div>
+      </div>
+    </div>
+  `;
+  
+  if (hasSanity) {
+    html += `
+      <div class="health-bar-container">
+        <div class="bar-label">Sanity: ${sanity} / ${maxSanity}</div>
+        <div class="health-bar">
+          <div class="health-bar-fill sanity-bar-fill" style="width: ${sanityPercent}%"></div>
+        </div>
+      </div>
+    `;
+  }
+  
+  html += `
+    <div class="tooltip-stats">
+      <div class="stat-item">
+        <span class="stat-label">Attack:</span>
+        <span class="stat-value attack">${attack}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Defense:</span>
+        <span class="stat-value defense">${defense}</span>
+      </div>
+    </div>
+  `;
+  
+  // Abilities (for allies with ability1/ability2, or enemies with abilities array)
+  const abilities = [];
+  
+  if (character.ability1?.name) {
+    abilities.push({
+      name: character.ability1.name,
+      desc: character.ability1.description || ''
+    });
+  }
+  if (character.ability2?.name) {
+    abilities.push({
+      name: character.ability2.name,
+      desc: character.ability2.description || ''
+    });
+  }
+  
+  // Enemy abilities from abilities array
+  if (isEnemy && character.abilities && Array.isArray(character.abilities)) {
+    character.abilities.forEach(ab => {
+      if (ab.name && !abilities.find(a => a.name === ab.name)) {
+        abilities.push({
+          name: ab.name,
+          desc: ab.description || ''
+        });
+      }
+    });
+  }
+  
+  if (abilities.length > 0) {
+    html += `
+      <div class="tooltip-abilities">
+        <div class="abilities-title">Abilities</div>
+        ${abilities.map(ab => `
+          <div class="ability-item">
+            <span class="ability-name">${ab.name}</span>
+            ${ab.desc ? `<span class="ability-desc">${ab.desc}</span>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Status effects
+  const statusEffects = character.status_effects || [];
+  if (statusEffects.length > 0) {
+    html += `
+      <div class="tooltip-status">
+        <div class="status-title">Status Effects</div>
+        <div class="status-list">
+          ${statusEffects.map(status => {
+            const isBuff = status.id?.includes('up') || status.id?.includes('regen');
+            const stackText = status.stacks > 1 ? ` x${status.stacks}` : '';
+            const durationText = status.duration ? ` (${status.duration}t)` : '';
+            return `<span class="status-tag ${isBuff ? 'buff' : 'debuff'}">${status.name || status.id}${stackText}${durationText}</span>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // Description (primarily for enemies)
+  if (isEnemy && character.description) {
+    html += `
+      <div class="tooltip-description">${character.description}</div>
+    `;
+  }
+  
+  // Summon duration
+  if (type === 'summon' && character.remainingDuration !== undefined) {
+    html += `
+      <div class="tooltip-status">
+        <div class="status-title">Duration</div>
+        <div class="status-list">
+          <span class="status-tag buff">${character.remainingDuration} turns remaining</span>
+        </div>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+/**
+ * Show the character tooltip for a given portrait card.
+ */
+function showCharacterTooltip(event, character, type) {
+  if (!character) return;
+  
+  const tooltip = createCharacterTooltip();
+  
+  // Set appropriate class for styling
+  tooltip.classList.remove('ally', 'enemy');
+  if (type === 'player' || type === 'companion' || type === 'summon') {
+    tooltip.classList.add('ally');
+  } else if (type === 'enemy') {
+    tooltip.classList.add('enemy');
+  }
+  
+  // Build and set content
+  tooltip.innerHTML = buildTooltipContent(character, type);
+  
+  // Position the tooltip
+  positionTooltip(tooltip, event);
+  
+  // Show it
+  tooltip.classList.add('visible');
+  
+  // Clear any pending hide
+  if (tooltipHideTimeout) {
+    clearTimeout(tooltipHideTimeout);
+    tooltipHideTimeout = null;
+  }
+}
+
+/**
+ * Position tooltip near the mouse but keep it on screen.
+ */
+function positionTooltip(tooltip, event) {
+  const padding = 15;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  // Temporarily show to get dimensions
+  tooltip.style.visibility = 'hidden';
+  tooltip.style.display = 'flex';
+  
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const tooltipWidth = tooltipRect.width;
+  const tooltipHeight = tooltipRect.height;
+  
+  // Calculate position
+  let left = event.clientX + padding;
+  let top = event.clientY + padding;
+  
+  // Keep on screen horizontally
+  if (left + tooltipWidth > viewportWidth - padding) {
+    left = event.clientX - tooltipWidth - padding;
+  }
+  
+  // Keep on screen vertically
+  if (top + tooltipHeight > viewportHeight - padding) {
+    top = event.clientY - tooltipHeight - padding;
+  }
+  
+  // Ensure not off the left or top
+  left = Math.max(padding, left);
+  top = Math.max(padding, top);
+  
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+  tooltip.style.visibility = 'visible';
+}
+
+/**
+ * Update tooltip position on mouse move.
+ */
+function updateTooltipPosition(event) {
+  if (!characterTooltipEl || !characterTooltipEl.classList.contains('visible')) return;
+  positionTooltip(characterTooltipEl, event);
+}
+
+/**
+ * Hide the character tooltip.
+ */
+function hideCharacterTooltip() {
+  if (!characterTooltipEl) return;
+  
+  // Small delay to prevent flicker when moving between elements
+  tooltipHideTimeout = setTimeout(() => {
+    characterTooltipEl.classList.remove('visible');
+  }, 100);
+}
+
+/**
+ * Set up hover events for character tooltips on all portrait cards.
+ */
+function setupCharacterTooltips() {
+  createCharacterTooltip();
+  
+  // Player portrait
+  const playerCard = document.getElementById('player-portrait');
+  if (playerCard) {
+    playerCard.addEventListener('mouseenter', (e) => showCharacterTooltip(e, player, 'player'));
+    playerCard.addEventListener('mousemove', updateTooltipPosition);
+    playerCard.addEventListener('mouseleave', hideCharacterTooltip);
+  }
+  
+  // Companion portrait
+  const companionCard = document.getElementById('ally-portrait');
+  if (companionCard) {
+    companionCard.addEventListener('mouseenter', (e) => showCharacterTooltip(e, companion, 'companion'));
+    companionCard.addEventListener('mousemove', updateTooltipPosition);
+    companionCard.addEventListener('mouseleave', hideCharacterTooltip);
+  }
+  
+  // Enemy and summon portraits need to be set up when they're created
+  // This is handled in generateEnemyCards and generateSummonCard
+  
+  console.log('[Combat] Character tooltip system initialized');
+}
+
+/**
+ * Add tooltip listeners to an enemy card (called when card is created).
+ */
+function addEnemyTooltipListeners(card, enemy) {
+  if (!card || !enemy) return;
+  
+  card.addEventListener('mouseenter', (e) => showCharacterTooltip(e, enemy, 'enemy'));
+  card.addEventListener('mousemove', updateTooltipPosition);
+  card.addEventListener('mouseleave', hideCharacterTooltip);
+}
+
+/**
+ * Add tooltip listeners to a summon card (called when card is created).
+ */
+function addSummonTooltipListeners(card, summon) {
+  if (!card || !summon) return;
+  
+  card.addEventListener('mouseenter', (e) => showCharacterTooltip(e, summon, 'summon'));
+  card.addEventListener('mousemove', updateTooltipPosition);
+  card.addEventListener('mouseleave', hideCharacterTooltip);
+}
+
 // 
 // Helper function to play a random sound from an array
 function playRandomSound(soundArray) {
@@ -2847,6 +3209,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCombatStartOverlay();
   setupCombatControls();
   setupItemSelectionUI();
+  setupCharacterTooltips();
   checkExplorationParams();
 });
 
@@ -3401,6 +3764,15 @@ function updateUI() {  // Change the background image based on 'battleBackground
       resetDeathCardState(playerCard, player.portrait);
     }
     playerCard.style.display = (!player.alive && !playerDeathAnim) ? 'none' : 'block';
+    // Update health overlay
+    const playerHpPercent = player.maxHp > 0 ? Math.max(0, Math.min(1, player.hp / player.maxHp)) : 1;
+    const playerDamagePercent = (1 - playerHpPercent) * 100;
+    const playerOverlay = playerCard.querySelector('.health-overlay');
+    if (playerOverlay) {
+      playerOverlay.style.height = `${playerDamagePercent}%`;
+    }
+    // Add critical health class when below 25%
+    playerCard.classList.toggle('critical-health', playerHpPercent < 0.25);
   }
   if (playerImg && player.portrait) {
     if (!playerDeathAnim) {
@@ -3422,6 +3794,15 @@ function updateUI() {  // Change the background image based on 'battleBackground
       resetDeathCardState(companionCard, companion.portrait);
     }
     companionCard.style.display = (!companion.alive && !companionDeathAnim) ? 'none' : 'block';
+    // Update health overlay
+    const companionHpPercent = companion.maxHp > 0 ? Math.max(0, Math.min(1, companion.hp / companion.maxHp)) : 1;
+    const companionDamagePercent = (1 - companionHpPercent) * 100;
+    const companionOverlay = companionCard.querySelector('.health-overlay');
+    if (companionOverlay) {
+      companionOverlay.style.height = `${companionDamagePercent}%`;
+    }
+    // Add critical health class when below 25%
+    companionCard.classList.toggle('critical-health', companionHpPercent < 0.25);
   }
   if (companionImg && companion.portrait) {
     if (!companionDeathAnim) {
@@ -3429,10 +3810,10 @@ function updateUI() {  // Change the background image based on 'battleBackground
     }
     companionImg.alt = companion.name || 'Ally';
   }
-  
+
   // Get all enemy portrait elements
   const enemyPortraits = document.querySelectorAll('.portrait.enemy');
-  
+
   // First, hide all enemy portraits
   enemyPortraits.forEach(portrait => {
     portrait.style.display = 'none';
@@ -3460,16 +3841,27 @@ function updateUI() {  // Change the background image based on 'battleBackground
         }
       }
       
+      // Update health overlay for enemy
+      const enemyMaxHp = enemy.maxHp || enemy.hp || 1;
+      const enemyHpPercent = enemyMaxHp > 0 ? Math.max(0, Math.min(1, enemy.hp / enemyMaxHp)) : 1;
+      const enemyDamagePercent = (1 - enemyHpPercent) * 100;
+      const enemyOverlay = card.querySelector('.health-overlay');
+      if (enemyOverlay) {
+        enemyOverlay.style.height = `${enemyDamagePercent}%`;
+      }
+      // Add critical health class when below 25%
+      card.classList.toggle('critical-health', enemyHpPercent < 0.25);
+      
       // Debug logging to track enemy HP updates in UI
       console.log(`Enemy ${enemy.name} (index ${i}): HP=${enemy.hp}, alive=${enemy.alive}, display=${card.style.display}, element text=${hpSpan.textContent}`);
     }
   });
-  
+
   // Remove previous highlights
   document.querySelectorAll('.portrait').forEach(card => {
     card.classList.remove('active-turn');
   });
-  
+
   // Highlight whose turn it is
   if (combatants.length > 0 && currentTurn >= 0 && currentTurn < combatants.length) {
     const current = combatants[currentTurn];
@@ -3529,6 +3921,7 @@ function generateEnemyCards() {
     const portraitPath = enemy.portrait || `assets/img/enemy_portrait/${enemy.id}.png`;
     // The ID is used elsewhere for updating HP, etc.
     card.innerHTML = `
+      <div class="health-overlay"></div>
       <img src="${portraitPath}" alt="${enemy.name}">
       <div class="stats">
         <div class="character-name"><span>${enemy.name}</span></div>
@@ -3543,6 +3936,9 @@ function generateEnemyCards() {
     card.addEventListener('click', () => {
       handlePortraitClick({ type: 'enemy', data: enemy, index: i });
     });
+    
+    // Add tooltip hover listeners
+    addEnemyTooltipListeners(card, enemy);
     
     // Append the card to the enemy area in the DOM
     enemyArea.appendChild(card);
@@ -3636,6 +4032,9 @@ function summonedNPCTurn(summon) {
       const label = healTarget === player ? 'you' : (healTarget.name || 'an ally');
       if (restored > 0) {
         log(`${summon.name} bathes ${label} in light, restoring ${restored} HP!`);
+        // Show floating heal number
+        const healCardId = getCardIdForCharacter(healTarget);
+        if (healCardId) showHealNumber(healCardId, restored);
       } else {
         log(`${summon.name}'s healing washes over ${label}, but there is no effect.`);
       }
@@ -3675,7 +4074,9 @@ function summonedNPCTurn(summon) {
   const enemyIndex = enemies.indexOf(targetEnemy);
   if (enemyIndex >= 0) {
     updateEnemyHP(enemyIndex);
-    flashDamage(`enemy-portrait-${enemyIndex}`);
+    const enemyCardId = targetEnemy.cardElementId || `enemy-portrait-${enemyIndex}`;
+    showDamageNumber(enemyCardId, final, dmg >= 8);
+    flashDamage(enemyCardId);
   }
   
   updateUI();
@@ -3838,6 +4239,7 @@ function generateSummonCard(summon) {
   card.dataset.summonId = summon.id;
   
   card.innerHTML = `
+    <div class="health-overlay"></div>
     <img src="${summon.portrait}" alt="${summon.name}">
     <div class="stats">
       <div class="character-name"><span>${summon.name}</span></div>
@@ -3851,6 +4253,10 @@ function generateSummonCard(summon) {
   card.addEventListener('click', () => {
     handlePortraitClick({ type: 'summon', data: summon });
   });
+  
+  // Add tooltip hover listeners
+  addSummonTooltipListeners(card, summon);
+  
   const img = card.querySelector('img');
   if (img) {
     img.dataset.originalSrc = summon.portrait;
@@ -3874,6 +4280,17 @@ function updateSummonUI() {
         resetDeathCardState(card, summon.portrait);
       }
       card.style.display = (summon.alive || deathAnim) ? 'block' : 'none';
+      
+      // Update health overlay for summon
+      const summonMaxHp = summon.maxHp || summon.hp || 1;
+      const summonHpPercent = summonMaxHp > 0 ? Math.max(0, Math.min(1, summon.hp / summonMaxHp)) : 1;
+      const summonDamagePercent = (1 - summonHpPercent) * 100;
+      const summonOverlay = card.querySelector('.health-overlay');
+      if (summonOverlay) {
+        summonOverlay.style.height = `${summonDamagePercent}%`;
+      }
+      // Add critical health class when below 25%
+      card.classList.toggle('critical-health', summonHpPercent < 0.25);
     }
     if (hpSpan) {
       hpSpan.textContent = summon.hp;
@@ -4594,6 +5011,12 @@ function enemyTurn(enemy) {
       // Update sanity state after sanity damage
       updateSanityState();
       
+      // Show floating damage numbers
+      showDamageNumber('player-portrait', final, dmg >= 10);
+      if (sanityDmg > 0) {
+        setTimeout(() => showSanityDamageNumber('player-portrait', sanityDmg), 200);
+      }
+      
       // Special message when sanity first hits 0
       if (sanityBefore > 0 && player.sanity === 0) {
         log(`🌀 Your mind shatters... but you fight on through the madness!`);
@@ -4628,6 +5051,9 @@ function enemyTurn(enemy) {
       // Attacking companion
       const final = applyDamageToTarget(companion, dmg, 'physical');
       log(`☠ The ${enemy.name} attacks ${companion.name} for ${final} damage (${dmg} raw)!`);
+      
+      // Show floating damage number
+      showDamageNumber('ally-portrait', final, dmg >= 10);
       
       // Flash companion portrait red to indicate damage
       flashDamage('ally-portrait');
@@ -5034,6 +5460,111 @@ function flashDamage(characterId) {
   setTimeout(() => {
     portrait.classList.remove('damage-flash');
   }, 500);
+}
+
+// ========================
+// Floating Combat Numbers
+// ========================
+
+/**
+ * Show a floating combat number on a character card.
+ * @param {string} cardId - The DOM ID of the portrait card
+ * @param {number|string} value - The number to display (or text like "MISS")
+ * @param {string} type - 'damage', 'heal', 'sanity-damage', 'sanity-heal', 'critical', 'miss'
+ */
+function showCombatNumber(cardId, value, type = 'damage') {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  const rect = card.getBoundingClientRect();
+  
+  const numberEl = document.createElement('div');
+  numberEl.className = `combat-number ${type}`;
+  
+  // Format the display text
+  if (type === 'miss') {
+    numberEl.textContent = 'MISS';
+  } else if (type === 'heal' || type === 'sanity-heal') {
+    numberEl.textContent = `+${Math.abs(value)}`;
+  } else {
+    numberEl.textContent = `-${Math.abs(value)}`;
+  }
+  
+  // Randomize horizontal position slightly for visual variety
+  const randomOffsetX = (Math.random() - 0.5) * 40;
+  numberEl.style.left = `${rect.left + rect.width / 2 + randomOffsetX}px`;
+  numberEl.style.top = `${rect.top + rect.height * 0.3}px`;
+  numberEl.style.transform = 'translateX(-50%)';
+  
+  document.body.appendChild(numberEl);
+  
+  // Remove after animation completes
+  setTimeout(() => {
+    numberEl.remove();
+  }, 1400);
+}
+
+/**
+ * Show damage number on a card (convenience wrapper).
+ */
+function showDamageNumber(cardId, amount, isCritical = false) {
+  showCombatNumber(cardId, amount, isCritical ? 'critical' : 'damage');
+}
+
+/**
+ * Show heal number on a card (convenience wrapper).
+ */
+function showHealNumber(cardId, amount) {
+  showCombatNumber(cardId, amount, 'heal');
+}
+
+/**
+ * Show sanity damage number on a card.
+ */
+function showSanityDamageNumber(cardId, amount) {
+  showCombatNumber(cardId, amount, 'sanity-damage');
+}
+
+/**
+ * Show sanity heal number on a card.
+ */
+function showSanityHealNumber(cardId, amount) {
+  showCombatNumber(cardId, amount, 'sanity-heal');
+}
+
+/**
+ * Get the card ID for a given character (player, companion, enemy, summon).
+ */
+function getCardIdForCharacter(character) {
+  if (!character) return null;
+  
+  // Check if it's the player
+  if (character === player || character.slot === 'player') {
+    return 'player-portrait';
+  }
+  
+  // Check if it's the companion
+  if (character === companion || character.slot === 'companion') {
+    return 'ally-portrait';
+  }
+  
+  // Check if it's a summon
+  if (character.isSummon) {
+    return `summon-portrait-${character.id}`;
+  }
+  
+  // Check if it's an enemy
+  const enemyIndex = enemies.indexOf(character);
+  if (enemyIndex >= 0) {
+    return character.cardElementId || `enemy-portrait-${enemyIndex}`;
+  }
+  
+  // Try by cardElementId directly
+  if (character.cardElementId) {
+    return character.cardElementId;
+  }
+  
+  return null;
 }
 
 function triggerDeathCardEffect(card, onComplete) {
