@@ -1,4 +1,4 @@
-(function initCryptonautFallbacks() {
+﻿(function initCryptonautFallbacks() {
   const root = typeof window !== 'undefined' ? window : globalThis;
 
   const charactersFallback = {
@@ -9,8 +9,8 @@
         "base_stats": {
           "hp": 30,
           "sanity": 20,
-          "basic_attack": { "dice": 2, "sides": 4 },
-          "defense": 1,
+          "basic_attack": { "dice": 2, "sides": 6 },
+          "defense": 2,
           "speed": 3,
           "ability1": { "id": "calm", "name": "Calm", "description": "Restore party sanity." },
           "ability2": { "id": "hypnotise", "name": "Hypnotize", "description": "Charm an enemy to fight for you." },
@@ -45,10 +45,10 @@
         "id": "warrior",
         "class": "Warrior",
         "base_stats": {
-          "hp": 30,
+          "hp": 40,
           "sanity": 20,
-          "basic_attack": { "dice": 2, "sides": 6 },
-          "defense": 2,
+          "basic_attack": { "dice": 2, "sides": 10 },
+          "defense": 3,
           "speed": 2,
           "ability1": {
             "id": "parry",
@@ -92,9 +92,9 @@
         "class": "Alchemist",
         "base_stats": {
           "hp": 24,
-          "sanity": 20,
-          "basic_attack": { "dice": 1, "sides": 8 },
-          "defense": 1,
+          "sanity": 30,
+          "basic_attack": { "dice": 1, "sides": 12 },
+          "defense": 2,
           "speed": 2,
           "ability1": {
             "id": "brew_potion",
@@ -137,10 +137,10 @@
         "id": "cleric",
         "class": "Cleric",
         "base_stats": {
-          "hp": 24,
-          "sanity": 28,
-          "basic_attack": { "dice": 2, "sides": 4 },
-          "defense": 1,
+          "hp": 28,
+          "sanity": 36,
+          "basic_attack": { "dice": 2, "sides": 6 },
+          "defense": 2,
           "speed": 2,
           "ability1": {
             "id": "heal",
@@ -183,9 +183,9 @@
         "id": "aberration",
         "class": "Aberration",
         "base_stats": {
-          "hp": 28,
+          "hp": 36,
           "sanity": 14,
-          "basic_attack": { "dice": 2, "sides": 8 },
+          "basic_attack": { "dice": 2, "sides": 16 },
           "defense": 1,
           "speed": 2,
           "ability1": { "id": "savage", "name": "Savage", "description": "Unleash a brutal strike that deals very high damage to a single target." },
@@ -214,24 +214,16 @@
         "name": "Dr. Eleanor Marsh",
         "class": "Alchemist",
         "gender": "f",
-        "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your life—or end it.",
+        "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your lifeâ€”or end it.",
         "portrait": "assets/img/ally_portrait/alchemist_female.png",
         "base_stats": {
-          "hp": 24,
-          "sanity": 20,
-          "basic_attack": { "dice": 1, "sides": 8 },
-          "defense": 1,
+          "hp": 28,
+          "sanity": 30,
+          "basic_attack": { "dice": 1, "sides": 12 },
+          "defense": 2,
           "speed": 2,
-          "ability1": {
-            "id": "brew_potion",
-            "name": "Brew Potion",
-            "description": "Concoct a restorative draught, adding a healing potion to inventory."
-          },
-          "ability2": {
-            "id": "poison_cloud",
-            "name": "Poison Cloud",
-            "description": "Release a toxic cloud that damages and poisons all enemies."
-          },
+          "ability1": { "id": "brew_potion", "name": "Brew Potion", "description": "Concoct a restorative draught, adding a healing potion to inventory." },
+          "ability2": { "id": "poison_cloud", "name": "Poison Cloud", "description": "Release a toxic cloud that damages and poisons all enemies." },
           "resistance": "Poison",
           "weakness": "Natural"
         },
@@ -252,21 +244,13 @@
         "backstory": "A veteran soldier haunted by what he witnessed in the trenches. His blade arm is steady, but his nightmares never cease.",
         "portrait": "assets/img/ally_portrait/warrior_male.png",
         "base_stats": {
-          "hp": 30,
-          "sanity": 20,
-          "basic_attack": { "dice": 2, "sides": 6 },
-          "defense": 2,
+          "hp": 40,
+          "sanity": 30,
+          "basic_attack": { "dice": 2, "sides": 10 },
+          "defense": 3,
           "speed": 2,
-          "ability1": {
-            "id": "parry",
-            "name": "Parry",
-            "description": "Brace for impact; when hit, immediately retaliate."
-          },
-          "ability2": {
-            "id": "shield_bash",
-            "name": "Shield Bash",
-            "description": "A heavy blow with a chance to stun."
-          },
+          "ability1": { "id": "parry", "name": "Parry", "description": "Brace for impact; when hit, immediately retaliate." },
+          "ability2": { "id": "shield_bash", "name": "Shield Bash", "description": "A heavy blow with a chance to stun." },
           "resistance": "Natural",
           "weakness": "Sanity"
         },
@@ -284,24 +268,16 @@
         "name": "Sister Agatha",
         "class": "Cleric",
         "gender": "f",
-        "backstory": "A nun who lost her faith after witnessing an exorcism gone wrong. She still channels divine power—but questions its source.",
+        "backstory": "A nun who lost her faith after witnessing an exorcism gone wrong. She still channels divine powerâ€”but questions its source.",
         "portrait": "assets/img/ally_portrait/cleric_female.png",
         "base_stats": {
-          "hp": 24,
-          "sanity": 28,
-          "basic_attack": { "dice": 2, "sides": 4 },
-          "defense": 1,
+          "hp": 28,
+          "sanity": 36,
+          "basic_attack": { "dice": 2, "sides": 6 },
+          "defense": 2,
           "speed": 2,
-          "ability1": {
-            "id": "heal",
-            "name": "Heal",
-            "description": "Channel sacred power to restore HP to an ally."
-          },
-          "ability2": {
-            "id": "fireblast",
-            "name": "Fireblast",
-            "description": "A blast of holy fire that damages all enemies."
-          },
+          "ability1": { "id": "heal", "name": "Heal", "description": "Channel sacred power to restore HP to an ally." },
+          "ability2": { "id": "fireblast", "name": "Fireblast", "description": "A blast of holy fire that damages all enemies." },
           "resistance": "Fire",
           "weakness": "Poison"
         },
@@ -323,20 +299,12 @@
         "portrait": "assets/img/ally_portrait/monk_male.png",
         "base_stats": {
           "hp": 30,
-          "sanity": 20,
-          "basic_attack": { "dice": 2, "sides": 4 },
-          "defense": 1,
+          "sanity": 30,
+          "basic_attack": { "dice": 2, "sides": 6 },
+          "defense": 2,
           "speed": 3,
-          "ability1": {
-            "id": "calm",
-            "name": "Calm",
-            "description": "Restore sanity to the entire party."
-          },
-          "ability2": {
-            "id": "hypnotise",
-            "name": "Hypnotize",
-            "description": "Charm an enemy to fight for you."
-          },
+          "ability1": { "id": "calm", "name": "Calm", "description": "Restore sanity to the entire party." },
+          "ability2": { "id": "hypnotise", "name": "Hypnotize", "description": "Charm an enemy to fight for you." },
           "resistance": "Sanity",
           "weakness": "Natural"
         },
@@ -354,24 +322,16 @@
         "name": "Bound Aberration",
         "class": "Aberration",
         "gender": "m",
-        "backstory": "A chained horror, shackled by sigils to obey your commands—for now.",
+        "backstory": "An abyssal creature, sworn fealty to you after giving him a nice, fresh fish.",
         "portrait": "assets/img/ally_portrait/monster_male.png",
         "base_stats": {
-          "hp": 28,
-          "sanity": 14,
-          "basic_attack": { "dice": 2, "sides": 8 },
-          "defense": 1,
+          "hp": 38,
+          "sanity": 30,
+          "basic_attack": { "dice": 2, "sides": 12 },
+          "defense": 2,
           "speed": 2,
-          "ability1": {
-            "id": "savage",
-            "name": "Savage",
-            "description": "Unleash a brutal strike that deals very high damage to a single target."
-          },
-          "ability2": {
-            "id": "roar",
-            "name": "Roar",
-            "description": "Emit a horrifying roar that may paralyze all enemies with fear."
-          },
+          "ability1": { "id": "savage", "name": "Savage", "description": "Unleash a brutal strike that deals very high damage to a single target." },
+          "ability2": { "id": "roar", "name": "Roar", "description": "Emit a horrifying roar that may paralyze all enemies with fear." },
           "resistance": "Natural",
           "weakness": "Fire"
         },
@@ -406,14 +366,8 @@
         "image": "assets/img/environment/room_01_entrance.png",
         "maxThreatLevel": 1,
         "allowRest": true,
-        "guaranteedEvents": [
-          "first_torch_pickup"
-        ],
-        "optionalEvents": [
-          "strange_draft_whispers",
-          "old_offering_coin",
-          "fading_holy_symbol"
-        ]
+        "guaranteedEvents": ["first_torch_pickup"],
+        "optionalEvents": ["strange_draft_whispers", "old_offering_coin", "fading_holy_symbol"]
       },
       {
         "id": "room_02_gallery",
@@ -432,14 +386,8 @@
         "image": "assets/img/environment/room_02_gallery.png",
         "maxThreatLevel": 2,
         "allowRest": false,
-        "guaranteedEvents": [
-          "first_sanity_check_from_statues"
-        ],
-        "optionalEvents": [
-          "hidden_relic_behind_statue",
-          "waxen_footprints_leading_aside",
-          "whispering_crowd_hallucination"
-        ]
+        "guaranteedEvents": ["first_sanity_check_from_statues"],
+        "optionalEvents": ["hidden_relic_behind_statue", "waxen_footprints_leading_aside", "whispering_crowd_hallucination"]
       },
       {
         "id": "room_02a_side_cellar",
@@ -458,15 +406,8 @@
         "image": "assets/img/environment/room_02a_side_cellar.png",
         "maxThreatLevel": 2,
         "allowRest": false,
-        "guaranteedEvents": [
-          "chance_for_minor_loot",
-          "risk_of_poison_or_disease"
-        ],
-        "optionalEvents": [
-          "cursed_wine_flask",
-          "rat_swarm_scare",
-          "hidden_compartment_with_talisman"
-        ]
+        "guaranteedEvents": ["chance_for_minor_loot", "risk_of_poison_or_disease"],
+        "optionalEvents": ["cursed_wine_flask", "rat_swarm_scare", "hidden_compartment_with_talisman"]
       },
       {
         "id": "room_03_ossuary",
@@ -485,14 +426,8 @@
         "image": "assets/img/environment/room_03_ossuary.png",
         "maxThreatLevel": 2,
         "allowRest": false,
-        "guaranteedEvents": [
-          "first_undead_or_restless_bones_encounter"
-        ],
-        "optionalEvents": [
-          "bone_charm_loot",
-          "collapsing_bone_stack_trap",
-          "whispering_from_single_skull"
-        ]
+        "guaranteedEvents": ["first_undead_or_restless_bones_encounter"],
+        "optionalEvents": ["bone_charm_loot", "collapsing_bone_stack_trap", "whispering_from_single_skull"]
       },
       {
         "id": "room_04_flooded_stair",
@@ -511,15 +446,8 @@
         "image": "assets/img/environment/room_04_flooded_stair.png",
         "maxThreatLevel": 2,
         "allowRest": false,
-        "guaranteedEvents": [
-          "environmental_test_slip_or_drown",
-          "chance_to_soak_or_ruin_gear"
-        ],
-        "optionalEvents": [
-          "lurking_watery_shape_attack",
-          "sunken_chest_with_rusted_relic",
-          "sanity_drain_from_reflections"
-        ]
+        "guaranteedEvents": ["environmental_test_slip_or_drown", "chance_to_soak_or_ruin_gear"],
+        "optionalEvents": ["lurking_watery_shape_attack", "sunken_chest_with_rusted_relic", "sanity_drain_from_reflections"]
       },
       {
         "id": "room_05_chanting_hall",
@@ -538,14 +466,8 @@
         "image": "assets/img/environment/room_05_chanting_hall.png",
         "maxThreatLevel": 3,
         "allowRest": false,
-        "guaranteedEvents": [
-          "major_cultist_or_spirit_encounter"
-        ],
-        "optionalEvents": [
-          "ritual_circle_buff_or_curse",
-          "hidden_switch_to_secret_compartment",
-          "vision_of_past_sacrifice_sanity_hit"
-        ]
+        "guaranteedEvents": ["major_cultist_or_spirit_encounter"],
+        "optionalEvents": ["ritual_circle_buff_or_curse", "hidden_switch_to_secret_compartment", "vision_of_past_sacrifice_sanity_hit"]
       },
       {
         "id": "room_06_dreaming_vault",
@@ -564,15 +486,8 @@
         "image": "assets/img/environment/room_06_dreaming_vault.png",
         "maxThreatLevel": 3,
         "allowRest": true,
-        "guaranteedEvents": [
-          "final_rest_or_sanity_test_before_boss",
-          "vision_of_boss_and_future_doom"
-        ],
-        "optionalEvents": [
-          "dream_bargain_with_entity",
-          "temporary_buff_or_curse",
-          "memory_fragment_from_previous_expedition"
-        ]
+        "guaranteedEvents": ["final_rest_or_sanity_test_before_boss", "vision_of_boss_and_future_doom"],
+        "optionalEvents": ["dream_bargain_with_entity", "temporary_buff_or_curse", "memory_fragment_from_previous_expedition"]
       },
       {
         "id": "room_boss_sanctum",
@@ -591,14 +506,8 @@
         "image": "assets/img/environment/room_boss_sanctum.png",
         "maxThreatLevel": 3,
         "allowRest": false,
-        "guaranteedEvents": [
-          "final_boss_encounter"
-        ],
-        "optionalEvents": [
-          "pre_boss_dialogue_or_vision",
-          "desperate_sacrifice_option",
-          "alternate_ending_trigger"
-        ]
+        "guaranteedEvents": ["final_boss_encounter"],
+        "optionalEvents": ["pre_boss_dialogue_or_vision", "desperate_sacrifice_option", "alternate_ending_trigger"]
       }
     ],
     "validItemIds": [
@@ -671,7 +580,7 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 20
+        "xp_reward": 30
       },
       {
         "id": "mossleech",
@@ -689,17 +598,17 @@
           "effects": ["bleeding", 0.25]
         },
         "audio": {
-          "voice_hurt": "enemy_monster_hurt",
-          "voice_death": "enemy_monster_death",
-          "voice_combat_start": "enemy_monster_combat_start"
+          "voice_hurt": "enemy_insect_hurt",
+          "voice_death": "enemy_insect_death",
+          "voice_combat_start": "enemy_insect_combat_start"
         },
-        "xp_reward": 15
+        "xp_reward": 30
       },
       {
         "id": "cultist",
         "name": "Cultist",
         "gender": "f",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/cultist.png",
         "description": "A devoted cultist to the dark powers outside the dark borderlines of reality. A fanatic with more zeal than threat.",
         "base_stats": {
@@ -715,13 +624,13 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "aberrant_beast",
         "name": "Aberrant Beast",
         "gender": "o",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/aberrant_beast.png",
         "description": "There is no telling what this animal is now, or what it sees with its eyes.",
         "base_stats": {
@@ -737,13 +646,13 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 16
+        "xp_reward": 30
       },
       {
         "id": "rat_man",
         "name": "Rat Man",
         "gender": "o",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/rat_man.png",
         "description": "These nightmare hybrids stalk the dark crypts. Once human, they have been twisted by dark rituals into rat-like abominations.",
         "base_stats": {
@@ -759,13 +668,13 @@
           "voice_death": "enemy_monster_death",
           "voice_combat_start": "enemy_monster_combat_start"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "sewer_centipede",
         "name": "Sewer Centipede",
         "gender": "i",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/sewer_centipede.png",
         "description": "A mandibled horror grown to unnatural, aberrant size, its many legs scuttling with eerie speed.",
         "base_stats": {
@@ -779,15 +688,15 @@
         "audio": {
           "voice_hurt": "enemy_insect_hurt",
           "voice_death": "enemy_insect_death",
-          "voice_combat_start": "growl_combat_start"
+          "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "male_grave_robber",
         "name": "Male Grave Robber",
         "gender": "m",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/male_grave_robber.png",
         "description": "A male grave robber, skilled in stealth and desecration, prowls the crypts in search of valuable relics.",
         "base_stats": {
@@ -803,13 +712,13 @@
           "voice_death": "enemy_male_death",
           "voice_combat_start": "enemy_male_combat_start"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "corpse_eater",
         "name": "Corpse Eater",
         "gender": "o",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/corpse_eater.png",
         "description": "These crypts regularly fill with the dead, attracting scavengers that feast on the remains.",
         "base_stats": {
@@ -821,17 +730,17 @@
           "effects": []
         },
         "audio": {
-          "voice_hurt": "enemy_male_hurt",
-          "voice_death": "enemy_male_death",
-          "voice_combat_start": "enemy_male_combat_start"
+          "voice_hurt": "enemy_beast_hurt",
+          "voice_death": "enemy_beast_death",
+          "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "female_grave_robber",
         "name": "Female Grave Robber",
         "gender": "f",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/female_grave_robber.png",
         "description": "A female grave robber, skilled in stealth and desecration, prowls the crypts in search of valuable relics.",
         "base_stats": {
@@ -847,13 +756,13 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "flesh_eating_vines",
         "name": "Flesh Eating Vines",
         "gender": "i",
-        "trhreat_level": 1,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/flesh_eating_vines.png",
         "description": "Apparition of writhing vines that consume flesh with a hunger that never abates.",
         "base_stats": {
@@ -865,17 +774,17 @@
           "effects": []
         },
         "audio": {
-          "voice_hurt": "enemy_icnset_hurt",
+          "voice_hurt": "enemy_insect_hurt",
           "voice_death": "enemy_insect_death",
-          "voice_combat_start": "enemy_insect_combat_start"
+          "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 10
+        "xp_reward": 30
       },
       {
         "id": "drowned_acolyte",
         "name": "Drowned Acolyte",
         "gender": "f",
-        "trhreat_level": 2,
+        "threat_level": 2,
         "portrait": "assets/img/enemy_portrait/drowned_acolyte.png",
         "description": "Robe drips black water, lungs gurgling with each step, eyes fixed on a point behind you.",
         "base_stats": {
@@ -891,13 +800,13 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 60
       },
       {
         "id": "leech_swarm",
         "name": "Leech Swarm",
         "gender": "i",
-        "trhreat_level": 2,
+        "threat_level": 2,
         "portrait": "assets/img/enemy_portrait/leech_swarm.png",
         "description": "A dark, seething carpet of leeches seeking any scrap of exposed flesh or cloth seam.",
         "base_stats": {
@@ -911,9 +820,9 @@
         "audio": {
           "voice_hurt": "enemy_insect_hurt",
           "voice_death": "enemy_insect_death",
-          "voice_combat_start": "enemy_insect_combat_start"
+          "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 30
+        "xp_reward": 60
       },
       {
         "id": "flesh_golem",
@@ -935,13 +844,13 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 75
+        "xp_reward": 100
       },
       {
         "id": "pit_butcher",
         "name": "Pit Butcher",
         "gender": "m",
-        "trhreat_level": 3,
+        "threat_level": 3,
         "portrait": "assets/img/enemy_portrait/pit_butcher.png",
         "description": "Apron so stained it glistens black, cleaver nicked with more bone than steel.",
         "base_stats": {
@@ -957,7 +866,7 @@
           "voice_death": "enemy_male_death",
           "voice_combat_start": "enemy_male_combat_start"
         },
-        "xp_reward": 75
+        "xp_reward": 100
       },
       {
         "id": "dream_eater",
@@ -979,12 +888,12 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 75
+        "xp_reward": 100
       },
       {
         "id": "astral_creeper",
         "name": "Astral Creeper",
-        "threat_level": 4,
+        "threat_level": 1,
         "portrait": "assets/img/enemy_portrait/astral_creeper.png",
         "description": "The Malaligned Young of the Astral Summoner.",
         "base_stats": {
@@ -1014,7 +923,7 @@
           "init": 1,
           "effects": ["immune_charm", "resist_bleed", "weak_physical"]
         },
-        "xp_reward": 250,
+        "xp_reward": 500,
         "abilities": [
           {
             "id": "hymn_of_unbeing",
@@ -1031,7 +940,7 @@
             "description": "Rips open its own flesh to birth aberrant minions.",
             "summon_ids": ["astral_creeper"],
             "summon_count": { "min": 1, "max": 3 },
-            "chance": 1
+            "chance": 1.0
           },
           {
             "id": "erode_flesh",
@@ -1041,11 +950,11 @@
             "damage": { "dice": 1, "sides": 12 },
             "effect": {
               "type": "poison",
-              "chance": 0.4,
+              "chance": 0.40,
               "duration": 3,
               "damage_per_turn": 4
             },
-            "chance": 0.3
+            "chance": 0.30
           }
         ],
         "ai_logic": {
@@ -1070,56 +979,50 @@
       "item_id": "vial_vital_humours",
       "name": "Vial of Vital Humours",
       "description": "A stoppered glass vial of thick, ruddy fluid that faintly warms to the touch, said to restore what the crypt slowly steals away.",
-      "image": "./assets/img/item_portrait/ComfyUI_00921_.png",
+      "image": "./assets/img/item_portrait/vial_vital_humours.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "hp", "mode": "heal", "dice": "2d12" }
-      ]
+      "effects": [{ "kind": "hp", "mode": "heal", "dice": "3d12" }]
     },
     {
       "item_id": "tincture_of_lucidity",
       "name": "Tincture of Lucidity",
       "description": "An acrid, shimmering draught that briefly sharpens thought and pushes back the whispering dark.",
-      "image": "./assets/img/item_portrait/ComfyUI_00922_.png",
+      "image": "./assets/img/item_portrait/tincture_of_lucidity.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "sanity", "mode": "heal", "dice": "2d12" }
-      ]
+      "effects": [{ "kind": "sanity", "mode": "heal", "dice": "3d12" }]
     },
     {
       "item_id": "coagulant_seal_bandages",
       "name": "Coagulant Seal Bandages",
       "description": "Bandages steeped in an alchemical coagulant that hardens on contact with blood, sealing even grievous wounds.",
-      "image": "./assets/img/item_portrait/ComfyUI_00923_.png",
+      "image": "./assets/img/item_portrait/coagulant_seal_bandages.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
       "effects": [
         { "kind": "cure_status", "status": "bleeding" },
-        { "kind": "hp", "mode": "heal", "dice": "1d8" }
+        { "kind": "hp", "mode": "heal", "dice": "3d8" }
       ]
     },
     {
       "item_id": "berserker_blood",
       "name": "Berserker Blood",
       "description": "A violent crimson tincture that tastes of iron and ash, sending the drinker into a controlled frenzy.",
-      "image": "./assets/img/item_portrait/ComfyUI_00924_.png",
+      "image": "./assets/img/item_portrait/berserker_blood.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "self",
-      "effects": [
-        { "kind": "buff", "stat": "attackDamage", "dice": "2d4", "duration": 3 }
-      ]
+      "effects": [{ "kind": "buff", "stat": "attackDamage", "dice": "2d4", "duration": 3 }]
     },
     {
       "item_id": "nightshade_resin",
       "name": "Nightshade Resin",
       "description": "A tar-thick, violet resin distilled from forbidden herbs, applied to blades to deliver a slow and dreadful demise.",
-      "image": "./assets/img/item_portrait/ComfyUI_00925_.png",
+      "image": "./assets/img/item_portrait/nightshade_resin.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "self",
@@ -1131,7 +1034,7 @@
       "item_id": "black_tar_pitch",
       "name": "Black Tar Pitch",
       "description": "A heavy, reeking pitch that clings to metal and flesh alike, eager to catch fire at the slightest spark.",
-      "image": "./assets/img/item_portrait/ComfyUI_00926_.png",
+      "image": "./assets/img/item_portrait/black_tar_pitch.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "self",
@@ -1143,133 +1046,111 @@
       "item_id": "chillwater_vapours_phial",
       "name": "Chillwater Vapours Phial",
       "description": "A small glass phial that releases a burst of ghostly cold mist, smothering embers and searing heat.",
-      "image": "./assets/img/item_portrait/ComfyUI_00927_.png",
+      "image": "./assets/img/item_portrait/chillwater_vapours_phial.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "cure_status", "status": "burning" }
-      ]
+      "effects": [{ "kind": "cure_status", "status": "burning" }]
     },
     {
       "item_id": "purging_bitter_tincture",
       "name": "Purging Bitter Tincture",
       "description": "A foul, herbal distillate that scours the veins, driving out toxins at the cost of a moment's agony.",
-      "image": "./assets/img/item_portrait/ComfyUI_00928_.png",
+      "image": "./assets/img/item_portrait/purging_bitter_tincture.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "cure_status", "status": "poisoned" }
-      ]
+      "effects": [{ "kind": "cure_status", "status": "poisoned" }]
     },
     {
       "item_id": "coagulant_seal_tonic",
       "name": "Coagulant Seal Tonic",
       "description": "A concentrated draught of clotting reagents, taken internally to arrest internal bleeding.",
-      "image": "./assets/img/item_portrait/ComfyUI_00929_.png",
+      "image": "./assets/img/item_portrait/coagulant_seal_tonic.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "cure_status", "status": "bleeding" }
-      ]
+      "effects": [{ "kind": "cure_status", "status": "bleeding" }]
     },
     {
       "item_id": "dreamless_incense",
       "name": "Dreamless Incense",
       "description": "A bundle of grey-blue incense sticks that burn with a cold, smokeless glow, ushering the party into mercifully dreamless rest.",
-      "image": "./assets/img/item_portrait/ComfyUI_00930_.png",
+      "image": "./assets/img/item_portrait/dreamless_incense.png",
       "type": "consumable",
       "usableContexts": ["exploration"],
       "targetType": "party",
-      "effects": [
-        { "kind": "rest" }
-      ]
+      "effects": [{ "kind": "rest" }]
     },
     {
       "item_id": "sigil_of_warding",
       "name": "Sigil of Warding",
       "description": "A palm-sized talisman etched with interlocking runes that flare to life when invoked, deflecting harm for a fleeting moment.",
-      "image": "./assets/img/item_portrait/ComfyUI_00931_.png",
+      "image": "./assets/img/item_portrait/sigil_of_warding.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "barrier", "duration": 2 }
-      ]
+      "effects": [{ "kind": "barrier", "duration": 2 }]
     },
     {
       "item_id": "chains_of_old",
       "name": "Chains of Old",
       "description": "A brittle parchment inscribed with ancient binding script; when torn, spectral chains lash out to fetter the unwilling.",
-      "image": "./assets/img/item_portrait/ComfyUI_00932_.png",
+      "image": "./assets/img/item_portrait/chains_of_old.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "enemy",
-      "effects": [
-        { "kind": "immobilize", "duration": 2 }
-      ]
+      "effects": [{ "kind": "immobilize", "duration": 2 }]
     },
     {
       "item_id": "eldritch_discord",
       "name": "Eldritch Discord",
       "description": "A whispered incantation in a language never meant for mortal tongues, turning ordered thought into murderous chaos.",
-      "image": "./assets/img/item_portrait/ComfyUI_00933_.png",
+      "image": "./assets/img/item_portrait/eldritch_discord.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "enemy",
-      "effects": [
-        { "kind": "confusion", "duration": 2 }
-      ]
+      "effects": [{ "kind": "confusion", "duration": 2 }]
     },
     {
       "item_id": "herbal_tonic",
       "name": "Herbal Tonic",
       "description": "A simple herbal brew that soothes minor aches and restores a bit of vigor.",
-      "image": "./assets/img/item_portrait/ComfyUI_00934_.png",
+      "image": "./assets/img/item_portrait/herbal_tonic.png",
       "type": "consumable",
       "usableContexts": ["combat", "exploration"],
       "targetType": "ally",
-      "effects": [
-        { "kind": "hp", "mode": "heal", "dice": "1d6+2" }
-      ]
+      "effects": [{ "kind": "hp", "mode": "heal", "dice": "1d6+2" }]
     },
     {
       "item_id": "scroll_spirit_guardian",
       "name": "Scroll of Spirit Guardian",
       "description": "An ancient parchment inscribed with binding runes. When read aloud, it calls forth a spectral guardian to fight alongside you.",
-      "image": "./assets/img/ally_portrait/spirit_guardian.png",
+      "image": "./assets/img/item_portrait/summon_spirit_guardian_scroll.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "self",
-      "effects": [
-        { "kind": "summon", "summonId": "spirit_guardian" }
-      ]
+      "effects": [{ "kind": "summon", "summonId": "spirit_guardian" }]
     },
     {
       "item_id": "scroll_shadow_familiar",
       "name": "Scroll of Shadow Familiar",
       "description": "A dark scroll that writhes with living shadows. Speaking its words unleashes a swift and deadly familiar.",
-      "image": "./assets/img/ally_portrait/shadow_familiar.png",
+      "image": "./assets/img/item_portrait/summon_shadow_hunter.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "self",
-      "effects": [
-        { "kind": "summon", "summonId": "shadow_familiar" }
-      ]
+      "effects": [{ "kind": "summon", "summonId": "shadow_familiar" }]
     },
     {
       "item_id": "scroll_healing_wisp",
       "name": "Scroll of Healing Wisp",
       "description": "A luminous scroll that glows with gentle warmth. Its incantation summons a healing wisp to tend to your wounds.",
-      "image": "./assets/img/ally_portrait/healing_wisp.png",
+      "image": "./assets/img/item_portrait/summon_healing_wisp.png",
       "type": "consumable",
       "usableContexts": ["combat"],
       "targetType": "self",
-      "effects": [
-        { "kind": "summon", "summonId": "healing_wisp" }
-      ]
+      "effects": [{ "kind": "summon", "summonId": "healing_wisp" }]
     }
   ];
 
@@ -1282,12 +1163,12 @@
         "usable_in": ["combat"],
         "action_cost": 1,
         "base_effects": [
-          { "type": "damage", "damage_type": "physical", "target_scope": "enemy", "magnitude": "1d8", "chance": 1 },
+          { "type": "damage", "damage_type": "physical", "target_scope": "enemy", "magnitude": "1d8", "chance": 1.0 },
           { "type": "status", "status_id": "stun", "target_scope": "enemy", "duration_turns": 1, "magnitude": "0", "chance": 0.55 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "enemy", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.1, "magnitude_delta": "+1d4" },
+          { "min_level": 1, "target_override": "enemy", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.10, "magnitude_delta": "+1d4" },
           { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.15, "magnitude_delta": "+1d4" }
         ]
       },
@@ -1301,9 +1182,9 @@
           { "type": "status", "status_id": "poison", "target_scope": "enemy", "duration_turns": 3, "magnitude": "1d4", "chance": 0.65 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "enemy", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.1, "magnitude_delta": "+1d2" },
-          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.1, "magnitude_delta": "+1d4" }
+          { "min_level": 1, "target_override": "enemy", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.10, "magnitude_delta": "+1d2" },
+          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
         ]
       },
       {
@@ -1316,9 +1197,9 @@
           { "type": "status", "status_id": "fire", "target_scope": "enemy", "duration_turns": 2, "magnitude": "1d6", "chance": 0.65 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "enemy", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.1, "magnitude_delta": "+1d4" },
-          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.1, "magnitude_delta": "+1d4" }
+          { "min_level": 1, "target_override": "enemy", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
         ]
       },
       {
@@ -1328,13 +1209,13 @@
         "usable_in": ["combat"],
         "action_cost": 1,
         "base_effects": [
-          { "type": "damage", "damage_type": "physical", "target_scope": "enemy", "magnitude": "1d10", "chance": 1 },
+          { "type": "damage", "damage_type": "physical", "target_scope": "enemy", "magnitude": "1d10", "chance": 1.0 },
           { "type": "status", "status_id": "bleeding", "target_scope": "enemy", "duration_turns": 2, "magnitude": "1d8", "chance": 0.65 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "enemy", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.1, "magnitude_delta": "+1d4" },
-          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.1, "magnitude_delta": "+1d4" }
+          { "min_level": 1, "target_override": "enemy", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "enemy", "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+          { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
         ]
       },
       {
@@ -1344,10 +1225,10 @@
         "usable_in": ["combat"],
         "action_cost": 1,
         "base_effects": [
-          { "type": "status", "status_id": "charmed", "target_scope": "enemy", "duration_turns": 2, "magnitude": "0", "chance": 0.5 }
+          { "type": "status", "status_id": "charmed", "target_scope": "enemy", "duration_turns": 2, "magnitude": "0", "chance": 0.50 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "enemy", "chance_delta": 0, "magnitude_delta": "+0" },
+          { "min_level": 1, "target_override": "enemy", "chance_delta": 0.00, "magnitude_delta": "+0" },
           { "min_level": 2, "target_override": "enemy", "chance_delta": 0.15, "magnitude_delta": "+0" },
           { "min_level": 3, "target_override": "enemy_team", "chance_delta": 0.15, "magnitude_delta": "+0" }
         ]
@@ -1360,12 +1241,12 @@
         "action_cost": 0,
         "trigger": { "event": "on_hit", "once_per_round": true },
         "base_effects": [
-          { "type": "damage", "damage_type": "physical", "target_scope": "last_attacker", "magnitude": "weapon_damage", "chance": 0.5 }
+          { "type": "damage", "damage_type": "physical", "target_scope": "last_attacker", "magnitude": "weapon_damage", "chance": 0.50 }
         ],
         "level_rules": [
-          { "min_level": 1, "chance_delta": 0, "magnitude_delta": "+0" },
+          { "min_level": 1, "chance_delta": 0.00, "magnitude_delta": "+0" },
           { "min_level": 2, "chance_delta": 0.15, "magnitude_delta": "+1d4" },
-          { "min_level": 3, "chance_delta": 0.2, "magnitude_delta": "+1d6" }
+          { "min_level": 3, "chance_delta": 0.20, "magnitude_delta": "+1d6" }
         ]
       },
       {
@@ -1376,13 +1257,13 @@
         "action_cost": 0,
         "trigger": { "event": "on_hit_attempt", "once_per_round": true },
         "base_effects": [
-          { "type": "meta", "meta_action": "nullify_incoming_damage", "target_scope": "self", "magnitude": "0", "chance": 0.5 },
-          { "type": "status", "status_id": "stun", "target_scope": "last_attacker", "duration_turns": 1, "magnitude": "0", "chance": 0.5 }
+          { "type": "meta", "meta_action": "nullify_incoming_damage", "target_scope": "self", "magnitude": "0", "chance": 0.50 },
+          { "type": "status", "status_id": "stun", "target_scope": "last_attacker", "duration_turns": 1, "magnitude": "0", "chance": 0.50 }
         ],
         "level_rules": [
-          { "min_level": 1, "chance_delta": 0, "magnitude_delta": "+0" },
+          { "min_level": 1, "chance_delta": 0.00, "magnitude_delta": "+0" },
           { "min_level": 2, "chance_delta": 0.15, "magnitude_delta": "+0" },
-          { "min_level": 3, "chance_delta": 0.2, "magnitude_delta": "+0" }
+          { "min_level": 3, "chance_delta": 0.20, "magnitude_delta": "+0" }
         ]
       },
       {
@@ -1395,9 +1276,9 @@
           { "type": "heal", "resource": "hp", "target_scope": "ally", "magnitude": "1d21", "chance": 0.95 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "ally", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "ally", "chance_delta": 0, "magnitude_delta": "+1d10" },
-          { "min_level": 3, "target_override": "ally_team", "chance_delta": 0, "magnitude_delta": "+1d10" }
+          { "min_level": 1, "target_override": "ally", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "ally", "chance_delta": 0.00, "magnitude_delta": "+1d10" },
+          { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.00, "magnitude_delta": "+1d10" }
         ]
       },
       {
@@ -1410,7 +1291,7 @@
           { "type": "heal", "resource": "sanity", "target_scope": "ally", "magnitude": "1d21", "chance": 0.85 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "ally", "chance_delta": 0, "magnitude_delta": "+0" },
+          { "min_level": 1, "target_override": "ally", "chance_delta": 0.00, "magnitude_delta": "+0" },
           { "min_level": 2, "target_override": "ally", "chance_delta": 0.05, "magnitude_delta": "+1d10" },
           { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.05, "magnitude_delta": "+1d10" }
         ]
@@ -1425,9 +1306,9 @@
           { "type": "buff", "status_id": "attack_up", "target_scope": "ally", "duration_turns": 3, "magnitude": "+1d6", "chance": 0.75 }
         ],
         "level_rules": [
-          { "min_level": 1, "target_override": "ally", "chance_delta": 0, "magnitude_delta": "+0" },
-          { "min_level": 2, "target_override": "ally", "chance_delta": 0.1, "magnitude_delta": "+1d4" },
-          { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.1, "magnitude_delta": "+1d4" }
+          { "min_level": 1, "target_override": "ally", "chance_delta": 0.00, "magnitude_delta": "+0" },
+          { "min_level": 2, "target_override": "ally", "chance_delta": 0.10, "magnitude_delta": "+1d4" },
+          { "min_level": 3, "target_override": "ally_team", "chance_delta": 0.10, "magnitude_delta": "+1d4" }
         ]
       }
     ]
@@ -1561,9 +1442,7 @@
       "encounter_id": "astral_sanctum",
       "encounter_name": "The Astral Summoner's Sanctum",
       "background": "./assets/img/environment/ComfyUI_00901_.png",
-      "enemies": [
-        { "id": "astral_summoner", "position": 1 }
-      ],
+      "enemies": [{ "id": "astral_summoner", "position": 1 }],
       "loot": {
         "gold": 250,
         "items": ["healing_potion", "sanity_tonic", "elixir_of_fortitude"]
@@ -1584,3 +1463,4 @@
     gameState: existing.gameState || gameStateFallback
   };
 })();
+

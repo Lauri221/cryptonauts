@@ -66,8 +66,11 @@
   overflow: visible;
   align-items: stretch;
   justify-content: center;
-  gap: clamp(28px, 4vw, 72px);
-  padding: clamp(16px, 2vw, 32px) clamp(3vw, 6vw, 96px);
+  padding: clamp(20px, 3vw, 48px) clamp(3vw, 6vw, 96px);
+}
+
+#exploration-area > #exploration-grid {
+  width: min(1400px, 100%);
 }
 
 /* Room backdrop */
@@ -86,16 +89,18 @@
 
 /* Character panel (left side) */
 #character-panel {
-  width: clamp(360px, 38vw, 520px);
+  grid-area: characters;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: clamp(12px, 1.6vw, 20px);
+  padding: clamp(14px, 1.8vw, 24px);
   background: linear-gradient(160deg, rgba(8, 6, 12, 0.78), rgba(8, 6, 12, 0.42));
+  border: 1px solid rgba(184, 151, 91, 0.35);
+  border-radius: 14px;
   z-index: 2;
-  border-right: 1px solid rgba(184, 151, 91, 0.35);
   backdrop-filter: blur(2px);
-  min-height: clamp(360px, 52vh, 560px);
+  min-height: clamp(280px, 42vh, 420px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
 /* Party cards container - holds player and companion side by side */
@@ -111,36 +116,35 @@
 #exploration-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  grid-template-rows: 1fr 1.2fr; /* Bottom row slightly larger */
-  gap: clamp(18px, 2vw, 28px);
+  grid-template-columns: minmax(260px, 0.95fr) minmax(320px, 1.2fr) minmax(260px, 0.95fr);
+  grid-template-rows: minmax(320px, auto) minmax(260px, auto);
+  grid-template-areas:
+    "characters story actions"
+    "inventory log navigation";
+  gap: clamp(18px, 2vw, 32px);
   z-index: 2;
-  max-width: 1200px;
+  width: 100%;
 }
 
 /* Grid Areas */
 #narration-window {
-  grid-column: 1;
-  grid-row: 1;
+  grid-area: story;
   min-height: 0; /* Allow shrinking */
 }
 
 #choice-panel {
-  grid-column: 2;
-  grid-row: 1;
+  grid-area: actions;
   min-height: 0; /* Allow shrinking */
   display: flex;
   flex-direction: column;
 }
 
 #bottom-panel {
-  grid-column: 1;
-  grid-row: 2;
+  grid-area: log;
 }
 
 #navigation-panel {
-  grid-column: 2;
-  grid-row: 2;
+  grid-area: navigation;
   margin-top: 0; /* Reset margin */
 }
 
@@ -228,26 +232,33 @@
 
 /* Inventory panel */
 #inventory-panel {
-  background-color: rgba(30, 30, 50, 0.78);
-  border: 1px solid rgba(90, 74, 58, 0.55);
-  border-radius: 8px;
-  padding: 10px;
-  flex: 1;
-  overflow-y: auto;
-  max-height: 200px;
+  grid-area: inventory;
+  background: linear-gradient(155deg, rgba(12, 10, 18, 0.78), rgba(24, 20, 32, 0.86));
+  border: 1px solid rgba(126, 104, 70, 0.55);
+  border-radius: 14px;
+  padding: clamp(14px, 1.6vw, 22px);
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(220px, 32vh, 320px);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
 }
 
 #inventory-panel h3 {
   margin: 0 0 10px 0;
   font-size: 14px;
   color: #d4af37;
-  border-bottom: 1px solid #5a4a3a;
+  border-bottom: 1px solid rgba(90, 74, 58, 0.55);
   padding-bottom: 5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 #inventory-list {
-  font-size: 10px;
+  flex: 1;
+  font-size: clamp(11px, 1.2vmin, 13px);
   color: #ccc;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .inventory-item {
@@ -442,6 +453,7 @@
   min-height: clamp(180px, 32vh, 320px); /* Match larger bottom panel */
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 
 #navigation-panel h3 {
@@ -459,6 +471,7 @@
   gap: 14px;
   overflow-y: auto;
   flex: 1;
+  width: 100%;
 }
 
 .nav-group {
@@ -466,6 +479,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   background: rgba(6, 4, 10, 0.35);
+  text-align: center;
 }
 
 .nav-label {
@@ -502,6 +516,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
 }
 
 .nav-empty-message {
@@ -707,13 +722,20 @@
 
 @media (max-width: 1200px) {
   #exploration-area {
-    gap: clamp(20px, 3vw, 48px);
-    padding: clamp(14px, 1.8vw, 26px) clamp(3vw, 5vw, 72px);
+    padding: clamp(16px, 2vw, 28px) clamp(2vw, 4vw, 64px);
   }
 
-  /* Adjust grid for medium screens if needed */
   #exploration-grid {
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    grid-template-areas:
+      "characters story"
+      "actions actions"
+      "inventory log"
+      "navigation navigation";
+  }
+
+  #character-panel {
+    min-height: clamp(260px, 40vh, 360px);
   }
 }
 
@@ -761,7 +783,8 @@
   }
 
   #inventory-panel {
-    max-height: 100px;
+    min-height: auto;
+    max-height: none;
   }
 
   /* Switch grid to single column on mobile */
@@ -797,10 +820,6 @@
 
   .portrait.explorer .stats {
     font-size: 10px;
-  }
-
-  #inventory-panel {
-    display: none; /* Hide on very small screens */
   }
 
   #choice-panel {
@@ -841,15 +860,20 @@
 }
 
 #start-menu {
-  background-image:
-    radial-gradient(circle at 20% 20%, rgba(180, 140, 90, 0.18), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(90, 120, 180, 0.15), transparent 60%),
-    linear-gradient(180deg, rgba(6, 4, 12, 0.65) 0%, rgba(10, 4, 25, 0.72) 45%, rgba(5, 1, 12, 0.78) 100%),
-    url('assets/img/environment/crypt_entrance.png');
+  background-image: url('assets/img/environment/title_screen.png');
   background-size: cover;
-  background-position: center 25%;
+  background-position: center;
   background-repeat: no-repeat;
-  background-blend-mode: screen, screen, normal, normal;
+  background-color: #050308;
+  overflow: hidden;
+}
+
+#character-creation {
+  background-image: url('assets/img/environment/dungeon_05.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #04040a;
   overflow: hidden;
 }
 

@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,15 +10,12 @@
   <link rel="stylesheet" href="exploration.css">
 </head>
 <body>
-  
-
   <!-- ======================== -->
   <!-- PAUSE MENU OVERLAY -->
   <!-- ======================== -->
   <div id="pause-menu" class="menu-overlay hidden">
     <div class="menu-container pause-container">
       <h2>PAUSED</h2>
-      
       <div class="menu-buttons">
         <button id="btn-resume" class="menu-btn primary">Resume</button>
         <button id="btn-save-game" class="menu-btn">Save Game</button>
@@ -32,7 +31,7 @@
   <div id="options-modal" class="menu-overlay hidden">
     <div class="modal-container options-container">
       <h2>OPTIONS</h2>
-      
+
       <div class="options-section">
         <h3>🔊 Audio</h3>
         <div class="option-row">
@@ -46,7 +45,7 @@
           <span id="sfx-volume-value">80%</span>
         </div>
       </div>
-      
+
       <div class="options-section">
         <h3>👁️ Visual Effects</h3>
         <div class="option-row">
@@ -60,7 +59,7 @@
           <span class="toggle-label">Enabled</span>
         </div>
       </div>
-      
+
       <div class="options-section">
         <h3>🤖 Gemini AI</h3>
         <div class="option-row">
@@ -78,9 +77,9 @@
           <span id="gemini-test-result" class="test-result"></span>
         </div>
       </div>
-      
+
       <div class="modal-buttons">
-        <button id="btn-options-save" class="menu-btn primary">Save & Close</button>
+        <button id="btn-options-save" class="menu-btn primary">Save &amp; Close</button>
         <button id="btn-options-cancel" class="menu-btn">Cancel</button>
       </div>
     </div>
@@ -104,8 +103,6 @@
   <!-- MAIN EXPLORATION SCREEN -->
   <!-- ======================== -->
   <div id="exploration-screen" class="hidden" data-sanity-state="stable">
-    
-    <!-- Header with room name and depth -->
     <header id="exploration-header">
       <h1 id="room-title">Crypt Threshold</h1>
       <div id="depth-indicator">Depth: <span id="current-depth">1</span> / 7</div>
@@ -115,81 +112,69 @@
       <div id="gemini-status" class="gemini-status"></div>
     </header>
 
-    <!-- Main exploration area -->
     <div id="exploration-area">
-      
-      <!-- Room backdrop -->
       <div id="room-backdrop"></div>
 
-      <!-- Left side: Character portraits -->
-      <div id="character-panel">
-        <div id="party-cards">
-          <div id="player-card" class="portrait explorer">
-            <img src="assets/img/ally_portrait/warrior_male.png" alt="Player">
-            <div class="stats">
-              <div class="char-name" id="explorer-player-name">Cryptonaut</div>
-              <div>HP: <span id="explorer-player-hp">20</span>/<span id="explorer-player-maxhp">20</span></div>
-              <div class="stat-bar-container">
-                <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-player-hp-bar" style="width: 100%"></div></div>
-              </div>
-              <div>Sanity: <span id="explorer-player-sanity">15</span>/<span id="explorer-player-maxsanity">15</span></div>
-              <div class="stat-bar-container">
-                <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-player-sanity-bar" style="width: 100%"></div></div>
-              </div>
-              <div class="status-effects" id="explorer-player-status"></div>
-            </div>
-          </div>
-          
-          <div id="companion-card" class="portrait explorer">
-            <img src="assets/img/ally_portrait/warrior_male.png" alt="Companion">
-            <div class="stats">
-              <div class="char-name" id="explorer-companion-name">Companion</div>
-              <div>HP: <span id="explorer-companion-hp">18</span>/<span id="explorer-companion-maxhp">18</span></div>
-              <div class="stat-bar-container">
-                <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-companion-hp-bar" style="width: 100%"></div></div>
-              </div>
-              <div>Sanity: <span id="explorer-companion-sanity">12</span>/<span id="explorer-companion-maxsanity">12</span></div>
-              <div class="stat-bar-container">
-                <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-companion-sanity-bar" style="width: 100%"></div></div>
-              </div>
-              <div class="status-effects" id="explorer-companion-status"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Inventory summary -->
-        <div id="inventory-panel">
-          <h3>Inventory</h3>
-          <div id="inventory-list"></div>
-        </div>
-      </div>
-
-      <!-- Center/Right Grid: Narration, Choices, Log, Navigation -->
       <div id="exploration-grid">
-        
-        <!-- Top Left: Narration -->
+        <div id="character-panel">
+          <div id="party-cards">
+            <div id="player-card" class="portrait explorer">
+              <img src="assets/img/ally_portrait/warrior_male.png" alt="Player">
+              <div class="stats">
+                <div class="char-name"><span id="explorer-player-name">Cryptonaut</span> <span id="explorer-player-level" class="level-indicator">Lv.0</span></div>
+                <div class="xp-text">XP: <span id="explorer-player-xp">0</span>/<span id="explorer-player-next-xp">50</span></div>
+                <div>HP: <span id="explorer-player-hp">20</span>/<span id="explorer-player-maxhp">20</span></div>
+                <div class="stat-bar-container">
+                  <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-player-hp-bar" style="width: 100%"></div></div>
+                </div>
+                <div>Sanity: <span id="explorer-player-sanity">15</span>/<span id="explorer-player-maxsanity">15</span></div>
+                <div class="stat-bar-container">
+                  <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-player-sanity-bar" style="width: 100%"></div></div>
+                </div>
+                <div class="status-effects" id="explorer-player-status"></div>
+              </div>
+            </div>
+            <div id="companion-card" class="portrait explorer">
+              <img src="assets/img/ally_portrait/warrior_male.png" alt="Companion">
+              <div class="stats">
+                <div class="char-name"><span id="explorer-companion-name">Companion</span> <span id="explorer-companion-level" class="level-indicator">Lv.0</span></div>
+                <div class="xp-text">XP: <span id="explorer-companion-xp">0</span>/<span id="explorer-companion-next-xp">50</span></div>
+                <div>HP: <span id="explorer-companion-hp">18</span>/<span id="explorer-companion-maxhp">18</span></div>
+                <div class="stat-bar-container">
+                  <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-companion-hp-bar" style="width: 100%"></div></div>
+                </div>
+                <div>Sanity: <span id="explorer-companion-sanity">12</span>/<span id="explorer-companion-maxsanity">12</span></div>
+                <div class="stat-bar-container">
+                  <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-companion-sanity-bar" style="width: 100%"></div></div>
+                </div>
+                <div class="status-effects" id="explorer-companion-status"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="narration-window">
           <div id="narration-text">
             <p class="narration-loading">The darkness awaits...</p>
           </div>
         </div>
 
-        <!-- Top Right: Choices -->
         <div id="choice-panel">
           <h3>What do you do?</h3>
-          <div id="choice-buttons">
-            <!-- Choices will be dynamically inserted here -->
-          </div>
+          <div id="choice-buttons"></div>
         </div>
 
-        <!-- Bottom Left: Log -->
+        <div id="inventory-panel">
+          <h3>Inventory</h3>
+          <div id="inventory-list"></div>
+        </div>
+
         <div id="bottom-panel">
           <div id="exploration-log">
             <div>📜 You descend into the crypt...</div>
           </div>
         </div>
 
-        <!-- Bottom Right: Navigation -->
         <div id="navigation-panel">
           <h3>Paths</h3>
           <div class="navigation-groups">
@@ -203,17 +188,14 @@
             </div>
           </div>
         </div>
-
       </div>
     </div>
 
-    <!-- Loading overlay for Gemini calls -->
     <div id="loading-overlay" class="hidden">
       <div class="loading-spinner"></div>
       <p>The darkness stirs...</p>
     </div>
 
-    <!-- Combat transition overlay -->
     <div id="combat-transition" class="hidden">
       <div class="combat-alert">
         <h2>⚔️ Defend Yourself ⚔️</h2>
@@ -221,23 +203,20 @@
       </div>
     </div>
 
-    <!-- Autosave indicator -->
     <div id="autosave-indicator" class="hidden">
       <span class="save-icon">💾</span> Saving...
     </div>
-
   </div>
 
-  <!-- Audio elements -->
   <audio id="exploration-music-1" src="music/exploration_music_01.mp3" preload="auto" loop></audio>
   <audio id="exploration-music-2" src="music/exploration_music_02.mp3" preload="auto" loop></audio>
   <audio id="boss-music-1" src="music/boss_music_01.mp3" preload="auto" loop></audio>
   <audio id="boss-music-2" src="music/boss_music_02.mp3" preload="auto" loop></audio>
 
-  <!-- Scripts -->
   <script src="data_fallbacks.js"></script>
   <script src="config.js"></script>
   <script src="item_system.js"></script>
   <script src="exploration.js"></script>
 </body>
 </html>
+      </div>

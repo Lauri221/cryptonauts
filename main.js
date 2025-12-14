@@ -36,6 +36,56 @@ const PHANTOM_LOG_ENTRIES = [
 ];
 
 // ========================
+// Combat Loot Drop Configuration
+// ========================
+const LOOT_DROP_CONFIG = {
+  // Base drop rate per enemy (percentage)
+  dropRateByDepth: {
+    1: 0.15,  // 15% per enemy at depth 1
+    2: 0.18,
+    3: 0.22,
+    4: 0.25,
+    5: 0.30,
+    6: 0.35,
+    7: 0.50   // Boss floor - 50% drop rate
+  },
+  // Item pools by depth (common/uncommon items)
+  itemPoolByDepth: {
+    1: ['small_health_potion', 'torch'],
+    2: ['small_health_potion', 'torch', 'antidote'],
+    3: ['health_potion', 'small_sanity_tonic', 'bandage'],
+    4: ['health_potion', 'sanity_tonic', 'smoke_bomb'],
+    5: ['large_health_potion', 'sanity_tonic', 'adrenaline_shot'],
+    6: ['large_health_potion', 'large_sanity_tonic', 'elixir'],
+    7: ['elixir', 'phoenix_feather', 'large_health_potion', 'large_sanity_tonic']
+  }
+};
+
+// Roll loot drop for defeated enemies
+function rollLootDrops(defeatedEnemies, depth) {
+  const drops = [];
+  const dropRate = LOOT_DROP_CONFIG.dropRateByDepth[depth] || LOOT_DROP_CONFIG.dropRateByDepth[1];
+  const itemPool = LOOT_DROP_CONFIG.itemPoolByDepth[depth] || LOOT_DROP_CONFIG.itemPoolByDepth[1];
+  
+  defeatedEnemies.forEach(enemy => {
+    // Boss enemies have guaranteed drops
+    const isBoss = enemy.threat_level >= 3;
+    const roll = Math.random();
+    
+    if (isBoss || roll < dropRate) {
+      const randomItem = itemPool[Math.floor(Math.random() * itemPool.length)];
+      drops.push({
+        itemId: randomItem,
+        fromEnemy: enemy.name
+      });
+      console.log(`[Loot] ${enemy.name} dropped ${randomItem} (roll: ${roll.toFixed(2)}, rate: ${dropRate})`);
+    }
+  });
+  
+  return drops;
+}
+
+// ========================
 // Visual Settings Sync (sanity / text effects)
 // ========================
 
@@ -1736,17 +1786,27 @@ let enemy_monster_combat_start_sounds = [
   new Audio('./sound/enemy_monster_combat_start_03.mp3')
 ];
 
+let astral_creeper_hurt_sounds = [
+  new Audio('./sound/astral_creep_hurt.mp3')
+];
+
+let astral_creeper_death_sounds = [
+  new Audio('./sound/astral_creep_death.mp3')
+];
+
 const enemySoundBank = {
   enemy_male_hurt: enemy_hurt_male_sound,
   enemy_female_hurt: enemy_hurt_female_sound,
   enemy_monster_hurt: enemy_hurt_monster_sound,
   enemy_beast_hurt: enemy_hurt_beast_sound,
   enemy_insect_hurt: enemy_hurt_insect_sound,
+  astral_creeper_hurt: astral_creeper_hurt_sounds,
   enemy_male_death: enemy_death_male_sound,
   enemy_female_death: enemy_death_female_sound,
   enemy_monster_death: enemy_death_monster_sound,
   enemy_beast_death: enemy_death_beast_sound,
   enemy_insect_death: enemy_death_insect_sound,
+  astral_creeper_death: astral_creeper_death_sounds,
   enemy_male_combat_start: enemy_male_combat_start_sounds,
   enemy_female_combat_start: enemy_female_combat_start_sounds,
   enemy_monster_combat_start: enemy_monster_combat_start_sounds,
@@ -3436,12 +3496,25 @@ document.addEventListener("DOMContentLoaded", () => {
 function checkExplorationParams() {
   const urlParams = new URLSearchParams(window.location.search);
   const fromExploration = urlParams.get('fromExploration') === 'true';
-  const enemyId = urlParams.get('enemy');
   
-  if (fromExploration && enemyId) {
-    console.log(`[Combat] Initiated from exploration with enemy: ${enemyId}`);
-    // Store the enemy ID for loadCombatData to use
-    window.explorationCombatEnemy = enemyId;
+  // Support both new 'enemies' param (comma-separated) and legacy 'enemy' param
+  const enemiesParam = urlParams.get('enemies');
+  const singleEnemyParam = urlParams.get('enemy');
+  
+  let enemyIds = [];
+  if (enemiesParam) {
+    // New multi-enemy format: "cultist,mossleech,cultist"
+    enemyIds = decodeURIComponent(enemiesParam).split(',').filter(id => id.trim());
+  } else if (singleEnemyParam) {
+    // Legacy single enemy format
+    enemyIds = [decodeURIComponent(singleEnemyParam)];
+  }
+  
+  if (fromExploration && enemyIds.length > 0) {
+    console.log(`[Combat] Initiated from exploration with enemies: ${enemyIds.join(', ')}`);
+    // Store the enemy IDs for loadCombatData to use
+    window.explorationCombatEnemies = enemyIds;
+    window.explorationCombatEnemy = enemyIds[0]; // Legacy compatibility
     window.fromExploration = true;
   }
 }
@@ -3623,8 +3696,8 @@ async function loadCombatData() {
 
     // Ensure portrait paths point to actual asset extensions (cache-safe overrides)
     const portraitOverrides = {
-      astral_summoner: 'assets/img/enemy_portrait/astral_summoner.jpg',
-      astral_creeper: 'assets/img/enemy_portrait/astral_creeper.jpg'
+      astral_summoner: 'assets/img/enemy_portrait/astral_summoner.png',
+      astral_creeper: 'assets/img/enemy_portrait/astral_creeper.png'
     };
     if (Array.isArray(enemyData.enemies)) {
       enemyData.enemies.forEach(enemy => {
@@ -3644,15 +3717,21 @@ async function loadCombatData() {
     //    - Tells us which enemies appear, their positions, and the background
     let encounter;
     
-    if (window.fromExploration && window.explorationCombatEnemy) {
-      // Create encounter from exploration enemy
-      const explorationEnemy = window.explorationCombatEnemy;
-      console.log(`[Combat] Creating exploration encounter for: ${explorationEnemy}`);
+    if (window.fromExploration && (window.explorationCombatEnemies || window.explorationCombatEnemy)) {
+      // Create encounter from exploration enemies (multi-enemy support)
+      const enemyIds = window.explorationCombatEnemies || [window.explorationCombatEnemy];
+      console.log(`[Combat] Creating exploration encounter for: ${enemyIds.join(', ')}`);
+      
+      // Build enemies array with positions
+      const encounterEnemies = enemyIds.map((enemyId, index) => ({
+        id: enemyId,
+        position: index + 1 // Positions 1, 2, 3, etc.
+      }));
       
       encounter = {
         encounter_name: "Exploration Encounter",
         background: 'assets/img/environment/dungeon1.png',
-        enemies: [{ id: explorationEnemy, position: 1 }]
+        enemies: encounterEnemies
       };
       
       // Load saved party state from exploration if available
@@ -3994,8 +4073,9 @@ function updateUI() {  // Change the background image based on 'battleBackground
   updateSanityState();
   
   // Update player info (include level if > 0)
-  const playerLevelText = player.level > 0 ? ` (Lv.${player.level})` : '';
-  document.getElementById('player-name').textContent = (player.name || "Cryptonaut") + playerLevelText;
+  document.getElementById('player-name').textContent = player.name || "Cryptonaut";
+  const pLevelEl = document.getElementById('player-level');
+  if (pLevelEl) pLevelEl.textContent = player.level > 0 ? `(Lv.${player.level})` : '';
   document.getElementById('player-hp').textContent = player.hp;
   document.getElementById('player-sanity').textContent = player.sanity;
   const playerImg = document.querySelector('#player-portrait img');
@@ -4024,8 +4104,9 @@ function updateUI() {  // Change the background image based on 'battleBackground
   }
   
   // Update companion info (include level if > 0)
-  const companionLevelText = companion.level > 0 ? ` (Lv.${companion.level})` : '';
-  document.getElementById('companion-name').textContent = (companion.name || "Companion") + companionLevelText;
+  document.getElementById('companion-name').textContent = companion.name || "Companion";
+  const cLevelEl = document.getElementById('companion-level');
+  if (cLevelEl) cLevelEl.textContent = companion.level > 0 ? `(Lv.${companion.level})` : '';
   document.getElementById('ally-hp').textContent = companion.hp;
   document.getElementById('ally-sanity').textContent = companion.sanity;
   const companionImg = document.querySelector('#ally-portrait img');
@@ -4102,6 +4183,8 @@ function updateUI() {  // Change the background image based on 'battleBackground
       console.log(`Enemy ${enemy.name} (index ${i}): HP=${enemy.hp}, alive=${enemy.alive}, display=${card.style.display}, element text=${hpSpan.textContent}`);
     }
   });
+
+  applyEnemyDensityClasses();
 
   // Remove previous highlights
   document.querySelectorAll('.portrait').forEach(card => {
@@ -4204,6 +4287,24 @@ function generateEnemyCards() {
     enemy.cardElementId = card.id;
     
     console.log(`Generated card for ${enemy.name} (id: ${enemy.id}) with HP: ${enemy.hp}, alive: ${enemy.alive}, boss: ${cardClasses.includes('boss')}`);
+  });
+
+  applyEnemyDensityClasses();
+}
+
+function applyEnemyDensityClasses() {
+  const enemyArea = document.getElementById('enemy-area');
+  if (!enemyArea) return;
+  const aliveCount = enemies.filter(enemy => enemy && enemy.alive !== false && enemy.hp > 0).length;
+  enemyArea.dataset.enemyCount = aliveCount;
+  const densityClasses = [
+    { className: 'enemy-row-crowded', threshold: 4 },
+    { className: 'enemy-row-packed', threshold: 5 },
+    { className: 'enemy-row-overflow', threshold: 6 },
+    { className: 'enemy-row-maxed', threshold: 7 }
+  ];
+  densityClasses.forEach(({ className, threshold }) => {
+    enemyArea.classList.toggle(className, aliveCount >= threshold);
   });
 }
 
@@ -5482,24 +5583,48 @@ function handleExplorationReturn(victory, options = {}) {
   // Save combat log for post-mortem narrative
   saveCombatLog();
   
+  // Calculate loot drops for defeated enemies (only on victory)
+  let lootDrops = [];
+  if (victory) {
+    const expState = getExplorationCombatState();
+    const depth = expState?.depth || 1;
+    const defeatedEnemies = enemies.filter(e => e.alive === false || e.hp <= 0);
+    lootDrops = rollLootDrops(defeatedEnemies, depth);
+    
+    // Log loot drops
+    if (lootDrops.length > 0) {
+      lootDrops.forEach(drop => {
+        log(`💎 ${drop.fromEnemy} dropped: ${drop.itemId.replace(/_/g, ' ')}`);
+      });
+    }
+  }
+  
   // Store combat result for exploration to pick up
   const combatResult = {
     victory: victory,
     fled: fled,
     fleeSummary,
+    lootDrops: lootDrops,
+    enemiesDefeated: enemies.length,
     player: {
       hp: player.hp,
       maxHp: player.maxHp,
       sanity: player.sanity,
       maxSanity: player.maxSanity,
-      statusEffects: player.statusEffects || []
+      statusEffects: player.statusEffects || [],
+      level: player.level || 0,
+      xp: player.xp || 0,
+      xpToNextLevel: player.xpToNextLevel || 50
     },
     companion: companion ? {
       hp: companion.hp,
       maxHp: companion.maxHp,
       sanity: companion.sanity,
       maxSanity: companion.maxSanity,
-      statusEffects: companion.statusEffects || []
+      statusEffects: companion.statusEffects || [],
+      level: companion.level || 0,
+      xp: companion.xp || 0,
+      xpToNextLevel: companion.xpToNextLevel || 50
     } : null,
     inventory: typeof getInventoryState === 'function' ? getInventoryState() : null,
     xpGained: enemies.reduce((sum, e) => sum + (e.xp_reward || 0), 0)

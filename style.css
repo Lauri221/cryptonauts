@@ -198,31 +198,38 @@ body {
   position: relative;
   display: flex;
   justify-content: space-between;
+  align-items: stretch;
   width: 100%;
+  gap: clamp(12px, 4vw, 60px);
   z-index: 2;
 }
 
 /* Character positioning - side by side */
 #character-portraits {
   display: flex;
-  flex-direction: row; /* Changed to row for side-by-side */
+  flex-direction: row; /* Side-by-side player + ally */
   justify-content: flex-start;
   align-items: center;
-  padding: 2vmin;
-  gap: 1vw;
-  width: 40%;
+  padding: clamp(16px, 2vmin, 32px);
+  gap: clamp(12px, 2vw, 32px);
+  flex: 1 1 45%;
+  min-width: 0;
+  max-width: 640px;
   z-index: 2;
 }
 
 #enemy-area {
   display: flex;
-  flex-direction: row; /* Changed to row for side-by-side */
+  flex-direction: row; /* Enemy line-up */
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
-  width: 40%;
+  gap: clamp(8px, 1.5vw, 24px);
+  flex: 1 1 55%;
+  min-width: 0;
   z-index: 2;
-  flex-wrap: wrap; /* Allow multiple enemies/minions to wrap to a second row */
+  flex-wrap: nowrap;
+  align-content: center;
+  transition: gap 0.3s ease;
 }
 
 /* Summon area - displays summoned NPCs */
@@ -311,8 +318,91 @@ body {
 }
 
 .portrait.enemy {
-  flex: 1;
+  flex: 0 1 120px;
   max-width: 120px;
+  width: clamp(90px, 12vw, 130px);
+}
+
+#enemy-area.enemy-row-crowded {
+  gap: clamp(6px, 1vw, 12px);
+}
+
+#enemy-area.enemy-row-crowded .portrait.enemy {
+  flex: 0 1 105px;
+  max-width: 105px;
+}
+
+#enemy-area.enemy-row-crowded .portrait.enemy.minion {
+  max-width: 80px;
+  flex-basis: 80px;
+}
+
+#enemy-area.enemy-row-crowded .portrait.enemy.boss {
+  max-width: 150px;
+  min-width: 120px;
+}
+
+#enemy-area.enemy-row-packed {
+  gap: 6px;
+}
+
+#enemy-area.enemy-row-packed .portrait.enemy {
+  flex: 0 1 92px;
+  max-width: 92px;
+  transform: scale(0.96);
+}
+
+#enemy-area.enemy-row-packed .portrait.enemy.minion {
+  max-width: 70px;
+  flex-basis: 70px;
+}
+
+#enemy-area.enemy-row-packed .portrait.enemy.boss {
+  max-width: 135px;
+  min-width: 110px;
+  transform: scale(0.94);
+}
+
+#enemy-area.enemy-row-overflow {
+  gap: 4px;
+}
+
+#enemy-area.enemy-row-overflow .portrait.enemy {
+  flex: 0 1 82px;
+  max-width: 82px;
+  transform: scale(0.93);
+}
+
+#enemy-area.enemy-row-overflow .portrait.enemy.minion {
+  max-width: 62px;
+  flex-basis: 62px;
+}
+
+#enemy-area.enemy-row-overflow .portrait.enemy.boss {
+  max-width: 125px;
+  min-width: 100px;
+  transform: scale(0.92);
+}
+
+#enemy-area.enemy-row-maxed {
+  gap: 3px;
+}
+
+#enemy-area.enemy-row-maxed .portrait.enemy {
+  flex: 0 1 72px;
+  max-width: 72px;
+  transform: scale(0.9);
+}
+
+#enemy-area.enemy-row-maxed .portrait.enemy.minion {
+  max-width: 56px;
+  flex-basis: 56px;
+}
+
+#enemy-area.enemy-row-maxed .portrait.enemy.boss {
+  max-width: 115px;
+  min-width: 90px;
+  transform: scale(0.9);
 }
 
 /* Boss enemy portrait - larger and more prominent */
@@ -346,7 +436,7 @@ body {
 .portrait.enemy.minion {
   max-width: 90px;
   min-width: 70px;
-  flex: 0 0 auto;
+  flex: 0 1 90px;
   background-color: rgba(100, 0, 100, 0.7);
   border: 2px solid #9933cc;
   animation: minionFadeIn 0.5s ease-out;

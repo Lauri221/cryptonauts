@@ -50,10 +50,95 @@ const ROOM_SELECTION_LIMIT = 4;
 const ROOM_HISTORY_MAX_ENTRIES = 50;
 const FORCED_COMBAT_FLAG_PREFIX = 'forcedCombatResolved_';
 const FORCED_COMBAT_ROOMS = {
-  room_02_gallery: { enemyId: 'astral_creeper', reason: 'The gallery guardians ambush you!' },
-  room_04_flooded_stair: { enemyId: 'drowned_acolyte', reason: 'The waters churn with hostile shapes!' },
-  room_06_dreaming_vault: { enemyId: 'astral_summoner', reason: 'The vault warden awakens immediately!' }
+  room_02_gallery: { 
+    enemyIds: ['astral_creeper', 'astral_creeper'], 
+    reason: 'The gallery guardians ambush you!' 
+  },
+  room_04_flooded_stair: { 
+    enemyIds: ['drowned_acolyte', 'mossleech'], 
+    reason: 'The waters churn with hostile shapes!' 
+  },
+  room_06_dreaming_vault: { 
+    enemyIds: ['astral_summoner'], 
+    reason: 'The vault warden awakens immediately!' 
+  }
 };
+
+// Multi-enemy encounter configuration based on dungeon depth
+const ENCOUNTER_CONFIG = {
+  // Enemy count ranges by depth bracket
+  enemyCountByDepth: {
+    1: { min: 1, max: 1 },   // Depth 1-2: 1 enemy
+    2: { min: 1, max: 1 },
+    3: { min: 1, max: 2 },   // Depth 3-4: 1-2 enemies
+    4: { min: 1, max: 2 },
+    5: { min: 2, max: 3 },   // Depth 5-6: 2-3 enemies
+    6: { min: 2, max: 3 },
+    7: { min: 1, max: 1 }    // Boss depth: just the boss (summoner handles minions)
+  },
+  // Item drop chance per enemy, scaling with depth
+  dropRateByDepth: {
+    1: 0.15,  // 15% base drop rate
+    2: 0.18,
+    3: 0.22,
+    4: 0.25,
+    5: 0.30,
+    6: 0.35,
+    7: 0.40   // Higher drop rate for boss encounters
+  },
+  // Item pools by depth tier (common items early, rarer items later)
+  itemPoolByDepth: {
+    low: ['herbal_tonic', 'coagulant_seal_tonic', 'purging_bitter_tincture'],
+    mid: ['herbal_tonic', 'vial_vital_humours', 'tincture_of_lucidity', 'coagulant_seal_bandages', 'berserker_blood'],
+    high: ['vial_vital_humours', 'tincture_of_lucidity', 'nightshade_resin', 'black_tar_pitch', 'sigil_of_warding', 'chains_of_old']
+  },
+  // Max enemies to display (leave room for mid-combat summons)
+  maxEnemiesPerEncounter: 3
+};
+
+// Get item pool based on depth
+function getItemPoolForDepth(depth) {
+  if (depth <= 2) return ENCOUNTER_CONFIG.itemPoolByDepth.low;
+  if (depth <= 4) return ENCOUNTER_CONFIG.itemPoolByDepth.mid;
+  return ENCOUNTER_CONFIG.itemPoolByDepth.high;
+}
+
+// Roll for enemy count based on current depth
+function rollEnemyCount(depth) {
+  const config = ENCOUNTER_CONFIG.enemyCountByDepth[depth] || { min: 1, max: 1 };
+  const count = Math.floor(Math.random() * (config.max - config.min + 1)) + config.min;
+  return Math.min(count, ENCOUNTER_CONFIG.maxEnemiesPerEncounter);
+}
+
+// Generate multiple enemies for an encounter
+function generateEncounterEnemies(room, overrideCount = null) {
+  const depth = room.depth || 1;
+  const count = overrideCount !== null ? overrideCount : rollEnemyCount(depth);
+  const enemyIds = [];
+  
+  for (let i = 0; i < count; i++) {
+    const enemyId = getRandomEnemyForRoom(room);
+    if (enemyId) {
+      enemyIds.push(enemyId);
+    }
+  }
+  
+  // Ensure at least one enemy
+  if (enemyIds.length === 0) {
+    enemyIds.push('cultist');
+  }
+  
+  return enemyIds;
+}
+
+// Roll for item drops after combat (called per enemy defeated)
+function rollItemDrop(depth) {
+  const dropChance = ENCOUNTER_CONFIG.dropRateByDepth[depth] || 0.15;
+  if (Math.random() > dropChance) return null;
+  
+  const pool = getItemPoolForDepth(depth);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 const SUPPLEMENTAL_CHOICE_BLUEPRINTS = [
   { id: 'observe_shadows', label: 'Observe the shifting shadows', type: 'lore', description: 'Watch for subtle movement in the dark.' },
@@ -67,14 +152,14 @@ const AUTOSAVE_INTERVAL_MS = 60000;
 
 // Optional overrides for bespoke backgrounds; defaults fall back to room.image
 const ROOM_IMAGES = {
-  room_01_entrance: 'assets/img/environment/dungeon1.png',
-  room_02_gallery: 'assets/img/environment/ComfyUI_00895_.png',
-  room_02a_side_cellar: 'assets/img/environment/ComfyUI_00896_.png',
-  room_03_ossuary: 'assets/img/environment/ComfyUI_00897_.png',
-  room_04_flooded_stair: 'assets/img/environment/ComfyUI_00898_.png',
-  room_05_chanting_hall: 'assets/img/environment/ComfyUI_00899_.png',
-  room_06_dreaming_vault: 'assets/img/environment/ComfyUI_00900_.png',
-  room_boss_sanctum: 'assets/img/environment/ComfyUI_00901_.png'
+  room_01_entrance: 'assets/img/environment/crypt_entrance.png',
+  room_02_gallery: 'assets/img/environment/crypt_corridor_.png',
+  room_02a_side_cellar: 'assets/img/environment/storage_room.png',
+  room_03_ossuary: 'assets/img/environment/dirty_room.png',
+  room_04_flooded_stair: 'assets/img/environment/flooded_stairs.png',
+  room_05_chanting_hall: 'assets/img/environment/chanting_hall.png',
+  room_06_dreaming_vault: 'assets/img/environment/dreaming_vault.png',
+  room_boss_sanctum: 'assets/img/environment/boss_sanctum.png'
 };
 
 const DEFAULT_ROOM_IMAGE = 'assets/img/environment/dungeon1.png';
@@ -412,32 +497,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 // In-game Menu & Pause Controls
 // ========================
 function initGameUI() {
-  document.getElementById('btn-resume').addEventListener('click', handleResume);
-  document.getElementById('btn-save-game').addEventListener('click', handleManualSave);
-  document.getElementById('btn-options-pause').addEventListener('click', () => openOptions('pause'));
-  document.getElementById('btn-main-menu').addEventListener('click', handleMainMenu);
-  document.getElementById('btn-options-save').addEventListener('click', saveOptions);
-  document.getElementById('btn-options-cancel').addEventListener('click', cancelOptions);
-  document.getElementById('btn-toggle-key').addEventListener('click', toggleApiKeyVisibility);
-  document.getElementById('btn-test-gemini').addEventListener('click', testGeminiConnection);
-  document.getElementById('btn-confirm-yes').addEventListener('click', confirmYes);
-  document.getElementById('btn-confirm-no').addEventListener('click', confirmNo);
-  document.getElementById('btn-pause').addEventListener('click', openPauseMenu);
-  document.getElementById('music-volume').addEventListener('input', (e) => {
-    document.getElementById('music-volume-value').textContent = `${e.target.value}%`;
+  const bind = (id, event, handler) => {
+    const el = document.getElementById(id);
+    if (!el) {
+      console.warn(`[Exploration] Missing element #${id} when binding ${event}`);
+      return;
+    }
+    el.addEventListener(event, handler);
+  };
+
+  bind('btn-resume', 'click', handleResume);
+  bind('btn-save-game', 'click', handleManualSave);
+  bind('btn-options-pause', 'click', () => openOptions('pause'));
+  bind('btn-main-menu', 'click', handleMainMenu);
+  bind('btn-options-save', 'click', saveOptions);
+  bind('btn-options-cancel', 'click', cancelOptions);
+  bind('btn-toggle-key', 'click', toggleApiKeyVisibility);
+  bind('btn-test-gemini', 'click', testGeminiConnection);
+  bind('btn-confirm-yes', 'click', confirmYes);
+  bind('btn-confirm-no', 'click', confirmNo);
+  bind('btn-pause', 'click', openPauseMenu);
+
+  bind('music-volume', 'input', (e) => {
+    const label = document.getElementById('music-volume-value');
+    if (label) {
+      label.textContent = `${e.target.value}%`;
+    }
   });
-  document.getElementById('sfx-volume').addEventListener('input', (e) => {
-    document.getElementById('sfx-volume-value').textContent = `${e.target.value}%`;
+  bind('sfx-volume', 'input', (e) => {
+    const label = document.getElementById('sfx-volume-value');
+    if (label) {
+      label.textContent = `${e.target.value}%`;
+    }
   });
-  document.getElementById('sanity-jitter').addEventListener('change', (e) => {
-    e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+  bind('sanity-jitter', 'change', (e) => {
+    if (e.target.nextElementSibling) {
+      e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+    }
   });
-  document.getElementById('text-scramble').addEventListener('change', (e) => {
-    e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+  bind('text-scramble', 'change', (e) => {
+    if (e.target.nextElementSibling) {
+      e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+    }
   });
-  document.getElementById('enable-gemini').addEventListener('change', (e) => {
-    e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+  bind('enable-gemini', 'change', (e) => {
+    if (e.target.nextElementSibling) {
+      e.target.nextElementSibling.textContent = e.target.checked ? 'Enabled' : 'Disabled';
+    }
   });
+
   document.addEventListener('keydown', handleGameKeyboard);
 }
 
@@ -1735,6 +1843,13 @@ function updateUI() {
   playerInitWarned = false;
   // Player stats
   document.getElementById('explorer-player-name').textContent = gameState.player.name;
+  const pLevel = document.getElementById('explorer-player-level');
+  if (pLevel) pLevel.textContent = `Lv.${gameState.player.level || 0}`;
+  const pXp = document.getElementById('explorer-player-xp');
+  if (pXp) pXp.textContent = gameState.player.xp || 0;
+  const pNextXp = document.getElementById('explorer-player-next-xp');
+  if (pNextXp) pNextXp.textContent = gameState.player.xpToNextLevel || 50;
+
   document.getElementById('explorer-player-hp').textContent = gameState.player.hp;
   document.getElementById('explorer-player-maxhp').textContent = gameState.player.maxHp;
   document.getElementById('explorer-player-sanity').textContent = gameState.player.sanity;
@@ -1763,6 +1878,13 @@ function updateUI() {
   // Companion stats
   if (gameState.companion) {
     document.getElementById('explorer-companion-name').textContent = gameState.companion.name;
+    const cLevel = document.getElementById('explorer-companion-level');
+    if (cLevel) cLevel.textContent = `Lv.${gameState.companion.level || 0}`;
+    const cXp = document.getElementById('explorer-companion-xp');
+    if (cXp) cXp.textContent = gameState.companion.xp || 0;
+    const cNextXp = document.getElementById('explorer-companion-next-xp');
+    if (cNextXp) cNextXp.textContent = gameState.companion.xpToNextLevel || 50;
+
     document.getElementById('explorer-companion-hp').textContent = gameState.companion.hp;
     document.getElementById('explorer-companion-maxhp').textContent = gameState.companion.maxHp;
     document.getElementById('explorer-companion-sanity').textContent = gameState.companion.sanity;
@@ -2500,9 +2622,36 @@ function triggerCombatTransition(combatData) {
   // Save current state before combat
   saveGameState();
   
-  // Store combat data for the combat screen
+  // Determine enemy list - support both single enemyId and multiple enemyIds
+  let enemyIds = [];
+  if (combatData.enemyIds && Array.isArray(combatData.enemyIds)) {
+    enemyIds = combatData.enemyIds;
+  } else if (combatData.enemyId) {
+    // Legacy single enemy - expand to multi-enemy based on depth
+    const room = getRoomById(gameState.currentRoomId);
+    const depth = room?.depth || 1;
+    const count = rollEnemyCount(depth);
+    
+    // First enemy is the specified one, rest are random from room pool
+    enemyIds.push(combatData.enemyId);
+    for (let i = 1; i < count; i++) {
+      const additionalEnemy = getRandomEnemyForRoom(room);
+      if (additionalEnemy) {
+        enemyIds.push(additionalEnemy);
+      }
+    }
+  }
+  
+  // Ensure at least one enemy
+  if (enemyIds.length === 0) {
+    enemyIds = ['cultist'];
+  }
+  
+  // Store combat data for the combat screen (now with multiple enemies)
   sessionStorage.setItem('explorationCombat', JSON.stringify({
-    enemyId: combatData.enemyId,
+    enemyIds: enemyIds,
+    enemyId: enemyIds[0], // Keep legacy field for backwards compatibility
+    depth: gameState.depth || 1,
     returnRoom: gameState.currentRoomId,
     player: gameState.player,
     companion: gameState.companion,
@@ -2511,7 +2660,9 @@ function triggerCombatTransition(combatData) {
   
   // Transition to combat after animation
   setTimeout(() => {
-    window.location.href = `index.html?fromExploration=true&enemy=${encodeURIComponent(combatData.enemyId)}`;
+    // Pass all enemy IDs as comma-separated list
+    const enemyParam = encodeURIComponent(enemyIds.join(','));
+    window.location.href = `index.html?fromExploration=true&enemies=${enemyParam}`;
   }, 2000);
 }
 
@@ -2651,12 +2802,18 @@ async function handleCombatReturn(result) {
     gameState.player.hp = result.player.hp;
     gameState.player.sanity = result.player.sanity;
     gameState.player.statusEffects = result.player.statusEffects || [];
+    gameState.player.level = result.player.level;
+    gameState.player.xp = result.player.xp;
+    gameState.player.xpToNextLevel = result.player.xpToNextLevel;
   }
   
   if (result.companion && gameState.companion) {
     gameState.companion.hp = result.companion.hp;
     gameState.companion.sanity = result.companion.sanity;
     gameState.companion.statusEffects = result.companion.statusEffects || [];
+    gameState.companion.level = result.companion.level;
+    gameState.companion.xp = result.companion.xp;
+    gameState.companion.xpToNextLevel = result.companion.xpToNextLevel;
   }
   
   updateUI();
@@ -2685,8 +2842,10 @@ async function handleCombatReturn(result) {
     gameState.explorationPhase = ExplorationPhase.AFTERMATH;
     logEvent('⚔️ Victory! The enemy falls.', 'action');
     
-    // Track enemies defeated (estimate based on XP if available)
-    if (result.xpGained > 0) {
+    // Track enemies defeated
+    if (result.enemiesDefeated) {
+      gameState.stats.enemiesDefeated += result.enemiesDefeated;
+    } else if (result.xpGained > 0) {
       gameState.stats.enemiesDefeated += Math.max(1, Math.floor(result.xpGained / 10));
     } else {
       gameState.stats.enemiesDefeated++;
@@ -2695,6 +2854,19 @@ async function handleCombatReturn(result) {
     // Award XP if any
     if (result.xpGained > 0) {
       logEvent(`✨ Gained ${result.xpGained} XP from the encounter.`, 'item');
+    }
+    
+    // Process loot drops
+    if (result.lootDrops && result.lootDrops.length > 0) {
+      logEvent(`💎 Found ${result.lootDrops.length} item(s) from the battle!`, 'item');
+      result.lootDrops.forEach(drop => {
+        const itemName = drop.itemId.replace(/_/g, ' ');
+        logEvent(`  📦 ${drop.fromEnemy} dropped: ${itemName}`, 'item');
+        // Add item to inventory using the item system
+        if (typeof addToInventory === 'function') {
+          addToInventory(drop.itemId, 1);
+        }
+      });
     }
     
     // Mark that combat occurred in this room
