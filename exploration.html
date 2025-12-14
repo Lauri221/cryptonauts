@@ -123,23 +123,37 @@
 
       <!-- Left side: Character portraits -->
       <div id="character-panel">
-        <div id="player-card" class="portrait explorer">
-          <img src="assets/img/ally_portrait/warrior_male.png" alt="Player">
-          <div class="stats">
-            <div class="char-name" id="explorer-player-name">Cryptonaut</div>
-            <div>HP: <span id="explorer-player-hp">20</span>/<span id="explorer-player-maxhp">20</span></div>
-            <div>Sanity: <span id="explorer-player-sanity">15</span>/<span id="explorer-player-maxsanity">15</span></div>
-            <div class="status-effects" id="explorer-player-status"></div>
+        <div id="party-cards">
+          <div id="player-card" class="portrait explorer">
+            <img src="assets/img/ally_portrait/warrior_male.png" alt="Player">
+            <div class="stats">
+              <div class="char-name" id="explorer-player-name">Cryptonaut</div>
+              <div>HP: <span id="explorer-player-hp">20</span>/<span id="explorer-player-maxhp">20</span></div>
+              <div class="stat-bar-container">
+                <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-player-hp-bar" style="width: 100%"></div></div>
+              </div>
+              <div>Sanity: <span id="explorer-player-sanity">15</span>/<span id="explorer-player-maxsanity">15</span></div>
+              <div class="stat-bar-container">
+                <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-player-sanity-bar" style="width: 100%"></div></div>
+              </div>
+              <div class="status-effects" id="explorer-player-status"></div>
+            </div>
           </div>
-        </div>
-        
-        <div id="companion-card" class="portrait explorer">
-          <img src="assets/img/ally_portrait/warrior_male.png" alt="Companion">
-          <div class="stats">
-            <div class="char-name" id="explorer-companion-name">Companion</div>
-            <div>HP: <span id="explorer-companion-hp">18</span>/<span id="explorer-companion-maxhp">18</span></div>
-            <div>Sanity: <span id="explorer-companion-sanity">12</span>/<span id="explorer-companion-maxsanity">12</span></div>
-            <div class="status-effects" id="explorer-companion-status"></div>
+          
+          <div id="companion-card" class="portrait explorer">
+            <img src="assets/img/ally_portrait/warrior_male.png" alt="Companion">
+            <div class="stats">
+              <div class="char-name" id="explorer-companion-name">Companion</div>
+              <div>HP: <span id="explorer-companion-hp">18</span>/<span id="explorer-companion-maxhp">18</span></div>
+              <div class="stat-bar-container">
+                <div class="stat-bar hp-bar"><div class="stat-bar-fill" id="explorer-companion-hp-bar" style="width: 100%"></div></div>
+              </div>
+              <div>Sanity: <span id="explorer-companion-sanity">12</span>/<span id="explorer-companion-maxsanity">12</span></div>
+              <div class="stat-bar-container">
+                <div class="stat-bar sanity-bar"><div class="stat-bar-fill" id="explorer-companion-sanity-bar" style="width: 100%"></div></div>
+              </div>
+              <div class="status-effects" id="explorer-companion-status"></div>
+            </div>
           </div>
         </div>
 
@@ -150,14 +164,17 @@
         </div>
       </div>
 
-      <!-- Center/Right: Narration and choices -->
-      <div id="narrative-panel">
+      <!-- Center/Right Grid: Narration, Choices, Log, Navigation -->
+      <div id="exploration-grid">
+        
+        <!-- Top Left: Narration -->
         <div id="narration-window">
           <div id="narration-text">
             <p class="narration-loading">The darkness awaits...</p>
           </div>
         </div>
-        
+
+        <!-- Top Right: Choices -->
         <div id="choice-panel">
           <h3>What do you do?</h3>
           <div id="choice-buttons">
@@ -165,6 +182,14 @@
           </div>
         </div>
 
+        <!-- Bottom Left: Log -->
+        <div id="bottom-panel">
+          <div id="exploration-log">
+            <div>📜 You descend into the crypt...</div>
+          </div>
+        </div>
+
+        <!-- Bottom Right: Navigation -->
         <div id="navigation-panel">
           <h3>Paths</h3>
           <div class="navigation-groups">
@@ -178,13 +203,7 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Bottom: Shared event log -->
-    <div id="bottom-panel">
-      <div id="exploration-log">
-        <div>📜 You descend into the crypt...</div>
       </div>
     </div>
 

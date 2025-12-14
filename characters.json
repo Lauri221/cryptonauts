@@ -10,7 +10,7 @@
           "dice": 2,
           "sides": 6
         },
-        "defense": 1,
+        "defense": 2,
         "speed": 3,
         "ability1": {
           "id": "calm",
@@ -56,13 +56,13 @@
       "id": "warrior",
       "class": "Warrior",
       "base_stats": {
-        "hp": 38,
+        "hp": 40,
         "sanity": 20,
         "basic_attack": {
           "dice": 2,
-          "sides": 12
+          "sides": 10
         },
-        "defense": 2,
+        "defense": 3,
         "speed": 2,
         "ability1": {
           "id": "parry",
@@ -109,12 +109,12 @@
       "class": "Alchemist",
       "base_stats": {
         "hp": 24,
-        "sanity": 20,
+        "sanity": 30,
         "basic_attack": {
           "dice": 1,
-          "sides": 8
+          "sides": 12
         },
-        "defense": 1,
+        "defense": 2,
         "speed": 2,
         "ability1": {
           "id": "brew_potion",
@@ -160,13 +160,13 @@
       "id": "cleric",
       "class": "Cleric",
       "base_stats": {
-        "hp": 30,
-        "sanity": 30,
+        "hp": 28,
+        "sanity": 36,
         "basic_attack": {
           "dice": 2,
-          "sides": 8
+          "sides": 6
         },
-        "defense": 1,
+        "defense": 2,
         "speed": 2,
         "ability1": {
           "id": "heal",
@@ -212,7 +212,7 @@
       "id": "aberration",
       "class": "Aberration",
       "base_stats": {
-        "hp": 45,
+        "hp": 36,
         "sanity": 14,
         "basic_attack": {
           "dice": 2,
@@ -258,10 +258,10 @@
       "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your life—or end it.",
       "portrait": "assets/img/ally_portrait/alchemist_female.png",
       "base_stats": {
-        "hp": 24,
-        "sanity": 20,
-        "basic_attack": { "dice": 1, "sides": 8 },
-        "defense": 1,
+        "hp": 28,
+        "sanity": 30,
+        "basic_attack": { "dice": 1, "sides": 12 },
+        "defense": 2,
         "speed": 2,
         "ability1": {
           "id": "brew_potion",
@@ -293,10 +293,10 @@
       "backstory": "A veteran soldier haunted by what he witnessed in the trenches. His blade arm is steady, but his nightmares never cease.",
       "portrait": "assets/img/ally_portrait/warrior_male.png",
       "base_stats": {
-        "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 6 },
-        "defense": 2,
+        "hp": 40,
+        "sanity": 30,
+        "basic_attack": { "dice": 2, "sides": 10 },
+        "defense": 3,
         "speed": 2,
         "ability1": {
           "id": "parry",
@@ -328,10 +328,10 @@
       "backstory": "A nun who lost her faith after witnessing an exorcism gone wrong. She still channels divine power—but questions its source.",
       "portrait": "assets/img/ally_portrait/cleric_female.png",
       "base_stats": {
-        "hp": 24,
-        "sanity": 28,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
+        "hp": 28,
+        "sanity": 36,
+        "basic_attack": { "dice": 2, "sides": 6 },
+        "defense": 2,
         "speed": 2,
         "ability1": {
           "id": "heal",
@@ -364,9 +364,9 @@
       "portrait": "assets/img/ally_portrait/monk_male.png",
       "base_stats": {
         "hp": 30,
-        "sanity": 20,
-        "basic_attack": { "dice": 2, "sides": 4 },
-        "defense": 1,
+        "sanity": 30,
+        "basic_attack": { "dice": 2, "sides": 6 },
+        "defense": 2,
         "speed": 3,
         "ability1": {
           "id": "calm",
@@ -395,13 +395,13 @@
       "name": "Bound Aberration",
       "class": "Aberration",
       "gender": "m",
-      "backstory": "A chained horror, shackled by sigils to obey your commands—for now.",
+      "backstory": "An abyssal creature, sworn fealty to you after giving him a nice, fresh fish.",
       "portrait": "assets/img/ally_portrait/monster_male.png",
       "base_stats": {
-        "hp": 28,
-        "sanity": 14,
-        "basic_attack": { "dice": 2, "sides": 8 },
-        "defense": 1,
+        "hp": 38,
+        "sanity": 30,
+        "basic_attack": { "dice": 2, "sides": 12 },
+        "defense": 2,
         "speed": 2,
         "ability1": {
           "id": "savage",

@@ -7,7 +7,7 @@
   flex-direction: column;
   height: 100vh;
   width: 100%;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
 }
 
@@ -63,10 +63,11 @@
   flex: 1;
   display: flex;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   align-items: stretch;
-  gap: clamp(20px, 3vw, 48px);
-  padding: 0 clamp(2vw, 4vw, 72px) 0 clamp(1.5vw, 3vw, 48px);
+  justify-content: center;
+  gap: clamp(28px, 4vw, 72px);
+  padding: clamp(16px, 2vw, 32px) clamp(3vw, 6vw, 96px);
 }
 
 /* Room backdrop */
@@ -79,66 +80,161 @@
   background-size: cover;
   background-position: center;
   background-color: #1a1a2e;
-  filter: brightness(0.75) contrast(1.05);
+  filter: brightness(0.82) contrast(1.05);
   z-index: 1;
 }
 
 /* Character panel (left side) */
 #character-panel {
-  width: 200px;
+  width: clamp(360px, 38vw, 520px);
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 15px;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.25));
+  gap: 14px;
+  padding: clamp(12px, 1.6vw, 20px);
+  background: linear-gradient(160deg, rgba(8, 6, 12, 0.78), rgba(8, 6, 12, 0.42));
   z-index: 2;
   border-right: 1px solid rgba(184, 151, 91, 0.35);
+  backdrop-filter: blur(2px);
+  min-height: clamp(360px, 52vh, 560px);
+}
+
+/* Party cards container - holds player and companion side by side */
+#party-cards {
+  display: flex;
+  flex-direction: row;
+  gap: 14px;
+  align-items: stretch;
+  min-height: clamp(240px, 40vh, 380px);
+}
+
+/* Exploration Grid (Center/Right) */
+#exploration-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  grid-template-rows: 1fr 1.2fr; /* Bottom row slightly larger */
+  gap: clamp(18px, 2vw, 28px);
+  z-index: 2;
+  max-width: 1200px;
+}
+
+/* Grid Areas */
+#narration-window {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0; /* Allow shrinking */
+}
+
+#choice-panel {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0; /* Allow shrinking */
+  display: flex;
+  flex-direction: column;
+}
+
+#bottom-panel {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+#navigation-panel {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 0; /* Reset margin */
 }
 
 .portrait.explorer {
   background: linear-gradient(145deg, rgba(20, 18, 28, 0.75), rgba(10, 8, 14, 0.6));
   border: 1px solid rgba(184, 151, 91, 0.55);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: clamp(10px, 1.1vw, 14px);
   transition: all 0.3s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  flex: 1 1 0;
+  min-width: 140px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
 }
 
 .portrait.explorer img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1/1;
+  aspect-ratio: 3/4;
   object-fit: cover;
+  object-position: top center;
   border: 2px solid #8b7355;
   border-radius: 5px;
   margin-bottom: 8px;
+  max-height: clamp(200px, 35vh, 320px);
 }
 
 .portrait.explorer .stats {
-  font-size: 12px;
+  font-size: clamp(9px, 1.2vw, 12px);
   text-align: center;
+  line-height: 1.4;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.portrait.explorer .stats > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .portrait.explorer .char-name {
   font-weight: bold;
   color: #d4af37;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
+  font-size: clamp(10px, 1.3vw, 13px);
 }
 
 .portrait.explorer .status-effects {
-  margin-top: 5px;
-  font-size: 10px;
+  margin-top: 4px;
+  font-size: clamp(8px, 1vw, 10px);
   color: #ff6b6b;
+}
+
+/* HP and Sanity bars inside explorer cards */
+.portrait.explorer .stat-bar-container {
+  margin-top: 2px;
+  width: 100%;
+}
+
+.portrait.explorer .stat-bar {
+  height: clamp(4px, 0.8vh, 6px);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.portrait.explorer .stat-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.portrait.explorer .stat-bar.hp-bar .stat-bar-fill {
+  background: linear-gradient(90deg, #8b2020, #c04040);
+}
+
+.portrait.explorer .stat-bar.sanity-bar .stat-bar-fill {
+  background: linear-gradient(90deg, #4a2080, #7040b0);
 }
 
 /* Inventory panel */
 #inventory-panel {
-  background-color: rgba(30, 30, 50, 0.9);
-  border: 2px solid #5a4a3a;
+  background-color: rgba(30, 30, 50, 0.78);
+  border: 1px solid rgba(90, 74, 58, 0.55);
   border-radius: 8px;
   padding: 10px;
   flex: 1;
   overflow-y: auto;
+  max-height: 200px;
 }
 
 #inventory-panel h3 {
@@ -150,7 +246,7 @@
 }
 
 #inventory-list {
-  font-size: 11px;
+  font-size: 10px;
   color: #ccc;
 }
 
@@ -171,33 +267,42 @@
 
 /* Narrative panel (right side) */
 #narrative-panel {
-  flex: 1;
+  flex: 1 1 clamp(420px, 48vw, 680px);
   display: flex;
   flex-direction: column;
-  padding: clamp(15px, 3vw, 32px);
+  gap: clamp(18px, 2vw, 28px);
   z-index: 2;
-  gap: 15px;
-  max-width: clamp(380px, 55vw, 660px);
-  margin-left: auto;
   align-items: stretch;
+}
+
+#interaction-panel {
+  flex: 0 0 clamp(260px, 22vw, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(18px, 2vw, 28px);
+  z-index: 2;
+  padding-right: clamp(4px, 0.6vw, 12px);
+  align-self: stretch;
 }
 
 /* Narration window */
 #narration-window {
-  flex: 1;
-  background: linear-gradient(135deg, rgba(11, 9, 15, 0.78), rgba(24, 18, 30, 0.82));
-  border: 1px solid rgba(184, 151, 91, 0.65);
-  border-radius: 12px;
-  padding: clamp(18px, 2vw, 28px);
+  background: linear-gradient(135deg, rgba(14, 12, 20, 0.68), rgba(28, 22, 34, 0.78));
+  border: 1px solid rgba(184, 151, 91, 0.55);
+  border-radius: 14px;
+  padding: clamp(20px, 2.4vw, 32px);
   overflow-y: auto;
-  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(4px);
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(5px);
+  /* min-height removed, handled by grid */
 }
 
 #narration-text {
   font-size: clamp(14px, 1.8vmin, 18px);
-  line-height: 1.7;
+  line-height: 1.6;
   color: #d0d0d0;
+  max-width: 58ch;
+  margin: 0 auto;
 }
 
 #narration-text p {
@@ -231,11 +336,12 @@
 
 /* Choice panel */
 #choice-panel {
-  background: linear-gradient(135deg, rgba(12, 9, 14, 0.78), rgba(25, 20, 32, 0.82));
-  border: 1px solid rgba(184, 151, 91, 0.55);
-  border-radius: 12px;
-  padding: clamp(14px, 1.8vw, 24px);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(150deg, rgba(14, 11, 18, 0.72), rgba(30, 24, 36, 0.8));
+  border: 1px solid rgba(184, 151, 91, 0.5);
+  border-radius: 14px;
+  padding: clamp(16px, 1.8vw, 26px);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.32);
+  /* flex: 1 removed */
 }
 
 #choice-panel h3 {
@@ -250,11 +356,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-right: 6px;
+  overflow-y: auto;
+  flex: 1; /* Fill available space in panel */
 }
 
 .choice-btn {
-  padding: 12px 20px;
-  font-size: clamp(13px, 1.6vmin, 16px);
+  padding: clamp(10px, 1.4vh, 14px) clamp(14px, 1.8vw, 22px);
+  font-size: clamp(11px, 0.8vw + 0.2vh, 15px);
   background: linear-gradient(130deg, rgba(32, 28, 42, 0.82), rgba(20, 16, 28, 0.85));
   color: #e0e0e0;
   border: 1px solid rgba(184, 151, 91, 0.45);
@@ -265,6 +374,10 @@
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(2px);
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .choice-btn:hover {
@@ -321,12 +434,14 @@
 
 /* Navigation panel */
 #navigation-panel {
-  margin-top: 18px;
-  background: linear-gradient(135deg, rgba(10, 8, 14, 0.7), rgba(20, 16, 26, 0.8));
-  border: 1px solid rgba(126, 104, 70, 0.6);
-  border-radius: 12px;
-  padding: clamp(12px, 1.5vw, 20px);
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(150deg, rgba(12, 9, 16, 0.7), rgba(26, 20, 32, 0.82));
+  border: 1px solid rgba(126, 104, 70, 0.55);
+  border-radius: 14px;
+  padding: clamp(12px, 1.6vw, 22px);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.32);
+  min-height: clamp(180px, 32vh, 320px); /* Match larger bottom panel */
+  display: flex;
+  flex-direction: column;
 }
 
 #navigation-panel h3 {
@@ -335,19 +450,22 @@
   color: #c7a466;
   text-transform: uppercase;
   letter-spacing: 1px;
+  flex-shrink: 0;
 }
 
 .navigation-groups {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .nav-group {
-  border: 1px dashed rgba(130, 110, 80, 0.5);
+  border: 1px dashed rgba(130, 110, 80, 0.45);
   border-radius: 10px;
-  padding: 12px;
-  background: rgba(6, 4, 10, 0.4);
+  padding: 10px 12px;
+  background: rgba(6, 4, 10, 0.35);
 }
 
 .nav-label {
@@ -362,14 +480,17 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  font-size: clamp(12px, 1.4vmin, 15px);
+  padding: clamp(7px, 1vh, 12px) clamp(12px, 1.4vw, 20px);
+  font-size: clamp(10px, 0.7vw + 0.2vh, 14px);
   background: linear-gradient(120deg, rgba(32, 30, 42, 0.85), rgba(22, 18, 30, 0.85));
   color: #f3e1c0;
   border: 1px solid rgba(199, 164, 102, 0.6);
   border-radius: 999px;
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.2s ease;
+  white-space: normal;
+  line-height: 1.3;
+  min-width: 0;
 }
 
 .nav-btn:hover {
@@ -391,21 +512,24 @@
 
 /* Bottom panel - Event log */
 #bottom-panel {
-  height: 20vh;
-  min-height: 120px;
-  background-color: rgba(0, 0, 0, 0.9);
-  border-top: 2px solid #5a4a3a;
-  padding: 10px;
-  z-index: 3;
+  background: linear-gradient(155deg, rgba(10, 8, 14, 0.78), rgba(18, 15, 24, 0.86));
+  border: 1px solid rgba(90, 74, 58, 0.55);
+  border-radius: 12px;
+  padding: clamp(12px, 1.6vw, 20px);
+  min-height: clamp(180px, 32vh, 320px); /* Larger bottom area */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
 }
 
 #exploration-log {
-  height: 100%;
+  flex: 1 1 auto;
   overflow-y: auto;
-  padding: 10px;
-  background-color: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 5px;
+  padding: 12px;
+  background: rgba(12, 12, 18, 0.82);
+  border: 1px solid rgba(90, 74, 58, 0.4);
+  border-radius: 8px;
   font-size: clamp(11px, 1.3vmin, 14px);
   text-align: left;
 }
@@ -581,39 +705,83 @@
    Responsive Design
    ======================== */
 
+@media (max-width: 1200px) {
+  #exploration-area {
+    gap: clamp(20px, 3vw, 48px);
+    padding: clamp(14px, 1.8vw, 26px) clamp(3vw, 5vw, 72px);
+  }
+
+  /* Adjust grid for medium screens if needed */
+  #exploration-grid {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+
+@media (max-height: 820px) {
+  #narration-window {
+    min-height: clamp(150px, 35vh, 280px);
+  }
+
+  #choice-buttons {
+    max-height: clamp(140px, 32vh, 240px);
+    overflow-y: auto;
+  }
+
+  .portrait.explorer img {
+    max-height: clamp(80px, 14vh, 120px);
+  }
+
+  .portrait.explorer .stats {
+    font-size: clamp(8px, 1vw, 10px);
+  }
+}
+
 @media (max-width: 900px) {
   #exploration-area {
     flex-direction: column;
+    gap: 12px;
+    padding: 12px;
   }
 
   #character-panel {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
     background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4));
-    padding: 10px;
-    gap: 10px;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  #party-cards {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .portrait.explorer {
-    max-width: 150px;
-    flex: 0 0 auto;
+    flex: 1 1 120px;
+    max-width: 160px;
   }
 
   #inventory-panel {
-    flex: 0 0 auto;
-    width: 150px;
-    max-height: 150px;
+    max-height: 100px;
   }
 
-  #narrative-panel {
-    padding: 10px;
+  /* Switch grid to single column on mobile */
+  #exploration-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
-  #bottom-panel {
-    height: 15vh;
-    min-height: 100px;
+  #narration-window {
+    min-height: 150px;
+  }
+
+  #choice-panel {
+    min-height: auto;
+  }
+
+  #bottom-panel, #navigation-panel {
+    height: auto;
+    max-height: 220px;
   }
 }
 

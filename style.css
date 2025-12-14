@@ -22,11 +22,11 @@ body {
   text-align: center;
   margin: 0;
   padding: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  /* Let individual screens control their own layout/scrolling.
+     Keep body simple to avoid clipping other pages like game_end. */
+  min-height: 100vh;
   letter-spacing: 0.01em;
+  font-size: 17px;
 }
 
 /* Main layout containers */
@@ -35,6 +35,13 @@ body {
   flex-direction: column;
   height: 100vh;
   width: 100%;
+  transition: opacity 0.35s ease;
+}
+
+/* Hide combat UI until the player starts the encounter */
+#combat-screen.pre-init {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .combat-start-overlay {
@@ -215,6 +222,7 @@ body {
   gap: 10px;
   width: 40%;
   z-index: 2;
+  flex-wrap: wrap; /* Allow multiple enemies/minions to wrap to a second row */
 }
 
 /* Summon area - displays summoned NPCs */
@@ -290,7 +298,7 @@ body {
 .portrait img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1/1; /* More square ratio */
+  aspect-ratio: 3/4; /* Portrait ratio so art is taller */
   object-fit: cover;
   border: 2px solid #ffcc00;
   border-radius: 5px;
@@ -739,49 +747,52 @@ button:disabled {
    Insanity UI Effects
    ======================== */
 
-/* Shaken state (25-50% sanity) - subtle unease */
-[data-sanity-state="shaken"] {
-  animation: shakenPulse 4s ease-in-out infinite;
+/* Shaken state (25-50% sanity) - subtle unease
+   Only active when sanity screen effects are enabled. */
+body[data-sanity-effects="enabled"] [data-sanity-state="shaken"] {
+  animation: shakenPulse 6s ease-in-out infinite;
 }
 
-[data-sanity-state="shaken"] #combat-log {
+body[data-sanity-effects="enabled"] [data-sanity-state="shaken"] #combat-log {
   text-shadow: 0 0 2px rgba(138, 43, 226, 0.3);
 }
 
-[data-sanity-state="shaken"] button {
+body[data-sanity-effects="enabled"] [data-sanity-state="shaken"] button {
   transition: transform 0.3s ease;
 }
 
 @keyframes shakenPulse {
   0%, 100% { filter: brightness(1) saturate(1); }
-  50% { filter: brightness(0.95) saturate(0.9); }
+  50% { filter: brightness(0.97) saturate(0.95); }
 }
 
-/* Broken state (0-25% sanity) - full insanity */
-[data-sanity-state="broken"] {
-  animation: brokenJitter 0.15s infinite;
+/* Broken state (0-25% sanity) - short warning pulses instead of constant jitter.
+   Effects are only applied while the combat screen has the .sanity-warning class
+   and sanity screen effects are enabled. */
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning {
+  animation: brokenJitter 0.35s ease-out;
 }
 
-[data-sanity-state="broken"] #combat-log {
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning #combat-log {
   text-shadow: 0 0 8px rgba(255, 0, 255, 0.5), 0 0 2px rgba(255, 0, 0, 0.3);
-  animation: logGlitch 2s infinite;
+  animation: logGlitch 2s ease-out;
 }
 
-[data-sanity-state="broken"] #combat-log div {
-  animation: textFlicker 0.1s infinite;
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning #combat-log div {
+  animation: textFlicker 0.25s linear;
 }
 
-[data-sanity-state="broken"] button {
-  animation: buttonPanic 0.5s infinite;
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning button {
+  animation: buttonPanic 0.7s ease-out;
   box-shadow: 0 0 10px rgba(255, 0, 100, 0.4);
 }
 
-[data-sanity-state="broken"] .portrait {
-  animation: portraitDistort 3s infinite;
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning .portrait {
+  animation: portraitDistort 2.5s ease-out;
 }
 
-[data-sanity-state="broken"] #backdrop {
-  animation: backdropMadness 5s infinite;
+body[data-sanity-effects="enabled"] [data-sanity-state="broken"].sanity-warning #backdrop {
+  animation: backdropMadness 4s ease-out;
   filter: hue-rotate(0deg);
 }
 

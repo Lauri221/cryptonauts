@@ -35,6 +35,99 @@ const PHANTOM_LOG_ENTRIES = [
   "The static grows louder"
 ];
 
+// ========================
+// Visual Settings Sync (sanity / text effects)
+// ========================
+
+/**
+ * Reads persisted settings (if present) and applies visual effect flags
+ * to the combat page's <body> dataset, so CSS can respect the
+ * "Sanity Screen Effects" and text scramble toggles.
+ */
+function applyCombatVisualSettings() {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+
+  const body = document.body;
+  if (!body) return;
+
+  try {
+    const saved = localStorage.getItem('cryptonautsSettings');
+    if (!saved) {
+      return;
+    }
+
+    const parsed = JSON.parse(saved);
+
+    if (Object.prototype.hasOwnProperty.call(parsed, 'sanityJitterEnabled')) {
+      body.dataset.sanityEffects = parsed.sanityJitterEnabled ? 'enabled' : 'disabled';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(parsed, 'textScrambleEnabled')) {
+      body.dataset.textScramble = parsed.textScrambleEnabled ? 'enabled' : 'disabled';
+    }
+  } catch (error) {
+    console.warn('[Combat] Failed to apply visual settings from storage:', error);
+  }
+}
+
+// Apply visual settings as soon as the combat script loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applyCombatVisualSettings, { once: true });
+} else {
+  applyCombatVisualSettings();
+}
+
+// Tracks timing for intermittent sanity warning pulses
+let lastSanityWarningTime = 0;
+
+const SANITY_WARNING_COOLDOWNS = {
+  [SANITY_STATES.SHAKEN]: 12000, // ms between pulses when shaken
+  [SANITY_STATES.BROKEN]: 6000   // ms between pulses when broken
+};
+
+function sanityEffectsEnabled() {
+  const body = document.body;
+  if (!body) return true;
+  const flag = body.dataset ? body.dataset.sanityEffects : null;
+  // Default to enabled unless explicitly disabled
+  return flag !== 'disabled';
+}
+
+/**
+ * Triggers a short, non-continuous sanity warning pulse on the combat screen.
+ * Uses cooldowns so that repeated sanity damage does not overwhelm the player.
+ * @param {Object} options
+ * @param {boolean} [options.force=false] - Ignore cooldown checks
+ */
+function triggerSanityWarning(options = {}) {
+  if (!sanityEffectsEnabled()) return;
+
+  const combatScreen = document.getElementById('combat-screen');
+  if (!combatScreen) return;
+
+  if (currentSanityState === SANITY_STATES.STABLE) return;
+
+  const now = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now()
+    : Date.now();
+
+  const cooldown = SANITY_WARNING_COOLDOWNS[currentSanityState] || 8000;
+  const force = options.force === true;
+
+  if (!force && now - lastSanityWarningTime < cooldown) {
+    return;
+  }
+
+  lastSanityWarningTime = now;
+
+  combatScreen.classList.add('sanity-warning');
+
+  // Remove the class after the longest related animation has finished
+  setTimeout(() => {
+    combatScreen.classList.remove('sanity-warning');
+  }, 4000);
+}
+
 /**
  * Updates the sanity state based on current player sanity.
  * Triggers UI effects when state changes.
@@ -82,24 +175,39 @@ function applySanityStateEffects() {
   } else if (currentSanityState === SANITY_STATES.SHAKEN) {
     // Mild effects for shaken state
     maybeAddPhantomLog(0.15);
+    triggerSanityWarning({ force: true });
+  } else {
+    // Sanity recovered: stop any residual visual distortion
+    const body = document.body;
+    combatScreen.classList.remove('sanity-warning');
+    if (body) {
+      // Reset cooldown so a future drop can pulse immediately
+      lastSanityWarningTime = 0;
+    }
+    resetButtonPositions();
   }
 
   applyInsanityEffectsToActionButtons();
 }
 
 /**
- * Starts intensive insanity effects when in BROKEN state.
+ * Starts intermittent insanity warning effects when in BROKEN state.
  */
 function startInsanityEffects() {
-  // Continuous button jitter
+  // Immediate warning pulse when sanity first breaks
+  triggerSanityWarning({ force: true });
+
+  // Periodic pulses and phantom logs while in broken state.
   window.insanityJitterInterval = setInterval(() => {
-    if (currentSanityState === SANITY_STATES.BROKEN) {
-      jitterActionButtons();
+    if (currentSanityState !== SANITY_STATES.BROKEN) {
+      return;
     }
-  }, 800);
-  
-  // Initial phantom log
-  maybeAddPhantomLog(0.4);
+    triggerSanityWarning();
+    maybeAddPhantomLog(0.25);
+  }, 7000);
+
+  // Extra chance for a phantom log right as sanity breaks
+  maybeAddPhantomLog(0.6);
 }
 
 /**
@@ -1416,7 +1524,13 @@ function executePlayerAction(actionId, selectedTarget = null) {
       actor.sanity = Math.max(0, actor.sanity - 5);
       
       // Update sanity state after sanity cost
-      if (actor === player) updateSanityState();
+      if (actor === player) {
+        updateSanityState();
+        // Elemental self-cost at low sanity can trigger a warning pulse
+        if (actor.sanity > 0) {
+          triggerSanityWarning();
+        }
+      }
       
       log(`${actorName} unleash${actor === player ? '' : 'es'} elemental strike! ${final} damage dealt (raw ${damage}), sanity -5.`);
       playAttackSound();
@@ -3335,6 +3449,11 @@ function checkExplorationParams() {
 function setupCombatStartOverlay() {
   const overlay = document.getElementById('combat-start-overlay');
   if (!overlay) {
+    // No overlay present (e.g. legacy entry): show combat UI immediately
+    const screen = document.getElementById('combat-screen');
+    if (screen) {
+      screen.classList.remove('pre-init');
+    }
     loadCombatData();
     return;
   }
@@ -3343,6 +3462,15 @@ function setupCombatStartOverlay() {
     if (combatInitialized) return;
     combatInitialized = true;
     await unlockAudioPlayback();
+    // Reveal combat UI now that the player has explicitly started the encounter
+    const screen = document.getElementById('combat-screen');
+    if (screen) {
+      screen.classList.remove('pre-init');
+    }
+    // Move focus off the overlay before hiding it for accessibility
+    if (typeof document !== 'undefined' && document.activeElement === overlay) {
+      overlay.blur();
+    }
     overlay.setAttribute('aria-hidden', 'true');
     setTimeout(() => overlay.remove(), 500);
     loadCombatData();
@@ -3728,6 +3856,13 @@ function nextTurn() {
   // If we reach the end of the array, loop back to 0
   if (currentTurn >= combatants.length) currentTurn = 0;
   
+  // Debug log for turn progression
+  console.log(`nextTurn: currentTurn=${currentTurn}, combatants.length=${combatants.length}`);
+  if (combatants.length > 0) {
+    const c = combatants[currentTurn];
+    console.log(`  -> Next combatant: ${c ? c.type : 'undefined'} (${c && c.data ? c.data.name : 'no-data'})`);
+  }
+
   // Get the current combatant
   const current = combatants[currentTurn];
   
@@ -3925,11 +4060,15 @@ function updateUI() {  // Change the background image based on 'battleBackground
   enemyPortraits.forEach(portrait => {
     portrait.style.display = 'none';
   });
-    // Then, only show the ones that correspond to living enemies
+
+  // Then, only show the ones that correspond to living enemies
   enemies.forEach((enemy, i) => {
     const cardId = enemy.cardElementId || `enemy-portrait-${i}`;
     const card = document.getElementById(cardId);
-    const hpSpan = document.getElementById(`enemy-hp-${i}`);
+    // Look up the HP span relative to the card so we don't
+    // depend on fragile array indexes that can change when
+    // enemies are defeated and filtered.
+    const hpSpan = card ? card.querySelector('span[id^="enemy-hp-"]') : null;
     if (card && hpSpan) {
       // Force the HP display text to update with current enemy HP value
       hpSpan.textContent = `${enemy.hp}`;
@@ -3974,15 +4113,24 @@ function updateUI() {  // Change the background image based on 'battleBackground
     const current = combatants[currentTurn];
     if (!current) return;
     if (current.type === 'player') {
-      document.getElementById('player-portrait').classList.add('active-turn');
+      const playerCardEl = document.getElementById('player-portrait');
+      if (playerCardEl) {
+        playerCardEl.classList.add('active-turn');
+      }
     } else if (current.type === 'companion') {
-      document.getElementById('ally-portrait').classList.add('active-turn');
+      const allyCardEl = document.getElementById('ally-portrait');
+      if (allyCardEl) {
+        allyCardEl.classList.add('active-turn');
+      }
     } else if (current.type === 'enemy') {
       // Find which enemy in the 'enemies' array matches the current data
       const ix = enemies.findIndex(e => e === current.data);
       // Add 'active-turn' to that portrait if found
       if (ix >= 0) {
-        document.getElementById(`enemy-portrait-${ix}`).classList.add('active-turn');
+        const enemyCardEl = document.getElementById(`enemy-portrait-${ix}`);
+        if (enemyCardEl) {
+          enemyCardEl.classList.add('active-turn');
+        }
       }
     } else if (current.type === 'summon') {
       const summonCard = document.getElementById(`summon-portrait-${current.data.id}`);
@@ -4768,6 +4916,7 @@ function regenerateEnemyCards() {
     
     const portraitPath = enemy.portrait || `assets/img/enemy_portrait/${enemy.id}.png`;
     card.innerHTML = `
+      <div class="health-overlay"></div>
       <img src="${portraitPath}" alt="${enemy.name}">
       <div class="stats">
         <div class="character-name"><span>${enemy.name}</span></div>
@@ -4778,6 +4927,9 @@ function regenerateEnemyCards() {
     card.addEventListener('click', () => {
       handlePortraitClick({ type: 'enemy', data: enemy, index: i });
     });
+    
+    // Add tooltip hover listeners for newly spawned enemies
+    addEnemyTooltipListeners(card, enemy);
     
     enemyArea.appendChild(card);
     
@@ -5021,17 +5173,17 @@ function executeHPAttackAbility(enemy, ability) {
  * Helper to apply status effects (poison, bleed, etc.)
  */
 function applyStatusEffect(target, effectType, duration, damagePerTurn) {
-  if (!target.statusEffects) target.statusEffects = [];
+  if (!target.status_effects) target.status_effects = [];
   
   // Check if effect already exists
-  const existing = target.statusEffects.find(e => e.type === effectType);
+  const existing = target.status_effects.find(e => e.id === effectType);
   if (existing) {
     // Refresh duration
     existing.duration = Math.max(existing.duration, duration);
     existing.damagePerTurn = Math.max(existing.damagePerTurn || 0, damagePerTurn);
   } else {
-    target.statusEffects.push({
-      type: effectType,
+    target.status_effects.push({
+      id: effectType,
       duration: duration,
       damagePerTurn: damagePerTurn
     });
@@ -5122,6 +5274,8 @@ function enemyTurn(enemy) {
       showDamageNumber('player-portrait', final, dmg >= 10);
       if (sanityDmg > 0) {
         setTimeout(() => showSanityDamageNumber('player-portrait', sanityDmg), 200);
+        // Enemy-induced sanity loss can trigger an intermittent warning pulse
+        triggerSanityWarning();
       }
       
       // Special message when sanity first hits 0

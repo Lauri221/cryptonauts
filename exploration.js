@@ -1739,6 +1739,15 @@ function updateUI() {
   document.getElementById('explorer-player-maxhp').textContent = gameState.player.maxHp;
   document.getElementById('explorer-player-sanity').textContent = gameState.player.sanity;
   document.getElementById('explorer-player-maxsanity').textContent = gameState.player.maxSanity;
+  
+  // Update player HP and Sanity bars
+  const playerHpPercent = Math.max(0, Math.min(100, (gameState.player.hp / gameState.player.maxHp) * 100));
+  const playerSanityPercent = Math.max(0, Math.min(100, (gameState.player.sanity / gameState.player.maxSanity) * 100));
+  const playerHpBar = document.getElementById('explorer-player-hp-bar');
+  const playerSanityBar = document.getElementById('explorer-player-sanity-bar');
+  if (playerHpBar) playerHpBar.style.width = playerHpPercent + '%';
+  if (playerSanityBar) playerSanityBar.style.width = playerSanityPercent + '%';
+  
   const playerPortraitImg = document.querySelector('#player-card img');
   if (playerPortraitImg) {
     const portraitSrc = gameState.player.portrait || 'assets/img/ally_portrait/warrior_male.png';
@@ -1758,6 +1767,15 @@ function updateUI() {
     document.getElementById('explorer-companion-maxhp').textContent = gameState.companion.maxHp;
     document.getElementById('explorer-companion-sanity').textContent = gameState.companion.sanity;
     document.getElementById('explorer-companion-maxsanity').textContent = gameState.companion.maxSanity;
+    
+    // Update companion HP and Sanity bars
+    const compHpPercent = Math.max(0, Math.min(100, (gameState.companion.hp / gameState.companion.maxHp) * 100));
+    const compSanityPercent = Math.max(0, Math.min(100, (gameState.companion.sanity / gameState.companion.maxSanity) * 100));
+    const compHpBar = document.getElementById('explorer-companion-hp-bar');
+    const compSanityBar = document.getElementById('explorer-companion-sanity-bar');
+    if (compHpBar) compHpBar.style.width = compHpPercent + '%';
+    if (compSanityBar) compSanityBar.style.width = compSanityPercent + '%';
+    
     const companionPortraitImg = document.querySelector('#companion-card img');
     if (companionPortraitImg) {
       const companionSrc = gameState.companion.portrait || 'assets/img/ally_portrait/warrior_male.png';
