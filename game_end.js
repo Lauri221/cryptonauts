@@ -24,6 +24,11 @@ let endState = {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[GameEnd] Initializing...');
   
+  // Initialize config from .env file first
+  if (typeof initConfig === 'function') {
+    await initConfig();
+  }
+  
   // Load end state from sessionStorage
   loadEndState();
   
@@ -191,13 +196,17 @@ async function generatePostMortem() {
   const errorEl = document.getElementById('narrative-error');
   const textEl = document.getElementById('narrative-text');
   
-  // Check if Gemini is available
-  if (!endState.geminiApiKey) {
+  // Check if Gemini is available (check both endState and CONFIG)
+  const apiKey = endState.geminiApiKey || window.CONFIG?.GEMINI_API_KEY || '';
+  if (!apiKey) {
     loadingEl.classList.add('hidden');
     errorEl.classList.remove('hidden');
     console.log('[GameEnd] No Gemini API key available');
     return;
   }
+  
+  // Update endState with the key for later use
+  endState.geminiApiKey = apiKey;
   
   // Build the prompt
   const prompt = buildNarrativePrompt();

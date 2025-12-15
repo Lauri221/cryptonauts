@@ -183,9 +183,21 @@ function triggerSanityWarning(options = {}) {
  * Triggers UI effects when state changes.
  */
 function updateSanityState() {
-  if (!player || player.maxSanity === 0) return;
+  if (!player) return;
+
+  // Defensive defaults: if sanity values are missing, treat as stable rather than dropping into insanity visuals
+  const maxSanity = Number.isFinite(player.maxSanity) && player.maxSanity > 0 ? player.maxSanity : null;
+  const currentSanity = Number.isFinite(player.sanity) ? player.sanity : 0;
+
+  if (!maxSanity) {
+    if (currentSanityState !== SANITY_STATES.STABLE) {
+      currentSanityState = SANITY_STATES.STABLE;
+      applySanityStateEffects();
+    }
+    return;
+  }
   
-  const sanityPercent = player.sanity / player.maxSanity;
+  const sanityPercent = currentSanity / maxSanity;
   let newState;
   
   if (sanityPercent > 0.5) {
@@ -285,11 +297,14 @@ function scrambleString(text, intensity = null) {
  * @param {string} text - Text to render
  * @param {boolean} forceScramble - Force scrambling regardless of state
  */
-function renderInsanityText(text, forceScramble = false) {
-  if (forceScramble || currentSanityState !== SANITY_STATES.STABLE) {
-    return scrambleString(text);
-  }
-  return text;
+function renderInsanityText(text, forceScramble = false, intensity = null) {
+  const shouldScramble = forceScramble === true || currentSanityState !== SANITY_STATES.STABLE;
+  if (!shouldScramble) return text;
+
+  const resolvedIntensity = typeof forceScramble === 'number' && forceScramble >= 0
+    ? forceScramble
+    : intensity;
+  return scrambleString(text, resolvedIntensity);
 }
 
 /**
@@ -376,7 +391,8 @@ function applyInsanityEffectsToActionButtons() {
       btn.textContent = generateInsanityGlyphString(baseLabel.length);
       btn.classList.add('insanity-glyph');
     } else {
-      btn.textContent = renderInsanityText(baseLabel, 0.25);
+      // Shaken state: lightly scramble, but do not force scrambling when stable
+      btn.textContent = renderInsanityText(baseLabel);
       btn.classList.remove('insanity-glyph');
     }
 
@@ -451,6 +467,8 @@ let targetSelectionMode = false;
 
 // Array of all enemies in the current encounter
 let enemies = [];
+// Keep a reference to all enemies that started the encounter (for XP calculation even after they die and are removed from 'enemies')
+let allEncounterEnemies = [];
 
 // Global storage for enemy templates (for mid-combat summoning)
 let enemyTemplates = [];
@@ -463,6 +481,55 @@ let currentTurn = 0;
 
 // Tracks the overall game state (optional, only used if saving/loading multi data)
 let gameState = {};
+
+// ========================
+// Status Effect Emoji Mapping
+// ========================
+const STATUS_EFFECT_EMOJIS = {
+  stun: '💫',
+  poison: '🧪',
+  fire: '🔥',
+  bleeding: '🩸',
+  charmed: '🌀',
+  attack_up: '⚔️',
+  defense_up: '🛡️',
+  sanity_regen: '💚'
+};
+
+/**
+ * Get emoji representation for a status effect
+ * @param {string} effectId - The status effect ID
+ * @returns {string} The emoji or empty string if not found
+ */
+function getStatusEffectEmoji(effectId) {
+  return STATUS_EFFECT_EMOJIS[effectId] || '';
+}
+
+/**
+ * Generate HTML for status effect emoji display
+ * @param {Array} statusEffects - Array of status effect objects
+ * @returns {string} HTML string with emoji badges
+ */
+function renderStatusEffectEmojis(statusEffects) {
+  if (!statusEffects || !statusEffects.length) return '';
+  
+  const emojis = statusEffects
+    .map(effect => {
+      const id = effect.id || effect;
+      const emoji = getStatusEffectEmoji(id);
+      if (!emoji) return '';
+      
+      const name = effect.name || id;
+      const stacks = effect.stacks > 1 ? `×${effect.stacks}` : '';
+      const duration = effect.duration ? `(${effect.duration}t)` : '';
+      
+      return `<span class="status-emoji" title="${name} ${stacks}${duration}">${emoji}${stacks ? `<sub>${effect.stacks}</sub>` : ''}</span>`;
+    })
+    .filter(e => e)
+    .join('');
+  
+  return emojis ? `<div class="status-emoji-container">${emojis}</div>` : '';
+}
 
 function cloneData(data) {
   if (data == null) return null;
@@ -982,7 +1049,8 @@ function applyDamageToTarget(target, rawDamage, damageType = 'physical') {
  * +1 per level cumulative.
  */
 function getAbilityLevelBonus(character) {
-  return character.level || 0;
+  const level = character.level || 0;
+  return Math.ceil(level * 1.5);
 }
 
 /**
@@ -1112,6 +1180,15 @@ let levelUpSound = new Audio('./sound/level_up.mp3');
 // Looping combat underscore
 let combatMusic = new Audio('./music/combat.mp3');
 combatMusic.loop = true;
+
+// Looping boss underscore for major encounters
+let bossCombatMusicTracks = [
+  new Audio('./music/boss_music_01.mp3'),
+  new Audio('./music/boss_music_02.mp3')
+];
+bossCombatMusicTracks.forEach(track => {
+  track.loop = true;
+});
 
 // Defeat music for party loss
 let defeatMusic = new Audio('./music/defeat_music.mp3');
@@ -1803,6 +1880,18 @@ let astral_creeper_death_sounds = [
   new Audio('./sound/astral_creep_death.mp3')
 ];
 
+let astral_summoner_hurt_sounds = [
+  new Audio('./sound/astral_summoner_hurt.mp3')
+];
+
+let astral_summoner_death_sounds = [
+  new Audio('./sound/astral_summoner_death.mp3')
+];
+
+let astral_summoner_combat_start_sounds = [
+  new Audio('./sound/astral_summoner_arrival.mp3')
+];
+
 const enemySoundBank = {
   enemy_male_hurt: enemy_hurt_male_sound,
   enemy_female_hurt: enemy_hurt_female_sound,
@@ -1810,18 +1899,21 @@ const enemySoundBank = {
   enemy_beast_hurt: enemy_hurt_beast_sound,
   enemy_insect_hurt: enemy_hurt_insect_sound,
   astral_creeper_hurt: astral_creeper_hurt_sounds,
+  astral_summoner_hurt: astral_summoner_hurt_sounds,
   enemy_male_death: enemy_death_male_sound,
   enemy_female_death: enemy_death_female_sound,
   enemy_monster_death: enemy_death_monster_sound,
   enemy_beast_death: enemy_death_beast_sound,
   enemy_insect_death: enemy_death_insect_sound,
   astral_creeper_death: astral_creeper_death_sounds,
+  astral_summoner_death: astral_summoner_death_sounds,
   enemy_male_combat_start: enemy_male_combat_start_sounds,
   enemy_female_combat_start: enemy_female_combat_start_sounds,
   enemy_monster_combat_start: enemy_monster_combat_start_sounds,
   enemy_beast_combat_start: enemy_monster_combat_start_sounds,
   enemy_insect_combat_start: enemy_insect_combat_start_sounds,
-  growl_combat_start: enemy_insect_combat_start_sounds
+  growl_combat_start: enemy_insect_combat_start_sounds,
+  astral_summoner_arrival: astral_summoner_combat_start_sounds
 };
 
 function resolveEnemySoundArray(key, fallbackArray) {
@@ -1909,6 +2001,7 @@ let party_death_monster_sound = [
 const musicCollections = [
   [victorySound],
   [combatMusic],
+  bossCombatMusicTracks,
   [defeatMusic]
 ];
 
@@ -1944,11 +2037,14 @@ const sfxCollections = [
   enemy_death_monster_sound,
   enemy_death_beast_sound,
   enemy_death_insect_sound,
+  astral_summoner_death_sounds,
   enemy_hurt_male_sound,
   enemy_hurt_female_sound,
   enemy_hurt_monster_sound,
   enemy_hurt_beast_sound,
-  enemy_hurt_insect_sound
+  enemy_hurt_insect_sound,
+  astral_summoner_hurt_sounds,
+  astral_summoner_combat_start_sounds
 ];
 
 // Consolidated list of every audio buffer we need to unlock via user interaction
@@ -1985,8 +2081,19 @@ async function unlockAudioPlayback() {
 }
 
 function startCombatMusic() {
-  if (!combatMusic) return;
-  playMusicTrack(combatMusic, 'Combat music error', { reset: true });
+  const isBossFight = Array.isArray(enemies) && enemies.some(e =>
+    e?.id === 'astral_summoner' || e?.threat_level >= 4 || e?.type === 'boss'
+  );
+
+  const trackPool = isBossFight && bossCombatMusicTracks.length
+    ? bossCombatMusicTracks
+    : [combatMusic];
+  const selectedTrack = trackPool[Math.floor(Math.random() * trackPool.length)];
+  if (!selectedTrack) return;
+
+  // Stop any other combat loops before starting the new one
+  stopCombatMusic();
+  playMusicTrack(selectedTrack, isBossFight ? 'Boss music error' : 'Combat music error', { reset: true });
   
   // Play a combat start voice 2 seconds after music begins
   setTimeout(() => {
@@ -2029,9 +2136,13 @@ function playCombatStartVoice() {
 }
 
 function stopCombatMusic() {
-  if (!combatMusic) return;
-  combatMusic.pause();
-  combatMusic.currentTime = 0;
+  const tracks = [combatMusic, ...bossCombatMusicTracks];
+  tracks.forEach(track => {
+    if (track) {
+      track.pause();
+      track.currentTime = 0;
+    }
+  });
 }
 
 function formatActionLabel(action = '') {
@@ -2177,12 +2288,13 @@ async function loadAbilitiesAndEffects() {
       const abilitiesArray = Array.isArray(rawAbilities)
         ? rawAbilities
         : Object.values(rawAbilities);
-      abilityCatalog = abilitiesArray.reduce((map, ability) => {
+      const loadedCatalog = abilitiesArray.reduce((map, ability) => {
         if (ability?.id) {
           map[ability.id] = ability;
         }
         return map;
       }, {});
+      abilityCatalog = addAbilityAliases(loadedCatalog);
       console.log('Loaded abilities:', Object.keys(abilityCatalog));
     }
 
@@ -2202,6 +2314,133 @@ async function loadAbilitiesAndEffects() {
   } catch (err) {
     console.warn('Could not load abilities/effects:', err);
   }
+}
+
+/**
+ * Adds compatibility aliases and missing basics so legacy character data resolves correctly.
+ */
+function addAbilityAliases(catalog = {}) {
+  const patched = { ...catalog };
+
+  const aliasMap = [
+    { alias: 'poison_cloud', target: 'poison_blast', name: 'Poison Cloud' },
+    { alias: 'fireblast', target: 'fire_blast', name: 'Fireblast' },
+    { alias: 'shield_bash', target: 'stun_attack', name: 'Shield Bash' }
+  ];
+
+  aliasMap.forEach(({ alias, target, name }) => {
+    if (!patched[alias] && patched[target]) {
+      patched[alias] = {
+        ...patched[target],
+        id: alias,
+        name: name || patched[target].name
+      };
+    }
+  });
+
+  // Provide a lightweight Brew Potion ability that adds a tonic to inventory
+  if (!patched.brew_potion) {
+    patched.brew_potion = {
+      id: 'brew_potion',
+      name: 'Brew Potion',
+      category: 'support',
+      usable_in: ['combat'],
+      action_cost: 1,
+      base_effects: [
+        {
+          type: 'grant_item',
+          item_id: 'herbal_tonic',
+          quantity: 1,
+          target_scope: 'self',
+          chance: 1.0
+        }
+      ],
+      level_rules: []
+    };
+  }
+
+  // Poison Cloud should spread to all enemies even if the canonical definition is missing
+  if (!patched.poison_cloud) {
+    patched.poison_cloud = {
+      id: 'poison_cloud',
+      name: 'Poison Cloud',
+      category: 'offense',
+      usable_in: ['combat'],
+      action_cost: 1,
+      base_effects: [
+        {
+          type: 'status',
+          status_id: 'poison',
+          target_scope: 'enemy_team',
+          duration_turns: 3,
+          magnitude: '1d4',
+          chance: 0.75
+        }
+      ],
+      level_rules: [
+        { min_level: 1, target_override: 'enemy_team', chance_delta: 0, magnitude_delta: '+0' }
+      ]
+    };
+  }
+
+  // Savage: heavy hit that inflicts bleeding
+  if (!patched.savage) {
+    patched.savage = {
+      id: 'savage',
+      name: 'Savage',
+      category: 'offense',
+      usable_in: ['combat'],
+      action_cost: 1,
+      base_effects: [
+        {
+          type: 'damage',
+          damage_type: 'physical',
+          target_scope: 'enemy',
+          magnitude: '2d16+6',
+          chance: 1.0
+        },
+        {
+          type: 'status',
+          status_id: 'bleeding',
+          target_scope: 'enemy',
+          duration_turns: 2,
+          magnitude: '1d8',
+          chance: 0.75
+        }
+      ],
+      level_rules: [
+        { min_level: 1, target_override: 'enemy', chance_delta: 0, magnitude_delta: '+0' },
+        { min_level: 3, target_override: 'enemy', chance_delta: 0.1, magnitude_delta: '+1d6' }
+      ]
+    };
+  }
+
+  // Roar: mass fear/stun style control
+  if (!patched.roar) {
+    patched.roar = {
+      id: 'roar',
+      name: 'Roar',
+      category: 'offense',
+      usable_in: ['combat'],
+      action_cost: 1,
+      base_effects: [
+        {
+          type: 'status',
+          status_id: 'stun',
+          target_scope: 'enemy_team',
+          duration_turns: 1,
+          magnitude: '0',
+          chance: 0.55
+        }
+      ],
+      level_rules: [
+        { min_level: 1, target_override: 'enemy_team', chance_delta: 0, magnitude_delta: '+0' },
+        { min_level: 3, target_override: 'enemy_team', chance_delta: 0.1, magnitude_delta: '+0' }
+      ]
+    };
+  }
+
+  return patched;
 }
 
 /**
@@ -2323,6 +2562,26 @@ function applyEffect(effect, caster, targets, levelRule) {
           playHealingSound(resource);
           effectAudioPlayed = true;
         }
+        break;
+      }
+
+      case 'grant_item': {
+        if (typeof addToInventory !== 'function') {
+          results.push({ target, success: false, reason: 'inventory_unavailable' });
+          break;
+        }
+        const qty = Math.max(1, Math.floor(effect.quantity || 1));
+        const itemId = effect.item_id;
+        const added = itemId ? addToInventory(itemId, qty) : false;
+        if (!added) {
+          results.push({ target, success: false, reason: 'item_add_failed' });
+          break;
+        }
+
+        const itemDef = typeof getItemDef === 'function' ? getItemDef(itemId) : null;
+        const itemName = itemDef?.name || formatActionLabel(itemId || 'item');
+        log(`${caster.name || 'Someone'} brews ${qty}x ${itemName} and stows it in the pack.`);
+        results.push({ target, success: true, type: 'grant_item', itemId, quantity: qty });
         break;
       }
       
@@ -2539,6 +2798,12 @@ function resolveAbilityUse(abilityId, caster, targets) {
   const targetSummary = describeTargetsForLog(actualTargets);
   const preface = targetSummary ? ` on ${targetSummary}` : '';
   log(`⚔️ ${casterName} uses ${ability.name}${preface}.`);
+
+  // Play an attack sound for offensive abilities with damage/status riders
+  const isOffensive = ability.category === 'offense' || (ability.base_effects || []).some(e => e.type === 'damage');
+  if (isOffensive) {
+    playAttackSound();
+  }
   
   const allResults = [];
   
@@ -2619,15 +2884,17 @@ function processStatusEffects(combatant) {
     // Handle no_action tag (stun) - handled in turn logic
     
     // Handle tick_damage (DoT like poison, fire, bleeding)
-    if (statusDef.tick_damage) {
-      const tickDmg = rollDiceString(statusDef.tick_damage);
+    const tickDamageSpec = statusDef.tick_damage || activeEffect.magnitude;
+    if (tickDamageSpec) {
+      const tickDmg = rollDiceString(tickDamageSpec);
       const stacks = activeEffect.stacks || 1;
       const totalDmg = tickDmg * stacks;
-      combatant.hp -= totalDmg;
-      log(`${combatant.name} takes ${totalDmg} ${statusDef.name} damage!`);
+      const dmgType = statusDef.damage_type || 'physical';
+      const applied = applyDamageToTarget ? applyDamageToTarget(combatant, totalDmg, dmgType) : totalDmg;
+      log(`${combatant.name} takes ${applied} ${statusDef.name} damage!`);
       // Show floating DoT damage
       if (cardId) {
-        showDamageNumber(cardId, totalDmg, false);
+        showDamageNumber(cardId, applied, false);
         flashDamage(cardId);
       }
     }
@@ -3778,6 +4045,7 @@ async function loadCombatData() {
     
     // Clear the existing enemies array
     enemies = [];
+    allEncounterEnemies = [];
     
     // Build a new array with the enemies that appear in this encounter
     encounter.enemies.forEach(slot => {
@@ -3825,6 +4093,7 @@ async function loadCombatData() {
         console.log(`  -> Has ${enemyInstance.abilities.length} abilities:`, enemyInstance.abilities.map(a => a.name));
       }
       enemies.push(enemyInstance);
+      allEncounterEnemies.push(enemyInstance);
     });
     
     console.log("Final enemies array:", JSON.stringify(enemies));
@@ -4104,6 +4373,12 @@ function updateUI() {  // Change the background image based on 'battleBackground
     }
     // Add critical health class when below 25%
     playerCard.classList.toggle('critical-health', playerHpPercent < 0.25);
+    
+    // Update player status effect emojis
+    const playerStatusRow = playerCard.querySelector('.status-emoji-row');
+    if (playerStatusRow) {
+      playerStatusRow.innerHTML = renderStatusEffectEmojis(player.status_effects || player.statusEffects || []);
+    }
   }
   if (playerImg && player.portrait) {
     if (!playerDeathAnim) {
@@ -4135,6 +4410,12 @@ function updateUI() {  // Change the background image based on 'battleBackground
     }
     // Add critical health class when below 25%
     companionCard.classList.toggle('critical-health', companionHpPercent < 0.25);
+    
+    // Update companion status effect emojis
+    const companionStatusRow = companionCard.querySelector('.status-emoji-row');
+    if (companionStatusRow) {
+      companionStatusRow.innerHTML = renderStatusEffectEmojis(companion.status_effects || companion.statusEffects || []);
+    }
   }
   if (companionImg && companion.portrait) {
     if (!companionDeathAnim) {
@@ -4146,8 +4427,11 @@ function updateUI() {  // Change the background image based on 'battleBackground
   // Get all enemy portrait elements
   const enemyPortraits = document.querySelectorAll('.portrait.enemy');
 
-  // First, hide all enemy portraits
+  // First, hide all enemy portraits unless they are mid-death animation
   enemyPortraits.forEach(portrait => {
+    if (portrait.dataset.deathAnimating === 'running') {
+      return; // keep visible for skull/fall effect
+    }
     portrait.style.display = 'none';
   });
 
@@ -4187,6 +4471,12 @@ function updateUI() {  // Change the background image based on 'battleBackground
       }
       // Add critical health class when below 25%
       card.classList.toggle('critical-health', enemyHpPercent < 0.25);
+      
+      // Update enemy status effect emojis
+      const enemyStatusRow = card.querySelector('.status-emoji-row');
+      if (enemyStatusRow) {
+        enemyStatusRow.innerHTML = renderStatusEffectEmojis(enemy.status_effects || enemy.statusEffects || []);
+      }
       
       // Debug logging to track enemy HP updates in UI
       console.log(`Enemy ${enemy.name} (index ${i}): HP=${enemy.hp}, alive=${enemy.alive}, display=${card.style.display}, element text=${hpSpan.textContent}`);
@@ -4270,6 +4560,7 @@ function generateEnemyCards() {
     card.innerHTML = `
       <div class="health-overlay"></div>
       <img src="${portraitPath}" alt="${enemy.name}">
+      <div class="status-emoji-row" id="enemy-status-${i}"></div>
       <div class="stats">
         <div class="character-name"><span>${enemy.name}</span></div>
         <div>HP: <span id="enemy-hp-${i}">${enemy.hp}</span></div>
@@ -5597,7 +5888,8 @@ function handleExplorationReturn(victory, options = {}) {
   if (victory) {
     const expState = getExplorationCombatState();
     const depth = expState?.depth || 1;
-    const defeatedEnemies = enemies.filter(e => e.alive === false || e.hp <= 0);
+    const allEnemies = typeof allEncounterEnemies !== 'undefined' ? allEncounterEnemies : enemies;
+    const defeatedEnemies = allEnemies.filter(e => e.alive === false || e.hp <= 0);
     lootDrops = rollLootDrops(defeatedEnemies, depth);
     
     // Log loot drops
@@ -5609,12 +5901,13 @@ function handleExplorationReturn(victory, options = {}) {
   }
   
   // Store combat result for exploration to pick up
+  const allEnemies = typeof allEncounterEnemies !== 'undefined' ? allEncounterEnemies : enemies;
   const combatResult = {
     victory: victory,
     fled: fled,
     fleeSummary,
     lootDrops: lootDrops,
-    enemiesDefeated: enemies.length,
+    enemiesDefeated: allEnemies.filter(e => !e.alive || e.hp <= 0).length,
     player: {
       hp: player.hp,
       maxHp: player.maxHp,
@@ -5636,7 +5929,7 @@ function handleExplorationReturn(victory, options = {}) {
       xpToNextLevel: companion.xpToNextLevel || 50
     } : null,
     inventory: typeof getInventoryState === 'function' ? getInventoryState() : null,
-    xpGained: enemies.reduce((sum, e) => sum + (e.xp_reward || 0), 0)
+    xpGained: allEnemies.reduce((sum, e) => sum + ((!e.alive || e.hp <= 0) ? (e.xp_reward || 0) : 0), 0)
   };
   
   sessionStorage.setItem('explorationCombatResult', JSON.stringify(combatResult));

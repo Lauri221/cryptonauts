@@ -15,6 +15,66 @@
   --font-body: 'Cormorant Garamond', 'Times New Roman', serif;
 }
 
+/* ========================
+   Fullscreen Toggle Button
+   ======================== */
+/* Standalone floating button (fallback) */
+.fullscreen-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  background: rgba(20, 15, 30, 0.85);
+  border: 2px solid var(--color-brass);
+  border-radius: 6px;
+  color: var(--color-brass);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: sans-serif;
+}
+
+.fullscreen-btn:hover {
+  background: rgba(40, 30, 60, 0.95);
+  border-color: var(--color-bone);
+  color: var(--color-bone);
+  transform: scale(1.1);
+}
+
+/* Inline header button style for fullscreen */
+#header-controls #btn-fullscreen,
+#header-buttons #btn-fullscreen {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 6px 10px;
+  font-size: 16px;
+  background: rgba(20, 15, 30, 0.7);
+}
+
+/* Menu button style for fullscreen on start/end screens */
+.menu-btn.small,
+.end-btn.small {
+  padding: 8px 16px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.menu-btn.small:hover,
+.end-btn.small:hover {
+  opacity: 1;
+}
+
+/* When in fullscreen mode, change icon hint */
+#btn-fullscreen.is-fullscreen {
+  background: rgba(90, 29, 34, 0.85);
+}
+
 body {
   font-family: var(--font-body);
   background-color: var(--color-obsidian);
@@ -297,9 +357,48 @@ body {
 
 /* Ensure portrait content stays above the overlay */
 .portrait img,
-.portrait .stats {
+.portrait .stats,
+.portrait .status-emoji-row {
   position: relative;
   z-index: 2;
+}
+
+/* Status Effect Emoji Display */
+.status-emoji-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  min-height: 20px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+}
+
+.status-emoji-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.status-emoji {
+  font-size: clamp(14px, 2vw, 18px);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.5);
+  cursor: default;
+  transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-emoji:hover {
+  transform: scale(1.3);
+}
+
+.status-emoji sub {
+  font-size: 0.6em;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  margin-left: -2px;
 }
 
 .portrait img {

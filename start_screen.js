@@ -148,6 +148,12 @@ function showCharacterDataError(message) {
 // ========================
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[StartScreen] Initializing...');
+  
+  // Initialize config from .env file first
+  if (typeof initConfig === 'function') {
+    await initConfig();
+  }
+  
   loadSettings();
   const charactersReady = await loadCharacterData();
   initStartScreen();
@@ -594,6 +600,11 @@ function loadSettings() {
 function saveSettings() {
   try {
     localStorage.setItem('cryptonautsSettings', JSON.stringify(gameSettings));
+    
+    // Also save API key to dedicated storage for .env fallback
+    if (gameSettings.geminiApiKey && typeof saveApiKeyToStorage === 'function') {
+      saveApiKeyToStorage(gameSettings.geminiApiKey);
+    }
   } catch (error) {
     console.warn('[StartScreen] Failed to save settings:', error);
   }

@@ -237,11 +237,11 @@
         "m": {
           "portrait": "assets/img/ally_portrait/monster_male.png",
           "audio": {
-            "voice_hurt": "cryptonaut_male_hurt_sounds",
-            "voice_death": "cryptonaut_male_death_sounds",
-            "voice_win": "cryptonaut_male_win_sounds",
-            "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-            "voice_party_death": "party_death_male_sound"
+              "voice_hurt": "cryptonaut_monster_hurt_sounds",
+              "voice_death": "cryptonaut_monster_death_sounds",
+              "voice_win": "cryptonaut_monster_win_sounds",
+              "voice_combat_start": "cryptonaut_monster_combat_start_sounds",
+              "voice_party_death": "party_death_monster_sound"
           }
         }
       },

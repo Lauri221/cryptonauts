@@ -197,11 +197,11 @@
           "m": {
             "portrait": "assets/img/ally_portrait/monster_male.png",
             "audio": {
-              "voice_hurt": "cryptonaut_male_hurt_sounds",
-              "voice_death": "cryptonaut_male_death_sounds",
-              "voice_win": "cryptonaut_male_win_sounds",
-              "voice_combat_start": "cryptonaut_male_combat_start_sounds",
-              "voice_party_death": "party_death_male_sound"
+              "voice_hurt": "cryptonaut_monster_hurt_sounds",
+              "voice_death": "cryptonaut_monster_death_sounds",
+              "voice_win": "cryptonaut_monster_win_sounds",
+              "voice_combat_start": "cryptonaut_monster_combat_start_sounds",
+              "voice_party_death": "party_death_monster_sound"
             }
           }
         },
@@ -580,14 +580,14 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 40
       },
       {
         "id": "mossleech",
         "name": "Moss Leech",
         "gender": "i",
         "threat_level": 1,
-        "portrait": "assets/img/enemy_portrait/moss_leech.png",
+        "portrait": "assets/img/enemy_portrait/mossleech.png",
         "description": "A grotesque, slug-like creature covered in bioluminescent moss. It attaches itself to its prey, draining blood and vitality with ravenous appetite.",
         "base_stats": {
           "hp": 8,
@@ -602,7 +602,7 @@
           "voice_death": "enemy_insect_death",
           "voice_combat_start": "enemy_insect_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "cultist",
@@ -624,7 +624,7 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "aberrant_beast",
@@ -646,7 +646,7 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "rat_man",
@@ -668,7 +668,7 @@
           "voice_death": "enemy_monster_death",
           "voice_combat_start": "enemy_monster_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "sewer_centipede",
@@ -690,7 +690,7 @@
           "voice_death": "enemy_insect_death",
           "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "male_grave_robber",
@@ -712,7 +712,7 @@
           "voice_death": "enemy_male_death",
           "voice_combat_start": "enemy_male_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "corpse_eater",
@@ -734,7 +734,7 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "female_grave_robber",
@@ -756,7 +756,7 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "flesh_eating_vines",
@@ -778,7 +778,7 @@
           "voice_death": "enemy_insect_death",
           "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 30
+        "xp_reward": 20
       },
       {
         "id": "drowned_acolyte",
@@ -800,7 +800,7 @@
           "voice_death": "enemy_female_death",
           "voice_combat_start": "enemy_female_combat_start"
         },
-        "xp_reward": 60
+        "xp_reward": 40
       },
       {
         "id": "leech_swarm",
@@ -822,7 +822,7 @@
           "voice_death": "enemy_insect_death",
           "voice_combat_start": "enemy_insect_hurt"
         },
-        "xp_reward": 60
+        "xp_reward": 40
       },
       {
         "id": "flesh_golem",
@@ -844,7 +844,7 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 100
+        "xp_reward": 75
       },
       {
         "id": "pit_butcher",
@@ -866,7 +866,7 @@
           "voice_death": "enemy_male_death",
           "voice_combat_start": "enemy_male_combat_start"
         },
-        "xp_reward": 100
+        "xp_reward": 75
       },
       {
         "id": "dream_eater",
@@ -874,7 +874,7 @@
         "gender": "o",
         "threat_level": 3,
         "portrait": "assets/img/enemy_portrait/dream_eater.png",
-        "description": "Softly padded thing that wears stolen faces over its lamprey ring of teeth.",
+        "description": "The dream eater consumes things beyond the veil of reality.",
         "base_stats": {
           "hp": 60,
           "basic_attack": { "dice": 1, "sides": 6 },
@@ -888,7 +888,7 @@
           "voice_death": "enemy_beast_death",
           "voice_combat_start": "enemy_beast_combat_start"
         },
-        "xp_reward": 100
+        "xp_reward": 75
       },
       {
         "id": "astral_creeper",
@@ -903,7 +903,7 @@
           "defense": 0,
           "init": 5
         },
-        "xp_reward": 10,
+        "xp_reward": 20,
         "audio": {
           "voice_hurt": "astral_creeper_hurt",
           "voice_death": "astral_creeper_death"

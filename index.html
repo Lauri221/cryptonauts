@@ -24,6 +24,7 @@
         <h1 id="encounter-title">Loading encounter...</h1>
       </div>
       <div id="header-controls">
+        <button id="btn-fullscreen" class="header-btn" title="Toggle Fullscreen (F11)">⛶</button>
         <button id="btn-main-menu" type="button" class="ghost-btn">Main Menu</button>
         <button id="btn-combat-flee" type="button" class="flee-action-btn">Flee</button>
       </div>
@@ -39,6 +40,7 @@
           <div id="player-portrait" class="portrait">
             <div class="health-overlay"></div>
             <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Player" loading="lazy">
+            <div class="status-emoji-row"></div>
             <div class="stats">
               <div class="character-name"><span id="player-name"></span> <span id="player-level"></span></div>
               <div>HP: <span id="player-hp"></span></div>
@@ -49,6 +51,7 @@
           <div id="ally-portrait" class="portrait">
             <div class="health-overlay"></div>
             <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Ally" loading="lazy">
+            <div class="status-emoji-row"></div>
             <div class="stats">
               <div class="character-name"><span id="companion-name"></span> <span id="companion-level"></span></div>
               <div>HP: <span id="ally-hp"></span></div>

@@ -45,6 +45,55 @@ const VALID_STATUS_EFFECT_IDS = [
   'sanity_regen'
 ];
 
+// ========================
+// Status Effect Emoji Mapping
+// ========================
+const STATUS_EFFECT_EMOJIS = {
+  stun: '💫',
+  poison: '🧪',
+  fire: '🔥',
+  bleeding: '🩸',
+  charmed: '🌀',
+  attack_up: '⚔️',
+  defense_up: '🛡️',
+  sanity_regen: '💚'
+};
+
+/**
+ * Get emoji representation for a status effect
+ * @param {string} effectId - The status effect ID
+ * @returns {string} The emoji or empty string if not found
+ */
+function getStatusEffectEmoji(effectId) {
+  return STATUS_EFFECT_EMOJIS[effectId] || '';
+}
+
+/**
+ * Generate HTML for status effect emoji display
+ * @param {Array} statusEffects - Array of status effect objects or strings
+ * @returns {string} HTML string with emoji badges
+ */
+function renderStatusEffectEmojis(statusEffects) {
+  if (!statusEffects || !statusEffects.length) return '';
+  
+  const emojis = statusEffects
+    .map(effect => {
+      const id = typeof effect === 'string' ? effect : (effect.id || effect);
+      const emoji = getStatusEffectEmoji(id);
+      if (!emoji) return '';
+      
+      const name = typeof effect === 'object' ? (effect.name || id) : id;
+      const stacks = typeof effect === 'object' && effect.stacks > 1 ? `×${effect.stacks}` : '';
+      const duration = typeof effect === 'object' && effect.duration ? `(${effect.duration}t)` : '';
+      
+      return `<span class="status-emoji" title="${name} ${stacks}${duration}">${emoji}${stacks ? `<sub>${typeof effect === 'object' ? effect.stacks : ''}</sub>` : ''}</span>`;
+    })
+    .filter(e => e)
+    .join('');
+  
+  return emojis || '';
+}
+
 const ROOM_OPTION_COUNT = 6;
 const ROOM_SELECTION_LIMIT = 4;
 const ROOM_HISTORY_MAX_ENTRIES = 50;
@@ -447,6 +496,11 @@ function getInventorySnapshot() {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Exploration] Initializing...');
 
+  // Initialize config from .env file first
+  if (typeof initConfig === 'function') {
+    await initConfig();
+  }
+
   loadSettings();
   initGameUI();
   const dataReady = await loadGameData();
@@ -624,6 +678,9 @@ async function createPartyFromSelections() {
     classId: classData.id,
     className: classData.class,
     gender: genderKey,
+    level: 0,
+    xp: 0,
+    xpToNextLevel: 50,
     hp: classData.base_stats.hp,
     maxHp: classData.base_stats.hp,
     sanity: classData.base_stats.sanity,
@@ -637,6 +694,7 @@ async function createPartyFromSelections() {
     weakness: classData.base_stats.weakness,
     portrait: resolvePortraitPath(genderData.portrait) || genderData.portrait || 'assets/img/ally_portrait/warrior_male.png',
     audio: genderData.audio,
+    base_stats: classData.base_stats,
     statusEffects: [],
     isPlayer: true
   };
@@ -651,6 +709,9 @@ async function createPartyFromSelections() {
     classId: companionData.id,
     className: companionData.class,
     gender: companionData.gender,
+    level: 0,
+    xp: 0,
+    xpToNextLevel: 50,
     hp: companionData.base_stats.hp,
     maxHp: companionData.base_stats.hp,
     sanity: companionData.base_stats.sanity,
@@ -664,6 +725,7 @@ async function createPartyFromSelections() {
     weakness: companionData.base_stats.weakness,
     portrait: companionData.portrait || 'assets/img/ally_portrait/warrior_male.png',
     audio: companionData.audio,
+    base_stats: companionData.base_stats,
     statusEffects: [],
     isPlayer: false
   };
@@ -898,6 +960,11 @@ function loadSettings() {
 function saveSettings() {
   try {
     localStorage.setItem('cryptonautsSettings', JSON.stringify(gameSettings));
+    
+    // Also save API key to dedicated storage for .env fallback
+    if (gameSettings.geminiApiKey && typeof saveApiKeyToStorage === 'function') {
+      saveApiKeyToStorage(gameSettings.geminiApiKey);
+    }
   } catch (e) {
     console.warn('[Settings] Failed to save settings:', e);
   }
@@ -1933,7 +2000,7 @@ function updateUI() {
   }
   
   const playerStatusEl = document.getElementById('explorer-player-status');
-  playerStatusEl.textContent = gameState.player.statusEffects.join(', ') || '';
+  playerStatusEl.innerHTML = renderStatusEffectEmojis(gameState.player.statusEffects) || '';
   
   // Companion stats
   if (gameState.companion) {
@@ -1968,7 +2035,7 @@ function updateUI() {
     }
     
     const companionStatusEl = document.getElementById('explorer-companion-status');
-    companionStatusEl.textContent = gameState.companion.statusEffects.join(', ') || '';
+    companionStatusEl.innerHTML = renderStatusEffectEmojis(gameState.companion.statusEffects) || '';
   }
   
   // Inventory
@@ -2897,27 +2964,59 @@ async function handleCombatReturn(result) {
     syncInventoryFromSystem();
   }
   
+  // Helper to process XP and level ups
+  const processCharacterUpdate = (target, source, xpGained) => {
+    // Update vital stats from combat result
+    target.hp = source.hp;
+    target.sanity = source.sanity;
+    target.statusEffects = source.statusEffects || [];
+    
+    // Calculate XP and Level Up
+    // We use the calculated xpGained from the battle and add it to the character's existing XP
+    let currentXp = (target.xp || 0) + (xpGained || 0);
+    let currentLevel = target.level || 0;
+    let xpToNext = target.xpToNextLevel || 50;
+    
+    // Level Up Logic
+    while (currentXp >= xpToNext && currentLevel < 10) {
+      currentXp -= xpToNext;
+      currentLevel++;
+      
+      // Calculate new stats
+      // Use base_stats if available, otherwise default to standard values
+      const baseStats = target.base_stats || { hp: 30, sanity: 20 }; 
+      
+      const hpMultiplier = 1 + (0.15 * currentLevel);
+      const sanityMultiplier = 1 + (0.15 * currentLevel);
+      
+      const newMaxHp = Math.floor((baseStats.hp || 30) * hpMultiplier);
+      const newMaxSanity = Math.floor((baseStats.sanity || 20) * sanityMultiplier);
+      
+      const hpGain = newMaxHp - target.maxHp;
+      const sanityGain = newMaxSanity - target.maxSanity;
+      
+      target.maxHp = newMaxHp;
+      target.maxSanity = newMaxSanity;
+      target.hp = Math.min(target.hp + hpGain, newMaxHp);
+      target.sanity = Math.min(target.sanity + sanityGain, newMaxSanity);
+      
+      xpToNext = Math.floor(50 * Math.pow(1.2, currentLevel));
+      
+      logEvent(`🎉 ${target.name} reached Level ${currentLevel}!`, 'success');
+    }
+    
+    target.level = currentLevel;
+    target.xp = currentXp;
+    target.xpToNextLevel = xpToNext;
+  };
+
   // Apply combat result to game state
   if (result.player) {
-    gameState.player.hp = result.player.hp;
-    gameState.player.maxHp = result.player.maxHp; // Update maxHp
-    gameState.player.sanity = result.player.sanity;
-    gameState.player.maxSanity = result.player.maxSanity; // Update maxSanity
-    gameState.player.statusEffects = result.player.statusEffects || [];
-    gameState.player.level = result.player.level;
-    gameState.player.xp = result.player.xp;
-    gameState.player.xpToNextLevel = result.player.xpToNextLevel;
+    processCharacterUpdate(gameState.player, result.player, result.xpGained);
   }
   
   if (result.companion && gameState.companion) {
-    gameState.companion.hp = result.companion.hp;
-    gameState.companion.maxHp = result.companion.maxHp; // Update maxHp
-    gameState.companion.sanity = result.companion.sanity;
-    gameState.companion.maxSanity = result.companion.maxSanity; // Update maxSanity
-    gameState.companion.statusEffects = result.companion.statusEffects || [];
-    gameState.companion.level = result.companion.level;
-    gameState.companion.xp = result.companion.xp;
-    gameState.companion.xpToNextLevel = result.companion.xpToNextLevel;
+    processCharacterUpdate(gameState.companion, result.companion, result.xpGained);
   }
   
   updateUI();

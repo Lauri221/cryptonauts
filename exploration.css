@@ -249,8 +249,30 @@
 
 .portrait.explorer .status-effects {
   margin-top: 4px;
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: clamp(12px, 1.5vw, 16px);
   color: #ff6b6b;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-height: 18px;
+}
+
+.portrait.explorer .status-effects .status-emoji {
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.5);
+  cursor: default;
+  transition: transform 0.2s ease;
+}
+
+.portrait.explorer .status-effects .status-emoji:hover {
+  transform: scale(1.3);
+}
+
+.portrait.explorer .status-effects .status-emoji sub {
+  font-size: 0.6em;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  margin-left: -2px;
 }
 
 /* HP and Sanity bars inside explorer cards */
