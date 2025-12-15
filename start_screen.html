@@ -22,6 +22,7 @@
       <div class="menu-buttons">
         <button id="btn-new-game" class="menu-btn primary">New Game</button>
         <button id="btn-continue" class="menu-btn" disabled>Continue</button>
+        <button id="btn-tutorial" class="menu-btn">Tutorial</button>
         <button id="btn-options-start" class="menu-btn">Options</button>
         <button id="btn-fullscreen" class="menu-btn small" title="Toggle Fullscreen (F11)">⛶ Fullscreen</button>
       </div>
@@ -187,6 +188,143 @@
       <div class="modal-buttons">
         <button id="btn-confirm-yes" class="menu-btn danger">Yes</button>
         <button id="btn-confirm-no" class="menu-btn primary">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== -->
+  <!-- TUTORIAL MODAL -->
+  <!-- ======================== -->
+  <div id="tutorial-modal" class="menu-overlay hidden">
+    <div class="modal-container tutorial-container">
+      <div class="tutorial-header">
+        <h2>HOW TO PLAY</h2>
+        <div class="tutorial-progress">
+          <span id="tutorial-current">1</span> / <span id="tutorial-total">6</span>
+        </div>
+      </div>
+      
+      <div class="tutorial-content">
+        <!-- Slide 1: Welcome & Overview -->
+        <div class="tutorial-slide active" data-slide="1">
+          <div class="tutorial-image">
+            <img src="assets/img/environment/title_screen.png" alt="Welcome">
+          </div>
+          <div class="tutorial-text">
+            <h3>⚰️ Welcome to Cryptonauts</h3>
+            <p>You are an explorer descending into an ancient, eldritch crypt filled with horrors and treasures. Lead your party through its depths, fight abominations, manage your sanity, and uncover dark secrets.</p>
+            <p class="tutorial-tip">💡 <strong>Tip:</strong> The deeper you go, the stronger the enemies—but the greater the rewards.</p>
+          </div>
+        </div>
+        
+        <!-- Slide 2: Combat System -->
+        <div class="tutorial-slide" data-slide="2">
+          <div class="tutorial-image">
+            <img src="assets/img/environment/crypt_01.png" alt="Combat">
+          </div>
+          <div class="tutorial-text">
+            <h3>⚔️ Turn-Based Combat</h3>
+            <p>Combat is turn-based with initiative order. Each character has:</p>
+            <ul>
+              <li><strong>HP</strong> — Health points. Reach 0 and you die.</li>
+              <li><strong>Attack</strong> — Roll dice to deal damage (e.g., 2d6 = roll 2 six-sided dice).</li>
+              <li><strong>Defense</strong> — Flat damage reduction from attacks.</li>
+              <li><strong>Abilities</strong> — Special skills that cost mana or have cooldowns.</li>
+            </ul>
+            <p class="tutorial-tip">💡 <strong>Tip:</strong> Click an enemy to target them, then choose your action.</p>
+          </div>
+        </div>
+        
+        <!-- Slide 3: Sanity System -->
+        <div class="tutorial-slide" data-slide="3">
+          <div class="tutorial-image sanity-demo">
+            <img src="assets/img/ally_portrait/warrior_male.png" alt="Sanity">
+            <div class="sanity-bar-demo">
+              <div class="sanity-label">Sanity: 45/75</div>
+              <div class="sanity-fill" style="width: 60%;"></div>
+            </div>
+          </div>
+          <div class="tutorial-text">
+            <h3>🧠 The Sanity System</h3>
+            <p>Your mind is fragile. <strong>Sanity</strong> drains from horrific encounters, using certain abilities, and witnessing eldritch horrors.</p>
+            <ul>
+              <li><strong>Low Sanity</strong> — Screen effects distort, text scrambles.</li>
+              <li><strong>Zero Sanity</strong> — Character goes mad and becomes uncontrollable!</li>
+            </ul>
+            <p class="tutorial-tip">💡 <strong>Tip:</strong> Rest at safe rooms and use items to restore sanity.</p>
+          </div>
+        </div>
+        
+        <!-- Slide 4: Party & Companions -->
+        <div class="tutorial-slide" data-slide="4">
+          <div class="tutorial-image party-grid">
+            <img src="assets/img/ally_portrait/alchemist_male.png" alt="Alchemist">
+            <img src="assets/img/ally_portrait/cleric_female.png" alt="Cleric">
+            <img src="assets/img/ally_portrait/monk_male.png" alt="Monk">
+            <img src="assets/img/ally_portrait/monster_male.png" alt="Aberration">
+          </div>
+          <div class="tutorial-text">
+            <h3>🤝 Your Party</h3>
+            <p>You begin with one companion and can summon more during exploration:</p>
+            <ul>
+              <li><strong>Warrior</strong> — High HP, strong attacks, defensive abilities.</li>
+              <li><strong>Alchemist</strong> — Poisons, potions, and tactical debuffs.</li>
+              <li><strong>Cleric</strong> — Healing, sanity restoration, holy damage.</li>
+              <li><strong>Monk</strong> — Balanced fighter with stuns and self-healing.</li>
+              <li><strong>Aberration</strong> — Monstrous form with powerful but sanity-draining abilities.</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Slide 5: Status Effects -->
+        <div class="tutorial-slide" data-slide="5">
+          <div class="tutorial-image status-grid">
+            <div class="status-demo"><span class="status-icon">💫</span> Stun</div>
+            <div class="status-demo"><span class="status-icon">🧪</span> Poison</div>
+            <div class="status-demo"><span class="status-icon">🔥</span> Burning</div>
+            <div class="status-demo"><span class="status-icon">🩸</span> Bleeding</div>
+            <div class="status-demo"><span class="status-icon">🌀</span> Charmed</div>
+            <div class="status-demo"><span class="status-icon">⚔️</span> Attack Up</div>
+            <div class="status-demo"><span class="status-icon">🛡️</span> Defense Up</div>
+            <div class="status-demo"><span class="status-icon">💚</span> Regen</div>
+          </div>
+          <div class="tutorial-text">
+            <h3>✨ Status Effects</h3>
+            <p>Abilities can inflict or grant various effects:</p>
+            <ul>
+              <li><strong>💫 Stun</strong> — Skip next turn.</li>
+              <li><strong>🧪 Poison / 🔥 Burn / 🩸 Bleed</strong> — Damage over time.</li>
+              <li><strong>🌀 Charmed</strong> — May attack allies instead!</li>
+              <li><strong>⚔️🛡️ Buffs</strong> — Temporary stat increases.</li>
+              <li><strong>💚 Regen</strong> — Heal over time.</li>
+            </ul>
+            <p class="tutorial-tip">💡 <strong>Tip:</strong> Status icons appear on character cards during combat.</p>
+          </div>
+        </div>
+        
+        <!-- Slide 6: Exploration -->
+        <div class="tutorial-slide" data-slide="6">
+          <div class="tutorial-image">
+            <img src="assets/img/environment/crypt_corridor.png" alt="Exploration">
+          </div>
+          <div class="tutorial-text">
+            <h3>🗺️ Exploration</h3>
+            <p>Between battles, explore the crypt:</p>
+            <ul>
+              <li><strong>Rooms</strong> — Each has unique events, loot, or encounters.</li>
+              <li><strong>Choices</strong> — Your decisions affect the narrative and rewards.</li>
+              <li><strong>Items</strong> — Find potions, weapons, and artifacts in your inventory.</li>
+              <li><strong>Paths</strong> — Choose which direction to advance deeper.</li>
+            </ul>
+            <p class="tutorial-tip">💡 <strong>Tip:</strong> Enable Gemini AI in Options for dynamic, AI-generated narratives!</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tutorial-nav">
+        <button id="btn-tutorial-prev" class="menu-btn" disabled>← Previous</button>
+        <button id="btn-tutorial-close" class="menu-btn danger">Close</button>
+        <button id="btn-tutorial-next" class="menu-btn primary">Next →</button>
       </div>
     </div>
   </div>

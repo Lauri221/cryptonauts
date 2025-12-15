@@ -231,9 +231,15 @@ async function loadCharacterData() {
 function initStartScreen() {
   document.getElementById('btn-new-game').addEventListener('click', handleNewGame);
   document.getElementById('btn-continue').addEventListener('click', handleContinue);
+  document.getElementById('btn-tutorial').addEventListener('click', openTutorial);
   document.getElementById('btn-options-start').addEventListener('click', () => openOptions());
   document.getElementById('btn-back-to-menu').addEventListener('click', showStartMenu);
   document.getElementById('btn-begin-expedition').addEventListener('click', beginExpedition);
+  
+  // Tutorial navigation
+  document.getElementById('btn-tutorial-prev').addEventListener('click', tutorialPrev);
+  document.getElementById('btn-tutorial-next').addEventListener('click', tutorialNext);
+  document.getElementById('btn-tutorial-close').addEventListener('click', closeTutorial);
   
   document.querySelectorAll('.gender-btn').forEach(btn => {
     btn.addEventListener('click', () => selectGender(btn.dataset.gender));
@@ -272,7 +278,9 @@ function initStartScreen() {
 function handleStartScreenKeyboard(e) {
   if (e.key !== 'Escape') return;
   
-  if (!document.getElementById('character-creation').classList.contains('hidden')) {
+  if (!document.getElementById('tutorial-modal').classList.contains('hidden')) {
+    closeTutorial();
+  } else if (!document.getElementById('character-creation').classList.contains('hidden')) {
     showStartMenu();
   } else if (!document.getElementById('options-modal').classList.contains('hidden')) {
     cancelOptions();
@@ -637,3 +645,68 @@ function checkForExistingSave() {
 function clearSaveData() {
   localStorage.removeItem('cryptonautsExplorationState');
 }
+
+// ========================
+// Tutorial System
+// ========================
+const tutorialState = {
+  currentSlide: 1,
+  totalSlides: 6
+};
+
+function openTutorial() {
+  tutorialState.currentSlide = 1;
+  updateTutorialSlide();
+  document.getElementById('tutorial-modal').classList.remove('hidden');
+}
+
+function closeTutorial() {
+  document.getElementById('tutorial-modal').classList.add('hidden');
+}
+
+function tutorialPrev() {
+  if (tutorialState.currentSlide > 1) {
+    tutorialState.currentSlide--;
+    updateTutorialSlide();
+  }
+}
+
+function tutorialNext() {
+  if (tutorialState.currentSlide < tutorialState.totalSlides) {
+    tutorialState.currentSlide++;
+    updateTutorialSlide();
+  }
+}
+
+function updateTutorialSlide() {
+  const current = tutorialState.currentSlide;
+  const total = tutorialState.totalSlides;
+  
+  // Update progress indicator
+  document.getElementById('tutorial-current').textContent = current;
+  document.getElementById('tutorial-total').textContent = total;
+  
+  // Show/hide slides
+  document.querySelectorAll('.tutorial-slide').forEach(slide => {
+    const slideNum = parseInt(slide.dataset.slide, 10);
+    slide.classList.toggle('active', slideNum === current);
+  });
+  
+  // Update navigation buttons
+  const prevBtn = document.getElementById('btn-tutorial-prev');
+  const nextBtn = document.getElementById('btn-tutorial-next');
+  
+  prevBtn.disabled = current === 1;
+  nextBtn.disabled = current === total;
+  
+  // Change next button text on last slide
+  nextBtn.textContent = current === total ? 'Done ✓' : 'Next →';
+  
+  // If on last slide and clicking "Done", close
+  if (current === total) {
+    nextBtn.onclick = closeTutorial;
+  } else {
+    nextBtn.onclick = tutorialNext;
+  }
+}
+
