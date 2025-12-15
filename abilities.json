@@ -11,7 +11,7 @@
           "type": "damage",
           "damage_type": "physical",
           "target_scope": "enemy",
-          "magnitude": "1d8",
+          "magnitude": "2d8",
           "chance": 1.0
         },
         {

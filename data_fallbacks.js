@@ -214,7 +214,7 @@
         "name": "Dr. Eleanor Marsh",
         "class": "Alchemist",
         "gender": "f",
-        "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your lifeâ€”or end it.",
+        "backstory": "A disgraced professor of chemistry who delved too deep into forbidden formulas. Her knowledge of compounds may save your life, or end it.",
         "portrait": "assets/img/ally_portrait/alchemist_female.png",
         "base_stats": {
           "hp": 28,
@@ -241,7 +241,7 @@
         "name": "Marcus Vale",
         "class": "Warrior",
         "gender": "m",
-        "backstory": "A veteran soldier haunted by what he witnessed in the trenches. His blade arm is steady, but his nightmares never cease.",
+        "backstory": "A veteran soldier haunted by what he witnessed on the battlefield. His blade arm is steady, but his nightmares never cease.",
         "portrait": "assets/img/ally_portrait/warrior_male.png",
         "base_stats": {
           "hp": 40,
@@ -835,7 +835,7 @@
           "hp": 50,
           "basic_attack": { "dice": 3, "sides": 6 },
           "sanity_damage": 3,
-          "defense": 10,
+          "defense": 5,
           "init": 2,
           "effects": []
         },
@@ -857,7 +857,7 @@
           "hp": 50,
           "basic_attack": { "dice": 3, "sides": 6 },
           "sanity_damage": 0,
-          "defense": 10,
+          "defense": 5,
           "init": 2,
           "effects": []
         },

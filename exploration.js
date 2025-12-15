@@ -468,10 +468,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkGeminiAvailability();
 
   if (combatResult) {
+    // Start with screen blacked out (we faded to black from combat)
+    let overlay = document.getElementById('room-transition-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'room-transition-overlay';
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.add('fade-in');
+    
     startGame(false);
     const result = JSON.parse(combatResult);
     sessionStorage.removeItem('explorationCombatResult');
     updateUI();
+    
+    // Short delay then fade in from black after returning from combat
+    setTimeout(() => {
+      hideRoomTransition();
+    }, 500);
+    
     await handleCombatReturn(result);
     return;
   }
@@ -1067,7 +1082,7 @@ async function hydrateCharacter(config, role) {
         const genderVariants = spec.gender_variants || {};
         const genderData = genderVariants[genderKey] || Object.values(genderVariants)[0] || {};
         
-        const level = config.level ?? 0;
+        const level = Number(config.level) || 0;
         const hpMultiplier = 1 + (0.15 * level);
         const sanityMultiplier = 1 + (0.15 * level);
         
@@ -1083,6 +1098,8 @@ async function hydrateCharacter(config, role) {
           maxSanity: Math.floor(baseSanity * sanityMultiplier),
           defense: baseStats.defense ?? config.defense ?? 0,
           level: level,
+          xp: Number(config.xp) || 0,
+          xpToNextLevel: Number(config.xpToNextLevel) || 50,
           statusEffects: [],
           portrait: resolvePortraitPath(genderData.portrait) || config.portrait || `assets/img/ally_portrait/warrior_male.png`,
           gender: genderKey
@@ -1102,7 +1119,9 @@ async function hydrateCharacter(config, role) {
     sanity: config.sanity ?? 15,
     maxSanity: config.maxSanity ?? config.sanity ?? 15,
     defense: config.defense ?? 0,
-    level: config.level ?? 0,
+    level: Number(config.level) || 0,
+    xp: Number(config.xp) || 0,
+    xpToNextLevel: Number(config.xpToNextLevel) || 50,
     statusEffects: [],
     portrait: config.portrait || `assets/img/ally_portrait/warrior_male.png`,
     gender: config.gender || 'm'
@@ -1119,6 +1138,8 @@ function createDefaultCharacter(name, role) {
     maxSanity: 15,
     defense: 2,
     level: 0,
+    xp: 0,
+    xpToNextLevel: 50,
     statusEffects: [],
     portrait: 'assets/img/ally_portrait/warrior_male.png',
     gender: 'm'
@@ -1180,14 +1201,48 @@ function updateGeminiStatus(available, text) {
 // ========================
 // Room Navigation
 // ========================
+
+// Show room transition fade overlay
+function showRoomTransition() {
+  return new Promise((resolve) => {
+    let overlay = document.getElementById('room-transition-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'room-transition-overlay';
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.remove('fade-out');
+    overlay.classList.add('fade-in');
+    setTimeout(resolve, 800); // Wait for fade-in to complete
+  });
+}
+
+// Hide room transition fade overlay
+function hideRoomTransition() {
+  const overlay = document.getElementById('room-transition-overlay');
+  if (overlay) {
+    // Clear inline overrides so CSS classes control opacity
+    overlay.style.opacity = '';
+    overlay.style.pointerEvents = '';
+    overlay.classList.remove('fade-in');
+    overlay.classList.add('fade-out');
+  }
+}
+
 async function enterRoom(roomId, softEntry = false, options = {}) {
-  const { fromHistory = false } = options;
+  const { fromHistory = false, skipFade = false } = options;
   const room = getRoomById(roomId);
   if (!room) {
     console.error(`[Exploration] Room not found: ${roomId}`);
     logEvent(`⚠️ Unknown path ahead...`, 'warning');
     return;
   }
+  
+  // Show fade transition for non-soft entries (actual room navigation)
+  if (!softEntry && !skipFade) {
+    await showRoomTransition();
+  }
+  
   recordRoomHistoryTransition(roomId, { softEntry, fromHistory });
   
   gameState.mode = GameMode.EXPLORATION;
@@ -1245,6 +1300,11 @@ async function enterRoom(roomId, softEntry = false, options = {}) {
   } else {
     // Fallback if Gemini fails
     handleFallbackRoomEntry(room);
+  }
+  
+  // Hide fade transition after room is loaded
+  if (!skipFade) {
+    hideRoomTransition();
   }
   
   saveGameState();
@@ -2054,8 +2114,14 @@ function renderChoices(choices = []) {
       btn.dataset.targetRoom = choice.targetRoom;
     }
 
+    const bypassLimit = choiceBypassesRoomLimit(choice, room);
+    if (bypassLimit) {
+      btn.dataset.ignoreRoomLimit = 'true';
+    }
+
     const alreadyUsed = usage.usedChoices.includes(choice.id);
-    if (alreadyUsed || limitReached) {
+    const limitApplies = limitReached && !bypassLimit;
+    if (alreadyUsed || limitApplies) {
       btn.disabled = true;
       btn.classList.add('choice-used');
     }
@@ -2165,15 +2231,16 @@ function isChoiceAlreadyUsed(roomId, choiceId) {
   return tracker.usedChoices?.includes(choiceId);
 }
 
-function markChoiceUsed(roomId, choiceId) {
+function markChoiceUsed(roomId, choiceId, options = {}) {
+  const { skipLimitIncrement = false } = options;
   const tracker = ensureRoomActionTracker(roomId);
   const previousCount = tracker.totalSelections || 0;
   if (!tracker.usedChoices.includes(choiceId)) {
     tracker.usedChoices.push(choiceId);
   }
-  const updatedCount = previousCount + 1;
+  const updatedCount = skipLimitIncrement ? previousCount : previousCount + 1;
   tracker.totalSelections = Math.min(ROOM_SELECTION_LIMIT, updatedCount);
-  return previousCount < ROOM_SELECTION_LIMIT && tracker.totalSelections >= ROOM_SELECTION_LIMIT;
+  return !skipLimitIncrement && previousCount < ROOM_SELECTION_LIMIT && tracker.totalSelections >= ROOM_SELECTION_LIMIT;
 }
 
 function roomSelectionLimitReached(roomId) {
@@ -2187,6 +2254,21 @@ function getRoomActionUsage(roomId) {
     usedChoices: tracker.usedChoices || [],
     totalSelections: tracker.totalSelections || 0
   };
+}
+
+function choiceBypassesRoomLimit(choice, room = getRoomById(gameState.currentRoomId)) {
+  if (!choice) return false;
+  if (choice.meta?.ignoreRoomLimit) {
+    return true;
+  }
+  if (room?.type === 'boss') {
+    const idText = (choice.id || '').toLowerCase();
+    const labelText = (choice.label || '').toLowerCase();
+    if (choice.type === 'boss') return true;
+    if (idText.includes('boss') || idText.includes('old_one')) return true;
+    if (labelText.includes('boss') || labelText.includes('old one')) return true;
+  }
+  return false;
 }
 
 function normalizeChoiceId(baseId, seen) {
@@ -2334,8 +2416,9 @@ function updateChoiceButtonsState() {
   const limitReached = usage.totalSelections >= ROOM_SELECTION_LIMIT;
   document.querySelectorAll('.choice-btn').forEach(btn => {
     const choiceId = btn.dataset.choiceId;
+    const bypassLimit = btn.dataset.ignoreRoomLimit === 'true';
     const alreadyUsed = usage.usedChoices.includes(choiceId);
-    if (alreadyUsed || limitReached) {
+    if (alreadyUsed || (limitReached && !bypassLimit)) {
       btn.disabled = true;
       btn.classList.add('choice-used');
     } else {
@@ -2347,7 +2430,9 @@ function updateChoiceButtonsState() {
 
 async function onChoiceClicked(choice) {
   const roomId = gameState.currentRoomId;
-  if (roomSelectionLimitReached(roomId)) {
+  const room = getRoomById(roomId);
+  const bypassLimit = choiceBypassesRoomLimit(choice, room);
+  if (!bypassLimit && roomSelectionLimitReached(roomId)) {
     logEvent('You cannot take any more actions in this room.', 'warning');
     updateChoiceButtonsState();
     return;
@@ -2365,13 +2450,13 @@ async function onChoiceClicked(choice) {
   playRandomExplorationOptionSound();
   await wait(2000);
 
-  const limitReachedNow = markChoiceUsed(roomId, choice.id);
+  const limitReachedNow = markChoiceUsed(roomId, choice.id, { skipLimitIncrement: bypassLimit });
   updateChoiceButtonsState();
   if (limitReachedNow) {
     logEvent('You cannot take any more actions in this room.', 'warning');
   }
 
-  const currentRoom = getRoomById(roomId);
+  const currentRoom = room;
 
   if (choice.meta?.forcesCombat) {
     const enemyId = getRandomEnemyForRoom(currentRoom) || 'cultist';
@@ -2773,6 +2858,18 @@ function loadGameState() {
       if (!gameState.flags) {
         gameState.flags = {};
       }
+      
+      // Ensure XP fields are initialized (migration for old saves)
+      if (gameState.player) {
+        gameState.player.xp = Number(gameState.player.xp) || 0;
+        gameState.player.level = Number(gameState.player.level) || 0;
+        gameState.player.xpToNextLevel = Number(gameState.player.xpToNextLevel) || 50;
+      }
+      if (gameState.companion) {
+        gameState.companion.xp = Number(gameState.companion.xp) || 0;
+        gameState.companion.level = Number(gameState.companion.level) || 0;
+        gameState.companion.xpToNextLevel = Number(gameState.companion.xpToNextLevel) || 50;
+      }
       console.log('[Save] Loaded saved state from:', new Date(parsed.savedAt || 0).toLocaleString());
     }
   } catch (e) {
@@ -2782,6 +2879,9 @@ function loadGameState() {
 
 async function handleCombatReturn(result) {
   console.log('[Exploration] Handling combat return:', result);
+  if (result.player) {
+    console.log(`[Exploration] Updating player XP from combat: ${gameState.player.xp} -> ${result.player.xp}`);
+  }
   const currentRoom = getRoomById(gameState.currentRoomId);
   
   // Resume appropriate music after combat
@@ -2800,7 +2900,9 @@ async function handleCombatReturn(result) {
   // Apply combat result to game state
   if (result.player) {
     gameState.player.hp = result.player.hp;
+    gameState.player.maxHp = result.player.maxHp; // Update maxHp
     gameState.player.sanity = result.player.sanity;
+    gameState.player.maxSanity = result.player.maxSanity; // Update maxSanity
     gameState.player.statusEffects = result.player.statusEffects || [];
     gameState.player.level = result.player.level;
     gameState.player.xp = result.player.xp;
@@ -2809,7 +2911,9 @@ async function handleCombatReturn(result) {
   
   if (result.companion && gameState.companion) {
     gameState.companion.hp = result.companion.hp;
+    gameState.companion.maxHp = result.companion.maxHp; // Update maxHp
     gameState.companion.sanity = result.companion.sanity;
+    gameState.companion.maxSanity = result.companion.maxSanity; // Update maxSanity
     gameState.companion.statusEffects = result.companion.statusEffects || [];
     gameState.companion.level = result.companion.level;
     gameState.companion.xp = result.companion.xp;

@@ -809,9 +809,9 @@ async function hydratePartyMember(rawConfig = {}) {
         : null;
 
   // Level and XP - start at level 0 with 0 XP, 50 XP to reach level 1
-  const level = rawConfig.level ?? 0;
-  const xp = rawConfig.xp ?? 0;
-  const xpToNextLevel = rawConfig.xpToNextLevel ?? calculateXpToNextLevel(level);
+  const level = Number(rawConfig.level) || 0;
+  const xp = Number(rawConfig.xp) || 0;
+  const xpToNextLevel = Number(rawConfig.xpToNextLevel) || calculateXpToNextLevel(level);
 
   // Calculate scaled stats based on level (+15% cumulative per level)
   const baseHp = baseStats.hp ?? rawConfig.hp ?? 0;
@@ -820,8 +820,15 @@ async function hydratePartyMember(rawConfig = {}) {
   const sanityMultiplier = 1 + (0.15 * level);
   const scaledHp = Math.floor(baseHp * hpMultiplier);
   const scaledSanity = Math.floor(baseSanity * sanityMultiplier);
-  const currentHp = rawConfig.hp != null ? Math.min(rawConfig.hp, scaledHp) : scaledHp;
-  const currentSanity = rawConfig.sanity != null ? Math.min(rawConfig.sanity, scaledSanity) : scaledSanity;
+  
+  // If maxHp/maxSanity are explicitly provided in config (e.g. from save), use them if they are higher than calculated
+  // This ensures we don't lose progress if the save has higher stats (e.g. from buffs or previous level ups)
+  // But we also want to ensure we respect the level scaling if it's a fresh calculation
+  const finalMaxHp = Math.max(scaledHp, rawConfig.maxHp || 0);
+  const finalMaxSanity = Math.max(scaledSanity, rawConfig.maxSanity || 0);
+
+  const currentHp = rawConfig.hp != null ? Math.min(rawConfig.hp, finalMaxHp) : finalMaxHp;
+  const currentSanity = rawConfig.sanity != null ? Math.min(rawConfig.sanity, finalMaxSanity) : finalMaxSanity;
 
   const hydrated = {
     ...rawConfig,
@@ -833,9 +840,9 @@ async function hydratePartyMember(rawConfig = {}) {
     xp,
     xpToNextLevel,
     hp: currentHp,
-    maxHp: scaledHp,
+    maxHp: finalMaxHp,
     sanity: currentSanity,
-    maxSanity: scaledSanity,
+    maxSanity: finalMaxSanity,
     defense: baseStats.defense ?? rawConfig.defense ?? 0,
     speed: baseStats.speed ?? rawConfig.speed ?? 0,
     basic_attack: baseStats.basic_attack ?? rawConfig.basic_attack,
@@ -871,7 +878,9 @@ function calculateXpToNextLevel(currentLevel) {
 function awardXp(character, amount) {
   if (!character || character.level >= 10) return false;
   
-  character.xp = (character.xp || 0) + amount;
+  console.log(`[XP] Awarding ${amount} XP to ${character.name}. Current XP: ${character.xp}, Level: ${character.level}`);
+  character.xp = (Number(character.xp) || 0) + Number(amount);
+  console.log(`[XP] New XP: ${character.xp}`);
   
   let leveledUp = false;
   while (character.xp >= character.xpToNextLevel && character.level < 10) {
@@ -1678,7 +1687,7 @@ function completePlayerAction(result = {}) {
 
     if (enemy.hp <= 0 && enemy.alive !== false) {
       animateEnemyDeath(enemy, enemyIndex);
-      enemy.alive = false;
+      // Do NOT set enemy.alive = false here; checkEnemyStatus handles it and awards XP
       setTimeout(() => {
         const deathSoundArray = getEnemyDeathSounds(enemy);
         playRandomSound(deathSoundArray);
@@ -3967,7 +3976,7 @@ function nextTurn() {
   if (current.data.hp <= 0) {
     if (current.type === 'enemy') {
       if (current.data.alive !== false) {
-        current.data.alive = false;
+        // Do NOT set alive = false here; checkEnemyStatus handles it and awards XP
         const enemyIndex = enemies.indexOf(current.data);
         animateEnemyDeath(current.data, enemyIndex);
       }
@@ -4439,7 +4448,7 @@ function summonedNPCTurn(summon) {
   
   if (targetEnemy.hp <= 0) {
     if (targetEnemy.alive !== false) {
-      targetEnemy.alive = false;
+      // Do NOT set alive = false here; checkEnemyStatus handles it and awards XP
       animateEnemyDeath(targetEnemy, enemyIndex);
     }
     console.log(`Enemy defeated by summon: ${targetEnemy.name}`);
@@ -4757,7 +4766,7 @@ function companionTurn() {
       // Check if this attack defeated the enemy
     if (targetEnemy.hp <= 0) {
       if (targetEnemy.alive !== false) {
-        targetEnemy.alive = false;
+        // Do NOT set alive = false here; checkEnemyStatus handles it and awards XP
         animateEnemyDeath(targetEnemy, enemyIndex);
       }
       console.log(`Enemy defeated by companion: ${targetEnemy.name}`);
@@ -5635,7 +5644,7 @@ function handleExplorationReturn(victory, options = {}) {
   // Clear exploration combat data
   sessionStorage.removeItem('explorationCombat');
   
-  // Redirect back to exploration
+  // Redirect back to exploration with fade transition
   setTimeout(() => {
     let returnMessage = '💀 Your journey ends here...';
     if (victory) {
@@ -5644,8 +5653,23 @@ function handleExplorationReturn(victory, options = {}) {
       returnMessage = '🏃 You stumble back into the corridors...';
     }
     log(returnMessage);
+    
+    // Start fade to black after showing message
     setTimeout(() => {
-      window.location.href = 'exploration.html';
+      // Create and show fade overlay
+      let overlay = document.getElementById('screen-transition-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'screen-transition-overlay';
+        document.body.appendChild(overlay);
+      }
+      overlay.classList.remove('fade-out');
+      overlay.classList.add('fade-in');
+      
+      // Navigate after fade completes (+3 seconds total added)
+      setTimeout(() => {
+        window.location.href = 'exploration.html';
+      }, 1500);
     }, 1500);
   }, 2000);
 }

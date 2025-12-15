@@ -1265,3 +1265,29 @@ h1, h2, h3, h4 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+/* ========================
+   Screen Transition Overlay
+   ======================== */
+#screen-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+}
+
+#screen-transition-overlay.fade-in {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#screen-transition-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
